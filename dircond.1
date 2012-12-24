@@ -1,0 +1,174 @@
+.\" dircond - directory content watcher daemon -*- nroff -*-
+.\" Copyright (C) 2012 Sergey Poznyakoff
+.\"
+.\" Dircond is free software; you can redistribute it and/or modify it
+.\" under the terms of the GNU General Public License as published by the
+.\" Free Software Foundation; either version 3 of the License, or (at your
+.\" option) any later version.
+.\"
+.\" Dircond is distributed in the hope that it will be useful,
+.\" but WITHOUT ANY WARRANTY; without even the implied warranty of
+.\" MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+.\" GNU General Public License for more details.
+.\"
+.\" You should have received a copy of the GNU General Public License along
+.\" with dircond. If not, see <http://www.gnu.org/licenses/>.
+.TH DIRCOND 1 "December 24, 2012" "DIRCOND" "Dircond User Reference"
+.SH NAME
+dircond \- directory content watcher
+.SH SYNOPSIS
+\fBdircond\fR [\fB\-adf\fR] [\fB\-F\fR \fIFACILITY\fR]\
+ [\fB\-l\fR \fIN\fR]\
+ [\fB\-P\fR \fIFILE\fR]
+        [\fB\-p\fR \fIEVENT\fR,[\fIFLAG\fR[,\fIFLAG\fR...],]\fICOMMAND\fR]
+        [\fB\-T\fR \fISECONDS\fR]\
+ [\fB\-t\fR \fITAG\fR]\
+ [\fB\-u\fR \fIUSER\fR]\
+ \fIDIR\fR [\fIDIR\fR...]
+
+.B dircond -h
+.SH DESCRIPTION
+.B Dircond
+monitors a set of directories given as its command line arguments.
+When the content of any of them changes, it invokes a shell command
+configured for that type of change (see the \fB\-p\fR option below).
+Three kinds of changes (or \fBevents\fR) are monitored:
+.IP 0.
+(\fBcreate\fR) A file was created.
+.IP 1.
+(\fBdelete\fR) A file was deleted or moved out to another location.
+.IP 2.
+(\fBclose\fR) A file was written and closed or was moved in from
+another location.
+.PP
+The command is invoked without arguments with the changed directory
+set as the current working one.  It inherits the environment from the
+calling process and gets information about the event from the following
+environment variables:
+.TP
+.B DIRCOND_EVENT_CODE
+Event number as per the above table.
+.TP
+.B DIRCOND_EVENT
+Event symbolic name, as shown in parentheses in the above table.
+.TP
+.B DIRCOND_FILE
+The name of the affected file.
+.SH OPTIONS
+.TP
+.B \-a
+Automatically watch created directories.  Whenever a new directory
+appears under one of watchpoints, it is added to the list of
+watchpoints.
+.TP
+.B \-d
+Increase debug verbosity level.
+.TP
+.B \-f
+Run in the foreground.
+.TP
+\fB\-F\fR \fIFACILITY\fR
+Log under this syslog facility.  Allowed values for \fIFACILITY\fR are
+a decimal number or any of the following symbolic names:
+.BR auth ,
+.BR authpriv ,
+.BR cron ,
+.BR daemon ,
+.BR ftp ,
+.BR local0 " through " local7 ,
+.BR lpr ,
+.BR mail ,
+.BR news ,
+.BR user ,
+and
+.BR uucp .
+
+The option \fB\-F 0\fR directs the logging to the standard error.
+.TP
+\fB\-l\fR \fIN\fR
+Automatically watch new directories located up to Nth nesting level.
+Any directory created under one of the watchpoints is added to the
+list of watchpoints unless it is located more than \fIN\fR directories
+under the root watchpoint.
+.TP
+\fB\-P\fR \fIFILE\fR
+Write PID to \fIFILE\fR.
+.TP
+\fB\-p\fR \fIEVENT\fR,[\fIFLAG\fR[,\fIFLAG\fR...],]\fICOMMAND\fR
+Define a handler to execute upon an event.  The \fIEVENT\fR argument
+specifies the event to monitor.  It is either the event symbolic name
+or its decimal code.  Optional flags instruct how to run
+\fICOMMAND\fR.  The following flags are defined:
+.RS
+.TP
+.B wait
+Wait for the command to terminate before continuing the main loop.
+This is the default.
+.TP
+.B nowait
+Do not wait for the command to terminate, go to the next event right
+away.  If the command fails to exit within the preconfigured time
+frame (see the \fB\-T\fR command line) it will be terminated with the
+signal 9 (\fBSIGKILL\fR).
+.TP
+.B stdout
+Capture the command's standard output and log it using the default
+logging channel.
+.TP
+.B stderr
+Capture the command's standard error and log it using the default
+logging channel.
+.RE
+.TP
+\fB\-T\fR \fITIMEOUT\fR
+Set execution timeout for external commands (seconds).
+.TP
+\fB\-t\fR \fITAG\fR
+Log with this syslog tag.
+.TP
+\fB\-u\fR \fIUSER\fR
+Run as this \fIUSER\fR.
+.TP
+\fB\-h\fR
+Output a terse help summary.
+.SH "EXIT CODE"
+.IP 0.
+Successful termination.
+.IP 1.
+Command line usage error.
+.IP 2.
+Another error occurred.
+.SH EXAMPLE
+Run as user \fBftp\fR monitoring changes in
+.BR /var/ftp/upload .
+Wherever a new file appears, start
+.BR /usr/libexec/handler :
+.sp
+.nf
+.in +2
+$ \fBdircond \-u ftp \-p close,nowait,/usr/libexec/handler /var/ftp/upload
+.in
+.fi
+.SH "SEE ALSO"
+.BR inotify (8).
+.SH AUTHORS
+Sergey Poznyakoff
+.SH "BUG REPORTS"
+Report bugs to <gray+dircond@gnu.org.ua>.
+.SH COPYRIGHT
+Copyright \(co 2012 Sergey Poznyakoff
+.br
+.na
+License GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>
+.br
+.ad
+This is free software: you are free to change and redistribute it.
+There is NO WARRANTY, to the extent permitted by law.
+.\" Local variables:
+.\" eval: (add-hook 'write-file-hooks 'time-stamp)
+.\" time-stamp-start: ".TH [A-Z_][A-Z0-9_.\\-]* [0-9] \""
+.\" time-stamp-format: "%:B %:d, %:y"
+.\" time-stamp-end: "\""
+.\" time-stamp-line-limit: 20
+.\" end:
+

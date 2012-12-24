@@ -1,3 +1,19 @@
+/* dircond - directory content watcher daemon
+   Copyright (C) 2012 Sergey Poznyakoff
+
+   Dircond is free software; you can redistribute it and/or modify it
+   under the terms of the GNU General Public License as published by the
+   Free Software Foundation; either version 3 of the License, or (at your
+   option) any later version.
+
+   Dircond is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
+
+   You should have received a copy of the GNU General Public License along
+   with dircond. If not, see <http://www.gnu.org/licenses/>. */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>
@@ -30,10 +46,13 @@ int autowatch;                    /* Automatically add directories created
 /* Event codes */
 enum {
 	evt_create,                  /* file has been created */ 
-	evt_delete,                  /* file has been deleted */
-	evt_close,                   /* file has been modified and closed */
+	evt_delete,                  /* file has been deleted or moved out */
+	evt_close,                   /* file has been modified and closed
+					or moved in */
 	evt_max                      /* number of handled events */
 };
+
+char *evtstr[] = { "create", "delete", "close" };
 
 /* Handler flags. */
 #define HF_NOWAIT 0x01       /* Don't wait for termination */
@@ -200,19 +219,22 @@ void
 set_handler(const char *arg)
 {
 	int len;
-	int n = -1;
+	int n;
 
 	/* Event code */
 	len = strcspn(arg,",");
-	if (strncmp(arg, "create", len) == 0)
-		n = evt_create;
-	else if (strncmp(arg, "delete", len) == 0)
-		n = evt_delete;
-	else if (strncmp(arg, "close", len) == 0)
-		n = evt_close;
-	else {
-		diag(LOG_CRIT, "unrecognized event: %*.*s", len, len, arg);
-		exit(1);
+	for (n = 0; n < evt_max; n++)
+		if (strncmp(arg, evtstr[n], len) == 0)
+			break;
+
+	if (n == evt_max) {
+		char *p;
+		n = strtoul(arg, &p, 10);
+		if (*p || !(n >= 0 && n < evt_max)) {
+			diag(LOG_CRIT, "unrecognized event: %*.*s",
+			     len, len, arg);
+			exit(1);
+		}
 	}
 
 	/* flag */
@@ -612,8 +634,10 @@ run_handler(int event, const char *dir, const char *file)
 		argv[0] = (char*) hp->prog;
 		argv[1] = NULL;
 		snprintf(buf, sizeof buf, "%d", event);
-		setenv("DIRCOND_EVENT", buf, 1);
-		setenv("DIRCOND_FILE", file, 1);
+		setenv("DIRCOND_EVENT_CODE", buf, 1);
+		setenv("DIRCOND_EVENT", evtstr[event], 1);
+		if (file)
+			setenv("DIRCOND_FILE", file, 1);
 		execv(argv[0], argv);
 		_exit(127);
 	}
