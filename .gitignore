@@ -1,0 +1,5 @@
+dircond
+*~
+*.o
+*.tar.*
+.emacs*
