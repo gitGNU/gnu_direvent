@@ -696,7 +696,8 @@ dirwatcher_create(int ifd, const char *name)
 	dwp->parent = NULL;
 	
 	wd = inotify_add_watch(ifd, name,
-			       IN_DELETE|IN_CREATE|IN_CLOSE_WRITE);
+			       IN_DELETE|IN_CREATE|IN_CLOSE_WRITE|
+		               IN_MOVED_FROM|IN_MOVED_TO);
 	if (wd == -1) {
 		diag(LOG_ERR, "cannot set watch on %s: %s",
 		     name, strerror(errno));
@@ -1032,13 +1033,15 @@ main(int argc, char **argv)
 						  dp->name, ep->name));
 					check_new_watcher(ifd,
 							  dp->name, ep->name);
-				} else if (ep->mask & IN_DELETE) {
+				} else if (ep->mask & (IN_DELETE|
+						       IN_MOVED_FROM)) {
 					ev = evt_delete;
 					debug(1, ("%s/%s deleted",
 						  dp->name, ep->name));
 					remove_watcher(ifd, dp->name,
 						       ep->name);
-				} else if (ep->mask & IN_CLOSE_WRITE) {
+				} else if (ep->mask & (IN_CLOSE_WRITE|
+						       IN_MOVED_TO)) {
 					ev = evt_close;
 					debug(1, ("%s/%s written",
 						  dp->name, ep->name));
