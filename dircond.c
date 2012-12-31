@@ -905,7 +905,7 @@ int
 main(int argc, char **argv)
 {
 	int ifd, c, i;
-	char *tag;
+	const char *tag;
 	int fac = LOG_DAEMON;
 	struct dirwatcher *dp;
 	char *pidfile = NULL;

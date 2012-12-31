@@ -20,7 +20,7 @@ BINDIR=$(PREFIX)/bin
 MANDIR=$(PREFIX)/share/man
 PACKAGE=dircond
 VERSION=1.0
-DISTFILES=README Makefile dircond.c dlist.c dircond.1
+DISTFILES=README COPYING Makefile dircond.c dlist.c dircond.1
 
 dircond: dircond.c dlist.c
 	cc -odircond $(CFLAGS) dircond.c
