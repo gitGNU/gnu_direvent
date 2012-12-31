@@ -13,7 +13,7 @@
 .\"
 .\" You should have received a copy of the GNU General Public License along
 .\" with dircond. If not, see <http://www.gnu.org/licenses/>.
-.TH DIRCOND 1 "December 24, 2012" "DIRCOND" "Dircond User Reference"
+.TH DIRCOND 1 "December 31, 2012" "DIRCOND" "Dircond User Reference"
 .SH NAME
 dircond \- directory content watcher
 .SH SYNOPSIS
@@ -29,10 +29,22 @@ dircond \- directory content watcher
 .B dircond -h
 .SH DESCRIPTION
 .B Dircond
-monitors a set of directories given as its command line arguments.
-When the content of any of them changes, it invokes a shell command
-configured for that type of change (see the \fB\-p\fR option below).
-Three kinds of changes (or \fBevents\fR) are monitored:
+monitors a set of directories on the file system and reacts when
+their content changes. The following changes are monitored:
+file creation, file removal, file update, and move of a file between
+directories. When a change is detected, the daemon reacts by invoking
+an external command configured for that kind of change.
+.PP
+The monitored directories are called
+.BR watchpoints .
+When a directory is created within one of the watchpoints, it can
+become a new watchpoint, if the command line options request so (see
+\fB\-a\fR and \fB\-l\fR options below).
+.PP
+The monitored changes are grouped into
+.BR events ,
+each event being identified by its numeric ID or symbolic name. The
+existing events are shown in the table below:
 .IP 0.
 (\fBcreate\fR) A file was created.
 .IP 1.
@@ -41,9 +53,20 @@ Three kinds of changes (or \fBevents\fR) are monitored:
 (\fBclose\fR) A file was written and closed or was moved in from
 another location.
 .PP
-The command is invoked without arguments with the changed directory
-set as the current working one.  It inherits the environment from the
-calling process and gets information about the event from the following
+When an event is detected for which a handler is declared,
+.B dircond
+invokes that handler with the affected watchpoint set as its current
+working directory and passes it the description of the event in the
+environment variables shown below. Apart from these variables, the
+handler environment is inherited from the calling process. If you need
+to restrict the environment, start
+.B dircond
+via
+.BR env (1),
+(see the section
+.BR EXAMPLES ).
+.PP
+Information about the event is supplied to the handler in the following 
 environment variables:
 .TP
 .B DIRCOND_EVENT_CODE
@@ -138,7 +161,9 @@ Successful termination.
 Command line usage error.
 .IP 2.
 Another error occurred.
-.SH EXAMPLE
+.SH EXAMPLES
+.nr step 0 1
+.IP \n+[step].
 Run as user \fBftp\fR monitoring changes in
 .BR /var/ftp/upload .
 Wherever a new file appears, start
@@ -146,9 +171,18 @@ Wherever a new file appears, start
 .sp
 .nf
 .in +2
-$ \fBdircond \-u ftp \-p close,nowait,/usr/libexec/handler /var/ftp/upload
+$ \fBdircond \-u ftp \-p close,nowait,/usr/libexec/handler \\
+  /var/ftp/upload\fR
 .in
 .fi
+.IP \n+[step].
+Same as above, but also clear the environment:
+.sp
+.nf
+.in +2
+$ \fBenv \- \fBdircond \-u ftp \-p close,nowait,/usr/libexec/handler \\
+  /var/ftp/upload\fR
+.nf
 .SH "SEE ALSO"
 .BR inotify (8).
 .SH AUTHORS

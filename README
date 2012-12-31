@@ -1,0 +1,56 @@
+Dircond README.
+Copyright (C) 2012 Sergey Poznyakoff
+See the end of file for copying conditions.
+
+* Overview
+
+Dircond is a directory content watcher daemon, i.e. a program that
+monitors a set of directories on the file system and reacts when
+their content changes. The following changes are monitored: file
+creation, file removal, file update, move of a file between
+directories. When a change is detected, the daemon reacts by invoking
+an external command configured for that kind of change.
+
+* Building and Configuring
+
+The utility is Linux-specific, therefore no configuration script is
+provided. Run 'make' to build the program, and run 'make install' as a
+superuser to install it. The utility name is 'dircond' and it is
+installed in /usr/local/bin. To change the installation directory, use
+the PREFIX make variable. For example, the following command:
+
+   make install PREFIX=/usr
+
+will install the daemon binary in /usr/bin and the manpage in
+/usr/share/man/man1.
+
+Specific installation directories can be overridden using the
+following variables:
+
+  BINDIR      the directory where the binary is to be installed
+  MANDIR      the directory where the manpage is to be installed
+
+* Usage Instructions
+
+See dircond(1) for a detailed documentation.
+
+
+* Copyright information:
+
+Copyright (C) 2012 Sergey Poznyakoff
+
+   Permission is granted to anyone to make or distribute verbatim copies
+   of this document as received, in any medium, provided that the
+   copyright notice and this permission notice are preserved,
+   thus giving the recipient permission to redistribute in turn.
+
+   Permission is granted to distribute modified versions
+   of this document, or of portions of it,
+   under the above conditions, provided also that they
+   carry prominent notices stating who last changed them.
+
+Local Variables:
+mode: outline
+paragraph-separate: "[ 	]*$"
+version-control: never
+End:

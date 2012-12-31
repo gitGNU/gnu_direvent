@@ -14,13 +14,13 @@
 # You should have received a copy of the GNU General Public License along
 # with dircond. If not, see <http://www.gnu.org/licenses/>.
 
-CFLAGS=-ggdb -Wall
+CFLAGS=-O2 -g
 PREFIX=/usr/local
 BINDIR=$(PREFIX)/bin
 MANDIR=$(PREFIX)/share/man
 PACKAGE=dircond
 VERSION=1.0
-DISTFILES=Makefile dircond.c dlist.c dircond.1
+DISTFILES=README Makefile dircond.c dlist.c dircond.1
 
 dircond: dircond.c dlist.c
 	cc -odircond $(CFLAGS) dircond.c
@@ -29,7 +29,6 @@ install-bin: dircond
 	mkdir -p $(DESTDIR)$(BINDIR)
 	cp dircond $(DESTDIR)$(BINDIR)
 
-install-man:;
 install-man: dircond.1
 	mkdir -p $(DESTDIR)$(MANDIR)/man1
 	cp dircond.1 $(DESTDIR)$(MANDIR)/man1
@@ -52,8 +51,6 @@ distcheck: distdir
 	cd $(distdir) || exit 2;\
 	make || exit 2; \
 	make DESTDIR=`pwd`/_inst install || exit 2
-	(cd $(distdir)/_inst; find . -type f)|sort|cut -c2- | \
-           cmp - instlist
 	make dist
 
 clean:

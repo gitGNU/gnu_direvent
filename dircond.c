@@ -905,14 +905,15 @@ int
 main(int argc, char **argv)
 {
 	int ifd, c, i;
-	char *tag = NULL;
+	char *tag;
 	int fac = LOG_DAEMON;
 	struct dirwatcher *dp;
 	char *pidfile = NULL;
 	char *user = "nobody";
 	
 	set_program_name(argv[0]);
-	
+	tag = program_name;
+
 	while ((c = getopt(argc, argv, "adF:fhl:P:p:T:t:u:")) != EOF) {
 		switch (c) {
 		case 'a':
