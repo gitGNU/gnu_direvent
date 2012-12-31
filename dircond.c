@@ -909,7 +909,7 @@ main(int argc, char **argv)
 	int fac = LOG_DAEMON;
 	struct dirwatcher *dp;
 	char *pidfile = NULL;
-	char *user = "nobody";
+	char *user = NULL;
 	
 	set_program_name(argv[0]);
 	tag = program_name;
@@ -998,7 +998,7 @@ main(int argc, char **argv)
 		storepid(pidfile);
 
 	/* Relinquish superuser privileges */
-	if (getuid() == 0)
+	if (user && getuid() == 0)
 		setuser(user);
 
 	signal_setup(sigmain);
