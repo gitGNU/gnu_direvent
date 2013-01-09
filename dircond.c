@@ -1,5 +1,5 @@
 /* dircond - directory content watcher daemon
-   Copyright (C) 2012 Sergey Poznyakoff
+   Copyright (C) 2012, 2013 Sergey Poznyakoff
 
    Dircond is free software; you can redistribute it and/or modify it
    under the terms of the GNU General Public License as published by the
@@ -33,7 +33,8 @@
 /* Configuration settings */
 const char *program_name;         /* This program name */
 int foreground;                   /* Remain in the foreground */
-int facility = -1;                /* Use this syslog facility for logging.
+const char *tag;                  /* Syslog tag */
+int facility = LOG_DAEMON;        /* Use this syslog facility for logging.
 				     -1 means log to stderr */
 int debug_level;                  /* Debug verbosity level */
 unsigned handler_timeout = 5;     /* Timeout for handler program (seconds) */
@@ -42,6 +43,8 @@ int autowatch;                    /* Automatically add directories created
 				     to -1, nesting level is not limited. If
 				     set to a positive value, this value limits
 				     the nesting depth. */
+char *pidfile = NULL;             /* Store PID to this file */
+char *user = NULL;                /* User to run as */
 
 /* Event codes */
 enum {
@@ -63,6 +66,17 @@ char *evtstr[] = { "create", "delete", "close" };
 struct handler {
 	int flags;           /* Handler flags */
 	const char *prog;    /* Handler program (no arguments allowed) */
+	unsigned timeout;    /* Handler timeout */
+};
+
+/* A directory watcher is described by the following structure */
+struct dirwatcher {
+	struct dirwatcher *next, *prev;
+	struct dirwatcher *parent;        /* Points to the parent watcher.
+					     NULL for top-level watchers */
+	char *name;                       /* Pathname being watched */
+	int wd;                           /* Watch descriptor */
+	struct handler handler[evt_max];  /* Handlers */
 };
 
 /* Array of handlers for each event */
@@ -76,12 +90,12 @@ struct handler handler[evt_max];
 
 /* A running process is described by this structure */
 struct process {
-	struct process *next, *prev;   
-	int master;             /* Master process or redirector */
+	struct process *next, *prev;
+	unsigned timeout;       /* Timeout in seconds */
 	pid_t pid;              /* PID */
 	time_t start;           /* Time when the process started */
-	pid_t redir[2];         /* If master==1, holds PIDs of redirector
-				   processes (0 if no redirector) */
+	pid_t redir[2];         /* PIDs of redirector processes (0 if no
+				   redirector) */
 };
 
 /* List of running processes */
@@ -222,7 +236,7 @@ set_handler(const char *arg)
 	int n;
 
 	/* Event code */
-	len = strcspn(arg,",");
+	len = strcspn(arg, ",:");
 	for (n = 0; n < evt_max; n++)
 		if (strncmp(arg, evtstr[n], len) == 0)
 			break;
@@ -239,10 +253,11 @@ set_handler(const char *arg)
 
 	/* flag */
 	handler[n].flags = 0;
-
+	handler[n].timeout = handler_timeout;
+	
 	for (arg += len; *arg == ','; arg += len) {
 		++arg;
-		len = strcspn(arg, ",");
+		len = strcspn(arg, ",:");
 		if (arg[len] == 0)
 			break;
 		if (strncmp(arg, "wait", len) == 0)
@@ -258,12 +273,16 @@ set_handler(const char *arg)
 			exit(1);
 		}
 	}
-	
-	if (*arg == 0) {
-		diag(LOG_CRIT, "bad handler specification: %s", arg);
+
+	if (*arg != ':') {
+		diag(LOG_CRIT,
+		     "bad handler specification near %s",
+		     *arg ? arg : "end");
 		exit(1);
 	}
-	handler[n].prog = arg;
+	++arg;
+	
+	handler[n].prog = (*arg == 0) ? NULL : arg;
 }
 
 /* Memory allocation with error checking */
@@ -377,7 +396,7 @@ setuser(const char *user)
 /* Process list handling (high-level) */
 
 struct process *
-register_process(pid_t pid, time_t t)
+register_process(pid_t pid, time_t t, unsigned timeout)
 {
 	struct process *p;
 
@@ -386,7 +405,7 @@ register_process(pid_t pid, time_t t)
 	else
 		p = emalloc(sizeof(*p));
 	memset(p, 0, sizeof(*p));
-	p->master = 0;
+	p->timeout = timeout;
 	p->pid = pid;
 	p->start = t;
 	proc_push(&proc_list, p);
@@ -466,12 +485,10 @@ process_cleanup(int expect_term)
 		struct process *p = process_lookup(pid);
 		print_status(pid, status, expect_term);
 		if (p) {
-			if (p->master) {
-				if (p->redir[REDIR_OUT])
-					kill(p->redir[REDIR_OUT], SIGKILL);
-				if (p->redir[REDIR_ERR])
-					kill(p->redir[REDIR_ERR], SIGKILL);
-			}
+			if (p->redir[REDIR_OUT])
+				kill(p->redir[REDIR_OUT], SIGKILL);
+			if (p->redir[REDIR_ERR])
+				kill(p->redir[REDIR_ERR], SIGKILL);
 			p->pid = 0;
 			proc_unlink(&proc_list, p);
 			proc_push(&proc_avail, p);
@@ -489,12 +506,13 @@ process_timeouts()
 	debug(2, ("begin scanning process list"));
 	for (p = proc_list; p; p = p->next) {
 		x = now - p->start;
-		if (x >= handler_timeout) {
+		if (x >= p->timeout) {
 			diag(LOG_ERR, "process %lu timed out",
 			     (unsigned long) p->pid);
 			kill(p->pid, SIGKILL);
-		} else if (alarm_time == 0 || handler_timeout - x< alarm_time)
-			alarm_time = handler_timeout - x;
+		} else if (alarm_time == 0 ||
+			   p->timeout - x < alarm_time)
+			alarm_time = p->timeout - x;
 	}
 
 	if (alarm_time) {
@@ -543,7 +561,7 @@ open_redirector(const char *tag, int prio, pid_t *return_pid)
 		fp = fdopen(p[0], "r");
 		if (fp == NULL)
 			_exit(1);
-		if (facility >= 0) 
+		if (facility > 0) 
 			openlog(tag, LOG_PID, facility);
 
 		while (fgets(buf, sizeof(buf), fp) > 0) {
@@ -570,19 +588,19 @@ open_redirector(const char *tag, int prio, pid_t *return_pid)
 }
 
 static int
-run_handler(int event, const char *dir, const char *file)
+run_handler(struct dirwatcher *dp, int event, const char *file)
 {
 	pid_t pid;
 	char buf[1024];
 	int redir_fd[2] = { -1, -1 };
 	pid_t redir_pid[2];
 	struct process *p;
-	struct handler *hp = &handler[event];
+	struct handler *hp = &dp->handler[event];
 
 	if (!hp->prog)
 		return 0;
 
-	debug(1, ("starting %s, dir=%s, file=%s", hp->prog, dir, file));
+	debug(1, ("starting %s, dir=%s, file=%s", hp->prog, dp->name, file));
 	if (hp->flags & HF_STDERR)
 		redir_fd[REDIR_ERR] = open_redirector(hp->prog, LOG_INFO,
 						      &redir_pid[REDIR_ERR]);
@@ -603,9 +621,9 @@ run_handler(int event, const char *dir, const char *file)
 		char *argv[2];
 		fd_set fdset;
 
-		if (chdir(dir)) {
+		if (chdir(dp->name)) {
 			diag(LOG_CRIT, "cannot change to %s: %s",
-			     dir, strerror(errno));
+			     dp->name, strerror(errno));
 			exit(1);
 		}
 
@@ -644,12 +662,11 @@ run_handler(int event, const char *dir, const char *file)
 
 	/* master */
 	debug(1, ("%s running; dir=%s, file=%s, pid=%lu",
-		  hp->prog, dir, file, (unsigned long)pid));
+		  hp->prog, dp->name, file, (unsigned long)pid));
 
-	p = register_process(pid, time(NULL));
+	p = register_process(pid, time(NULL), hp->timeout);
 	
 	memcpy(p->redir, redir_pid, sizeof(p->redir));
-	p->master = 1;
 	
 	close(redir_fd[REDIR_OUT]);
 	close(redir_fd[REDIR_ERR]);
@@ -660,7 +677,7 @@ run_handler(int event, const char *dir, const char *file)
 
 	debug(1, ("waiting for %s (%lu) to terminate",
 		  hp->prog, (unsigned long)pid));
-	while (time(NULL) - p->start < 2*handler_timeout) {
+	while (time(NULL) - p->start < 2 * p->timeout) {
 		sleep(1);
 		process_cleanup(1);
 		if (p->pid == 0)
@@ -671,15 +688,6 @@ run_handler(int event, const char *dir, const char *file)
 
 			
 /* Directory watcher functions */
-
-/* A directory watcher is described by the following structure */
-struct dirwatcher {
-	struct dirwatcher *next, *prev;
-	struct dirwatcher *parent;        /* Points to the parent watcher.
-					     NULL for top-level watchers */
-	char *name;                       /* Pathname being watched */
-	int wd;                           /* Watch descriptor */
-};
 
 /* A doubly-linked list of active watchers */
 struct dirwatcher *dirwatcher_list;
@@ -856,6 +864,8 @@ check_new_watcher(int ifd, const char *dir, const char *name)
 		if (dwp) {
 			rc = 0;
 			dwp->parent = parent;
+			memcpy(dwp->handler, parent->handler,
+			       sizeof(dwp->handler));
 		} else
 			rc = -1;
 	} else
@@ -901,20 +911,13 @@ sigmain(int sig)
 
 char buffer[4096];
 
-int
-main(int argc, char **argv)
+static void
+parse_options (int argc, char **argv)
 {
-	int ifd, c, i;
-	const char *tag;
-	int fac = LOG_DAEMON;
-	struct dirwatcher *dp;
-	char *pidfile = NULL;
-	char *user = NULL;
-	
-	set_program_name(argv[0]);
-	tag = program_name;
+	int c;
 
-	while ((c = getopt(argc, argv, "adF:fhl:P:p:T:t:u:")) != EOF) {
+	optind = 0;
+	while ((c = getopt(argc, argv, "+adF:fhl:P:p:T:t:u:")) != EOF) {
 		switch (c) {
 		case 'a':
 			autowatch = -1;
@@ -938,7 +941,7 @@ main(int argc, char **argv)
 			tag = optarg;
 			break;
 		case 'F':
-			fac = read_facility(optarg);
+			facility = read_facility(optarg);
 			break;
 		case 'P':
 			pidfile = optarg;
@@ -957,14 +960,16 @@ main(int argc, char **argv)
 			exit(1);
 		}
 	}
+}
 
-	argc -= optind;
-	argv += optind;
-
-	if (argc == 0) {
-		diag(LOG_CRIT, "not enough arguments");
-		exit(1);
-	}
+int
+main(int argc, char **argv)
+{
+	int ifd, c, i;
+	struct dirwatcher *dp;
+	
+	set_program_name(argv[0]);
+	tag = program_name;
 
 	ifd = inotify_init();
 	if (ifd == -1) {
@@ -972,13 +977,37 @@ main(int argc, char **argv)
 		exit(1);
 	}
 
-	for (i = 0; i < argc; i++) {
-		if (!dirwatcher_create(ifd, argv[i])) {
-			diag(LOG_CRIT, "cannot create watcher; exiting");
-			exit(1);
+	while (1) {
+		parse_options (argc, argv);
+		argc -= optind;
+		argv += optind;
+		if (!argc)
+			break;
+		for (i = 0; i < argc; i++) {
+			struct dirwatcher *dwp;
+			
+			if (argv[i][0] == '-')
+				break;
+			dwp = dirwatcher_create(ifd, argv[i]);
+			if (!dwp) {
+				diag(LOG_CRIT,
+				     "cannot create watcher; exiting");
+				exit(1);
+			}
+			memcpy(dwp->handler, handler, sizeof (dwp->handler));
 		}
+		argc -= i - 1;
+		if (argc == 1)
+			break;
+		argv += i - 1;
+		argv[0] = (char*) program_name;
 	}
 
+	if (!dirwatcher_list) {
+		diag(LOG_CRIT, "not enough arguments");
+		exit(1);
+	}
+	
 	/* Become a daemon */
 	if (!foreground) {
 		if (daemon(0, 0)) {
@@ -987,8 +1016,7 @@ main(int argc, char **argv)
 		}
 	}
 	
-	facility = fac;
-	if (facility >= 0)
+	if (facility > 0)
 		openlog(tag, LOG_PID, facility);
 
 	diag(LOG_INFO, "started");
@@ -1076,7 +1104,7 @@ main(int argc, char **argv)
 					     dp->name, ep->name, ep->mask);
 
 				if (ev >= 0 && ev < evt_max) {
-					run_handler(ev, dp->name, ep->name);
+					run_handler(dp, ev, ep->name);
 				}
 			}
 			size = sizeof(*ep) + ep->len;

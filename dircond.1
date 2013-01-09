@@ -1,5 +1,5 @@
 .\" dircond - directory content watcher daemon -*- nroff -*-
-.\" Copyright (C) 2012 Sergey Poznyakoff
+.\" Copyright (C) 2012, 2013 Sergey Poznyakoff
 .\"
 .\" Dircond is free software; you can redistribute it and/or modify it
 .\" under the terms of the GNU General Public License as published by the
@@ -13,18 +13,18 @@
 .\"
 .\" You should have received a copy of the GNU General Public License along
 .\" with dircond. If not, see <http://www.gnu.org/licenses/>.
-.TH DIRCOND 1 "December 31, 2012" "DIRCOND" "Dircond User Reference"
+.TH DIRCOND 1 "January 9, 2013" "DIRCOND" "Dircond User Reference"
 .SH NAME
 dircond \- directory content watcher
 .SH SYNOPSIS
 \fBdircond\fR [\fB\-adf\fR] [\fB\-F\fR \fIFACILITY\fR]\
  [\fB\-l\fR \fIN\fR]\
- [\fB\-P\fR \fIFILE\fR]
-        [\fB\-p\fR \fIEVENT\fR,[\fIFLAG\fR[,\fIFLAG\fR...],]\fICOMMAND\fR]
-        [\fB\-T\fR \fISECONDS\fR]\
+ [\fB\-P\fR \fIFILE\fR]\
  [\fB\-t\fR \fITAG\fR]\
- [\fB\-u\fR \fIUSER\fR]\
- \fIDIR\fR [\fIDIR\fR...]
+ [\fB\-u\fR \fIUSER\fR]
+        [[\fB\-T\fR \fISECONDS\fR]\
+ [\fB\-p\fR \fIEVENT\fR[,\fIFLAG\fR[,\fIFLAG\fR...]:][\fICOMMAND\fR]]
+         \fIDIR\fR [\fIDIR\fR...]...]
 
 .B dircond -h
 .SH DESCRIPTION
@@ -33,7 +33,7 @@ monitors a set of directories on the file system and reacts when
 their content changes. The following changes are monitored:
 file creation, file removal, file update, and move of a file between
 directories. When a change is detected, the daemon reacts by invoking
-an external command configured for that kind of change.
+the external command configured for that kind of change.
 .PP
 The monitored directories are called
 .BR watchpoints .
@@ -44,7 +44,7 @@ become a new watchpoint, if the command line options request so (see
 The monitored changes are grouped into
 .BR events ,
 each event being identified by its numeric ID or symbolic name. The
-existing events are shown in the table below:
+existing events are listed in the table below:
 .IP 0.
 (\fBcreate\fR) A file was created.
 .IP 1.
@@ -55,9 +55,9 @@ another location.
 .PP
 When an event is detected for which a handler is declared,
 .B dircond
-invokes that handler with the affected watchpoint set as its current
-working directory and passes it the description of the event in the
-environment variables shown below. Apart from these variables, the
+changes to the directory where the event occurred and invokes that
+handler, passing it the description of the event in the
+environment variables listed below. Apart from these variables, the
 handler environment is inherited from the calling process. If you need
 to restrict the environment, start
 .B dircond
@@ -77,6 +77,59 @@ Event symbolic name, as shown in parentheses in the above table.
 .TP
 .B DIRCOND_FILE
 The name of the affected file.
+.SH HANDLERS AND WATCHPOINTS
+.PP
+Any non-optional arguments are treated as names of the directories
+to monitor.  Handlers for these directories are specified using the
+following command line options, which must precede the directory
+arguments they apply to:
+.TP
+\fB\-p\fR \fIEVENT\fR[,\fIFLAG\fR[,\fIFLAG\fR...]:][\fICOMMAND\fR]
+Define a handler to execute upon an event.  The \fIEVENT\fR argument
+specifies the event to monitor.  It is either the event symbolic name
+or its decimal code.  Optional flags instruct how to run
+\fICOMMAND\fR.  The following flags are defined:
+.RS
+.TP
+.B wait
+Wait for the command to terminate before continuing the main loop.
+This is the default.
+.TP
+.B nowait
+Do not wait for the command to terminate, go to the next event right
+away.  If the command fails to exit within the preconfigured time
+frame (see the \fB\-T\fR command line) it will be terminated with the
+signal 9 (\fBSIGKILL\fR).
+.TP
+.B stdout
+Capture the command's standard output and log it using the default
+logging channel.
+.TP
+.B stderr
+Capture the command's standard error and log it using the default
+logging channel.
+.PP
+If the \fICOMMAND\fR is empty, the previous definition of the
+corresponding handler is forgotten.
+.RE
+.TP
+\fB\-T\fR \fITIMEOUT\fR
+Set execution timeout for external commands (seconds).
+.PP
+These options can appear interspersed with the directory names.  In
+this case, each
+.B \-T
+option modifies any subsequent
+.B \-p
+options, until the next
+.B \-T
+option or the end of command line is encountered, whichever occurs
+first.  Similarly, handlers defined by each
+.B \-p
+option apply to all directory names that follow, until the next
+occurrence of the
+.B \-p
+option with the same \fIEVENT\fR part.
 .SH OPTIONS
 .TP
 .B \-a
@@ -117,35 +170,6 @@ under the root watchpoint.
 \fB\-P\fR \fIFILE\fR
 Write PID to \fIFILE\fR.
 .TP
-\fB\-p\fR \fIEVENT\fR,[\fIFLAG\fR[,\fIFLAG\fR...],]\fICOMMAND\fR
-Define a handler to execute upon an event.  The \fIEVENT\fR argument
-specifies the event to monitor.  It is either the event symbolic name
-or its decimal code.  Optional flags instruct how to run
-\fICOMMAND\fR.  The following flags are defined:
-.RS
-.TP
-.B wait
-Wait for the command to terminate before continuing the main loop.
-This is the default.
-.TP
-.B nowait
-Do not wait for the command to terminate, go to the next event right
-away.  If the command fails to exit within the preconfigured time
-frame (see the \fB\-T\fR command line) it will be terminated with the
-signal 9 (\fBSIGKILL\fR).
-.TP
-.B stdout
-Capture the command's standard output and log it using the default
-logging channel.
-.TP
-.B stderr
-Capture the command's standard error and log it using the default
-logging channel.
-.RE
-.TP
-\fB\-T\fR \fITIMEOUT\fR
-Set execution timeout for external commands (seconds).
-.TP
 \fB\-t\fR \fITAG\fR
 Log with this syslog tag.
 .TP
@@ -171,7 +195,7 @@ Wherever a new file appears, start
 .sp
 .nf
 .in +2
-$ \fBdircond \-u ftp \-p close,nowait,/usr/libexec/handler \\
+$ \fBdircond \-u ftp \-p close,nowait:/usr/libexec/handler \\
   /var/ftp/upload\fR
 .in
 .fi
@@ -180,8 +204,16 @@ Same as above, but also clear the environment:
 .sp
 .nf
 .in +2
-$ \fBenv \- \fBdircond \-u ftp \-p close,nowait,/usr/libexec/handler \\
+$ \fBenv \- \fBdircond \-u ftp \-p close,nowait:/usr/libexec/handler \\
   /var/ftp/upload\fR
+.nf
+.IP \n+[step].
+Watch two directories, using a separate handler for each of them:
+.sp
+.nf
+.in +2
+$ \fBdircond -p close:/usr/libexec/upload-handler /var/ftp/upload\\
+          -p close:/usr/libexec/log-handler /var/log\fR
 .nf
 .SH "SEE ALSO"
 .BR inotify (8).
@@ -190,7 +222,7 @@ Sergey Poznyakoff
 .SH "BUG REPORTS"
 Report bugs to <gray+dircond@gnu.org.ua>.
 .SH COPYRIGHT
-Copyright \(co 2012 Sergey Poznyakoff
+Copyright \(co 2012, 2013 Sergey Poznyakoff
 .br
 .na
 License GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>
