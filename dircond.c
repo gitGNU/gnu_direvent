@@ -884,17 +884,22 @@ help()
 	printf("   -a            automatically watch created directories\n");
 	printf("   -d            increase debug verbosity\n");
         printf("   -f            run in the foreground\n");
-	printf("   -F FACILITY   log under this syslog facility\n");
+	printf("   -F FACILITY   log under this syslog facility (default: daemon);\n");
+	printf("                 use -F 0 to log to stderr instead\n");
 	printf("   -l N          automatically watch new directories located\n");
 	printf("                 up to Nth nesting level\n");
 	printf("   -P FILE       write PID to FILE\n");
-	printf("   -p EVENT,[FLAG[,FLAG...],]COMMAND\n");
-	printf("                 start COMMAND upon EVENT\n");
+	printf("   -p EVENT,[FLAG[,FLAG...]:][COMMAND]\n");
+	printf("                 start COMMAND upon EVENT; empty COMMAND means\n");	
+	printf("                 forget prior definition\n");
 	printf("   -T TIMEOUT    set timeout for external commands\n");
         printf("   -t TAG        log with this syslog tag\n");
 	printf("   -u USER       run as this USER\n");
-		   
+
 	printf("   -h            output this help summary\n\n");
+
+	printf("The options -T and -p can be intermixed with DIRs.\n\n");
+
 	printf("Report bugs to <gray+dircond@gnu.org.ua>.\n");
 		
 	return 0;
