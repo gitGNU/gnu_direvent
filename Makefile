@@ -1,5 +1,5 @@
 # dircond - directory content watcher daemon
-# Copyright (C) 2012 Sergey Poznyakoff
+# Copyright (C) 2012, 2013 Sergey Poznyakoff
 #
 # Dircond is free software; you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -19,8 +19,8 @@ PREFIX=/usr/local
 BINDIR=$(PREFIX)/bin
 MANDIR=$(PREFIX)/share/man
 PACKAGE=dircond
-VERSION=1.0
-DISTFILES=README COPYING Makefile dircond.c dlist.c dircond.1
+VERSION=2.0
+DISTFILES=README COPYING NEWS ChangeLog Makefile dircond.c dlist.c dircond.1
 
 dircond: dircond.c dlist.c
 	cc -odircond $(CFLAGS) dircond.c
@@ -37,7 +37,7 @@ install: install-bin install-man
 
 distdir = $(PACKAGE)-$(VERSION)
 
-distdir:
+distdir: $(DISTFILES)
 	rm -rf $(distdir)
 	mkdir $(distdir)
 	cp $(DISTFILES) $(distdir)
@@ -52,6 +52,16 @@ distcheck: distdir
 	make || exit 2; \
 	make DESTDIR=`pwd`/_inst install || exit 2
 	make dist
+
+.PHONY: ChangeLog
+ChangeLog:
+	@if test -d .git; then                                               \
+          git log --pretty='format:%ct  %an  <%ae>%n%n%s%n%n%b%n' |          \
+            awk -f git2chg.awk > ChangeLog.tmp;                              \
+          cmp ChangeLog ChangeLog.tmp > /dev/null 2>&1 ||                    \
+            mv ChangeLog.tmp ChangeLog;                                      \
+          rm -f ChangeLog.tmp;                                               \
+        fi
 
 clean:
 	rm -f dircond

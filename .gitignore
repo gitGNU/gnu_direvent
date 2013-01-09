@@ -1,5 +1,7 @@
+ChangeLog
 dircond
 *~
 *.o
 *.tar.*
+.gdbinit
 .emacs*
