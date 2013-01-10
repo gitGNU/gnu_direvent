@@ -297,8 +297,15 @@ set_handler(const char *arg)
 		exit(1);
 	}
 	++arg;
-	
-	handler[n].prog = (*arg == 0) ? NULL : arg;
+
+	if (*arg == 0)
+		handler[n].prog = NULL;
+	else {
+		handler[n].prog = arg;
+		if (access(arg, X_OK))
+			diag(LOG_WARNING, "handler %s: %s", arg,
+			     strerror(errno));
+	}
 }
 
 /* Memory allocation with error checking */
@@ -615,7 +622,12 @@ run_handler(struct dirwatcher *dp, int event, const char *file)
 
 	if (!hp->prog)
 		return 0;
-
+	if (access(hp->prog, X_OK)) {
+		diag(LOG_ERR, "watchpoint %s: cannot execute %s: %s",
+		     dp->name, hp->prog, strerror(errno));
+		return 1;
+	}
+	
 	debug(1, ("starting %s, dir=%s, file=%s", hp->prog, dp->name, file));
 	if (hp->flags & HF_STDERR)
 		redir_fd[REDIR_ERR] = open_redirector(hp->prog, LOG_INFO,
