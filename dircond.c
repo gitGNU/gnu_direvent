@@ -229,6 +229,9 @@ read_facility(const char *arg)
 	return n;
 }
 
+#define TIMEOUT_FLAG_STR "timeout="
+#define TIMEOUT_FLAG_LEN sizeof(TIMEOUT_FLAG_STR)-1
+
 void
 set_handler(const char *arg)
 {
@@ -268,7 +271,17 @@ set_handler(const char *arg)
 			handler[n].flags |= HF_STDOUT;
 		else if (strncmp(arg, "stderr", len) == 0)
 			handler[n].flags |= HF_STDERR;
-		else {
+		else if (len > TIMEOUT_FLAG_LEN &&
+			 !memcmp(arg, TIMEOUT_FLAG_STR, TIMEOUT_FLAG_LEN)) {
+			char *p;
+
+			handler[n].timeout = strtoul(arg+TIMEOUT_FLAG_LEN,
+						     &p, 10);
+			if (p != arg + len) {
+				diag(LOG_CRIT, "invalid timeout: %s", arg);
+				exit(1);
+			}
+		} else {
 			diag(LOG_CRIT, "unknown flag %*.*s", len, len, arg);
 			exit(1);
 		}

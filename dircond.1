@@ -13,7 +13,7 @@
 .\"
 .\" You should have received a copy of the GNU General Public License along
 .\" with dircond. If not, see <http://www.gnu.org/licenses/>.
-.TH DIRCOND 1 "January 9, 2013" "DIRCOND" "Dircond User Reference"
+.TH DIRCOND 1 "January 10, 2013" "DIRCOND" "Dircond User Reference"
 .SH NAME
 dircond \- directory content watcher
 .SH SYNOPSIS
@@ -100,6 +100,17 @@ Do not wait for the command to terminate, go to the next event right
 away.  If the command fails to exit within the preconfigured time
 frame (see the \fB\-T\fR command line) it will be terminated with the
 signal 9 (\fBSIGKILL\fR).
+.TP
+\fBtimeout=\fIN\fR
+Sets timeout for that handler.  If not supplied, the timeout is
+supplied by the nearest prior
+.B \-T
+option.  The default timeout is 5 seconds.  Note, that the timeout
+setting affects both
+.BR wait " and " nowait
+handlers, i.e. in any case, the handler that runs longer than that
+amount of time will be terminated by
+.BR SIGKILL .
 .TP
 .B stdout
 Capture the command's standard output and log it using the default
