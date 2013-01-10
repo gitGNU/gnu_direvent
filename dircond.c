@@ -77,6 +77,7 @@ struct dirwatcher {
 	char *name;                       /* Pathname being watched */
 	int wd;                           /* Watch descriptor */
 	struct handler handler[evt_max];  /* Handlers */
+	int autowatch;
 };
 
 /* Array of handlers for each event */
@@ -727,7 +728,7 @@ dirwatcher_create(int ifd, const char *name)
 	int wd;
 
 	debug(1, ("creating watcher %s", name));
-	dwp = malloc(sizeof(*dwp));
+	dwp = calloc(1, sizeof(*dwp));
 	if (!dwp) {
 		diag(LOG_ERR, "not enough memory");
 		return NULL;
@@ -829,21 +830,12 @@ remove_watcher(int ifd, const char *dir, const char *name)
 		}
 }
 
-/* Return nesting level of a watcher */
-int
-dirlevel(struct dirwatcher *dw)
-{
-	int lev = 0;
-	while (dw = dw->parent)
-		++lev;
-	return lev;
-}
-
 /* Check if a new watcher must be created and create it if so.
 
-   A watcher must be created if (1) autowatch has negative value,
-   or (2) it has a positive value and the nesting level of the parent
-   watcher does not exceed it.
+   A watcher must be created if its parent's autowatch has a non-null
+   value.  If it has a negative value, it will be inherited by the new
+   watcher.  Otherwise, the new watcher will inherit the parent's autowatch
+   decreased by one.
 
    Return 0 on success, -1 on error.
 */
@@ -855,10 +847,8 @@ check_new_watcher(int ifd, const char *dir, const char *name)
 	struct stat st;
 	struct dirwatcher *parent;
 
-	if (autowatch == 0)
-		return 0;
 	parent = dirwatcher_find_name(dir);
-	if (autowatch > 0 && dirlevel(parent) >= autowatch)
+	if (!parent || !parent->autowatch)
 		return 0;
 	
 	fname = mkfilename(dir, name);
@@ -879,6 +869,10 @@ check_new_watcher(int ifd, const char *dir, const char *name)
 			dwp->parent = parent;
 			memcpy(dwp->handler, parent->handler,
 			       sizeof(dwp->handler));
+			if (parent->autowatch == -1)
+				dwp->autowatch = parent->autowatch;
+			else if (parent->autowatch)
+				dwp->autowatch = parent->autowatch - 1;
 		} else
 			rc = -1;
 	} else
@@ -1013,6 +1007,7 @@ main(int argc, char **argv)
 				exit(1);
 			}
 			memcpy(dwp->handler, handler, sizeof (dwp->handler));
+			dwp->autowatch = autowatch;
 		}
 		argc -= i - 1;
 		if (argc == 1)
