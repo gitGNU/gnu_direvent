@@ -26,9 +26,11 @@
 #include <pwd.h>
 #include <signal.h>
 #include <time.h>
+#include <sys/types.h>
 #include <sys/inotify.h>
 #include <sys/wait.h>
 #include <sys/stat.h>
+#include <dirent.h>
 
 /* Configuration settings */
 const char *program_name;         /* This program name */
@@ -830,6 +832,21 @@ remove_watcher(int ifd, const char *dir, const char *name)
 		}
 }
 
+struct dirwatcher *
+subwatcher_create(int ifd, struct dirwatcher *parent, const char *dirname)
+{
+	struct dirwatcher *dwp = dirwatcher_create(ifd, dirname);
+	if (dwp) {
+		dwp->parent = parent;
+		memcpy(dwp->handler, parent->handler, sizeof(dwp->handler));
+		if (parent->autowatch == -1)
+			dwp->autowatch = parent->autowatch;
+		else if (parent->autowatch)
+			dwp->autowatch = parent->autowatch - 1;
+	}
+	return dwp;
+}
+
 /* Check if a new watcher must be created and create it if so.
 
    A watcher must be created if its parent's autowatch has a non-null
@@ -862,24 +879,62 @@ check_new_watcher(int ifd, const char *dir, const char *name)
 		diag(LOG_ERR, "cannot create watcher %s/%s, stat failed: %s",
 		     dir, name, strerror(errno));
 		rc = -1;
-	} else if (S_ISDIR(st.st_mode)) {
-		struct dirwatcher *dwp = dirwatcher_create(ifd, fname);
-		if (dwp) {
-			rc = 0;
-			dwp->parent = parent;
-			memcpy(dwp->handler, parent->handler,
-			       sizeof(dwp->handler));
-			if (parent->autowatch == -1)
-				dwp->autowatch = parent->autowatch;
-			else if (parent->autowatch)
-				dwp->autowatch = parent->autowatch - 1;
-		} else
-			rc = -1;
-	} else
+	} else if (S_ISDIR(st.st_mode))
+		rc = subwatcher_create(ifd, parent, fname) ? 0 : -1;
+	else
 		rc = 0;
 	free(fname);
 	return rc;
 }
+
+/* Recursively scan subdirectories of parent and add them to the
+   wather list, as requested by the parent's autowatch value. */
+static void
+watch_subdirs(struct dirwatcher *parent, int ifd)
+{
+	DIR *dir;
+	struct dirent *ent;
+	
+	if (parent->autowatch == 0)
+		return;
+	dir = opendir(parent->name);
+	if (!dir) {
+		diag(LOG_ERR, "cannot open directory %d: %s",
+		     parent->name, strerror(errno));
+		return;
+	}
+
+	while (ent = readdir(dir)) {
+		struct stat st;
+		char *dirname;
+		
+		if (ent->d_name[0] == '.' &&
+		    (ent->d_name[1] == 0 ||
+		     (ent->d_name[1] == '.' && ent->d_name[2] == 0)))
+			continue;
+
+		dirname = mkfilename(parent->name, ent->d_name);
+		if (!dirname) {
+			diag(LOG_ERR, "cannot stat %s/%s: not enough memory",
+			     parent->name, ent->d_name);
+			continue;
+		}
+		if (stat(dirname, &st)) {
+			diag(LOG_ERR, "cannot stat %s: %s",
+			     dirname, strerror(errno));
+		} else if (S_ISDIR(st.st_mode)) {
+			struct dirwatcher *dwp =
+				subwatcher_create(ifd, parent, dirname);
+			if (dwp)
+				watch_subdirs(dwp, ifd);
+		}
+		free(dirname);
+		
+	}
+	closedir(dir);
+}
+
+	
 
 /* Output a help summary. Return a code suitable for exit(2). */
 int
@@ -1008,6 +1063,7 @@ main(int argc, char **argv)
 			}
 			memcpy(dwp->handler, handler, sizeof (dwp->handler));
 			dwp->autowatch = autowatch;
+			watch_subdirs (dwp, ifd);
 		}
 		argc -= i - 1;
 		if (argc == 1)
