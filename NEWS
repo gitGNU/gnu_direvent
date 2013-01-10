@@ -1,4 +1,4 @@
-dircond -- history of user-visible changes. 2013-01-09
+dircond -- history of user-visible changes. 2013-01-10
 Copyright (C) 2012, 2013 Sergey Poznyakoff
 See the end of file for copying conditions.
 
@@ -10,6 +10,10 @@ Version 2.0, (Git)
 
 Dircond accepts handler definitions interspersed with directory
 name.  This allows for having different per-directory handlers.
+
+Similarly, the autowatch options ("-a" and "-l") affect the
+directories specified after them in the command line and their effect
+is changed by the next occurrence of the corresponding option.
 
 * Bugfixes
 

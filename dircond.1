@@ -20,10 +20,10 @@ dircond \- directory content watcher
 \fBdircond\fR [\fB\-adf\fR] [\fB\-F\fR \fIFACILITY\fR]\
  [\fB\-l\fR \fIN\fR]\
  [\fB\-P\fR \fIFILE\fR]\
- [\fB\-t\fR \fITAG\fR]\
+ [\fB\-T\fR \fISECONDS\fR]
+        [\fB\-t\fR \fITAG\fR]\
  [\fB\-u\fR \fIUSER\fR]
-        [[\fB\-T\fR \fISECONDS\fR]\
- [\fB\-p\fR \fIEVENT\fR[,\fIFLAG\fR[,\fIFLAG\fR...]:][\fICOMMAND\fR]]
+        [[\fB\-p\fR \fIEVENT\fR[,\fIFLAG\fR[,\fIFLAG\fR...]:][\fICOMMAND\fR]]
          \fIDIR\fR [\fIDIR\fR...]...]
 
 .B dircond -h
@@ -81,8 +81,8 @@ The name of the affected file.
 .PP
 Any non-optional arguments are treated as names of the directories
 to monitor.  Handlers for these directories are specified using the
-following command line options, which must precede the directory
-arguments they apply to:
+following command line option, which must precede the directory
+arguments it applies to:
 .TP
 \fB\-p\fR \fIEVENT\fR[,\fIFLAG\fR[,\fIFLAG\fR...]:][\fICOMMAND\fR]
 Define a handler to execute upon an event.  The \fIEVENT\fR argument
@@ -123,30 +123,20 @@ logging channel.
 If the \fICOMMAND\fR is empty, the previous definition of the
 corresponding handler is forgotten.
 .RE
-.TP
-\fB\-T\fR \fITIMEOUT\fR
-Set execution timeout for external commands (seconds).
 .PP
-These options can appear interspersed with the directory names.  In
-this case, each
-.B \-T
-option modifies any subsequent
+The handler set by the
 .B \-p
-options, until the next
-.B \-T
-option or the end of command line is encountered, whichever occurs
-first.  Similarly, handlers defined by each
-.B \-p
-option apply to all directory names that follow, until the next
+option remains in effect for all directories specified after it in the
+command line, until the next
 occurrence of the
 .B \-p
 option with the same \fIEVENT\fR part.
 .SH OPTIONS
-.TP
-.B \-a
-Automatically watch created directories.  Whenever a new directory
-appears under one of watchpoints, it is added to the list of
-watchpoints.
+Most options have global effect, but some of them apply to handlers
+and watchpoints that follow them in the command line.  These latter
+remain in effect until the next occurrence of the same option, or end
+of the command line, whichever occurs first.
+.SS Global Options
 .TP
 .B \-d
 Increase debug verbosity level.
@@ -172,12 +162,6 @@ and
 
 The option \fB\-F 0\fR directs the logging to the standard error.
 .TP
-\fB\-l\fR \fIN\fR
-Automatically watch new directories located up to Nth nesting level.
-Any directory created under one of the watchpoints is added to the
-list of watchpoints unless it is located more than \fIN\fR directories
-under the root watchpoint.
-.TP
 \fB\-P\fR \fIFILE\fR
 Write PID to \fIFILE\fR.
 .TP
@@ -188,7 +172,26 @@ Log with this syslog tag.
 Run as this \fIUSER\fR.
 .TP
 \fB\-h\fR
-Output a terse help summary.
+Output a terse help summary and exit.
+.SS Position-dependent options
+.TP
+.B \-a
+Automatically watch created directories.  Whenever a new directory
+appears under one of watchpoints, it is added to the list of
+watchpoints.  Upon startup, the watchpoints affected by this option
+are scanned recursively, and any directory located under them is added
+to the watchpoint list.
+.TP
+\fB\-l\fR \fIN\fR
+Automatically watch new directories located up to Nth nesting level.
+Any directory created under one of the watchpoints is added to the
+list of watchpoints unless it is located more than \fIN\fR directories
+under the root watchpoint.  Upon startup, the watchpoints affected by
+this option are scanned recursively up to \fIN\fR directories deep,
+and any directory located under them is added to the watchpoint list.
+.TP
+\fB\-T\fR \fITIMEOUT\fR
+Set execution timeout for external commands (seconds).
 .SH "EXIT CODE"
 .IP 0.
 Successful termination.
