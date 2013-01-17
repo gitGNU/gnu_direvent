@@ -49,15 +49,24 @@ char *pidfile = NULL;             /* Store PID to this file */
 char *user = NULL;                /* User to run as */
 
 /* Event codes */
-enum {
-	evt_create,                  /* file has been created */ 
-	evt_delete,                  /* file has been deleted or moved out */
-	evt_close,                   /* file has been modified and closed
-					or moved in */
-	evt_max                      /* number of handled events */
+struct event {
+	int evcode;
+	char *evname;
 };
 
-char *evtstr[] = { "create", "delete", "close" };
+struct event evtab[] = {
+	{ IN_ACCESS,        "access" },
+	{ IN_ATTRIB,        "attrib" },       
+	{ IN_CLOSE_WRITE,   "close_write" },  
+	{ IN_CLOSE_NOWRITE, "close_nowrite" },
+	{ IN_CREATE,        "create" },       
+	{ IN_DELETE,        "delete" },      
+	{ IN_MODIFY,        "modify" },
+	{ IN_MOVED_FROM,    "moved_from" },    
+	{ IN_MOVED_TO,      "moved_to" },      
+	{ IN_OPEN,          "open" },
+	{ 0 }
+};
 
 /* Handler flags. */
 #define HF_NOWAIT 0x01       /* Don't wait for termination */
@@ -66,6 +75,8 @@ char *evtstr[] = { "create", "delete", "close" };
 
 /* Handler structure */
 struct handler {
+	struct handler *next, *prev;
+	int ev_mask;         /* Event mask */
 	int flags;           /* Handler flags */
 	const char *prog;    /* Handler program (no arguments allowed) */
 	unsigned timeout;    /* Handler timeout */
@@ -74,43 +85,44 @@ struct handler {
 /* A directory watcher is described by the following structure */
 struct dirwatcher {
 	struct dirwatcher *next, *prev;
-	struct dirwatcher *parent;        /* Points to the parent watcher.
-					     NULL for top-level watchers */
-	char *name;                       /* Pathname being watched */
-	int wd;                           /* Watch descriptor */
-	struct handler handler[evt_max];  /* Handlers */
+	struct dirwatcher *parent;           /* Points to the parent watcher.
+					        NULL for top-level watchers */
+	char *name;                          /* Pathname being watched */
+	int wd;                              /* Watch descriptor */
+	struct handler *handler_list;        /* Handlers */
 	int autowatch;
 };
 
 /* Array of handlers for each event */
-struct handler handler[evt_max];
+struct handler *handler_list;
+int handler_mask;
+
 
-/* Process list */
+/* Convert event name to event code */
+int
+ev_name_to_code(const char *name, int len)
+{
+	int i;
 
-/* Redirector codes */
-#define REDIR_OUT 0
-#define REDIR_ERR 1
+	for (i = 0; evtab[i].evname; i++) {
+		if (strlen(evtab[i].evname) == len &&
+		    memcmp(evtab[i].evname, name, len) == 0)
+			return evtab[i].evcode;
+	}
+	return 0;
+}
 
-/* A running process is described by this structure */
-struct process {
-	struct process *next, *prev;
-	unsigned timeout;       /* Timeout in seconds */
-	pid_t pid;              /* PID */
-	time_t start;           /* Time when the process started */
-	pid_t redir[2];         /* PIDs of redirector processes (0 if no
-				   redirector) */
-};
+const char *
+ev_code_to_name(int code)
+{
+	int i;
 
-/* List of running processes */
-struct process *proc_list;
-/* List of available process slots */
-struct process *proc_avail;
-/* Declare functions for handling process lists */
-#define LIST process
-#define LIST_PUSH proc_push
-#define LIST_POP proc_pop
-#define LIST_UNLINK proc_unlink
-#include "dlist.c"
+	for (i = 0; evtab[i].evname; i++) {
+		if (evtab[i].evcode == code)
+			return evtab[i].evname;
+	}
+	return NULL;
+}
 
 /* Diagnostic functions */
 const char *
@@ -176,6 +188,88 @@ debugprt(const char *fmt, ...)
 
 #define debug(l, c) do { if (debug_level>=(l)) debugprt c; } while(0)
 
+/* Memory allocation with error checking */
+void *
+emalloc(size_t size)
+{
+	void *p = malloc(size);
+	if (!p) {
+		diag(LOG_CRIT, "not enough memory");
+		exit(2);
+	}
+	return p;
+}
+
+void *
+ecalloc(size_t nmemb, size_t size)
+{
+	void *p = calloc(nmemb, size);
+	if (!p) {
+		diag(LOG_CRIT, "not enough memory");
+		exit(2);
+	}
+	return p;
+}
+
+/* Create a full file name from directory and file name */
+char *
+mkfilename(const char *dir, const char *file)
+{
+	char *tmp;
+	size_t dirlen = strlen(dir);
+	size_t fillen = strlen(file);
+	size_t len;
+
+	while (dirlen > 0 && dir[dirlen-1] == '/')
+		dirlen--;
+
+	len = dirlen + (dir[0] ? 1 : 0) + fillen;
+	tmp = malloc(len + 1);
+	if (tmp) {
+		memcpy(tmp, dir, dirlen);
+		if (dir[0])
+			tmp[dirlen++] = '/';
+		memcpy(tmp + dirlen, file, fillen);
+		tmp[len] = 0;
+	}
+	return tmp;
+}
+
+/* Declare functions for handler lists */
+#define LIST handler
+#define LIST_PUSH handler_push
+#define LIST_POP handler_pop
+#define LIST_UNLINK handler_unlink
+#include "dlist.c"
+
+
+/* Process list */
+
+/* Redirector codes */
+#define REDIR_OUT 0
+#define REDIR_ERR 1
+
+/* A running process is described by this structure */
+struct process {
+	struct process *next, *prev;
+	unsigned timeout;       /* Timeout in seconds */
+	pid_t pid;              /* PID */
+	time_t start;           /* Time when the process started */
+	pid_t redir[2];         /* PIDs of redirector processes (0 if no
+				   redirector) */
+};
+
+/* List of running processes */
+struct process *proc_list;
+/* List of available process slots */
+struct process *proc_avail;
+/* Declare functions for handling process lists */
+#define LIST process
+#define LIST_PUSH proc_push
+#define LIST_POP proc_pop
+#define LIST_UNLINK proc_unlink
+#include "dlist.c"
+
 /* Command line processing and auxiliary functions */
 
 static void
@@ -240,46 +334,58 @@ set_handler(const char *arg)
 {
 	int len;
 	int n;
+	struct handler *h;
+	int ev;
 
-	/* Event code */
-	len = strcspn(arg, ",:");
-	for (n = 0; n < evt_max; n++)
-		if (strncmp(arg, evtstr[n], len) == 0)
+	h = emalloc(sizeof(*h));
+	memset(h, 0, sizeof(*h));
+	
+	/* Parse event mask */
+	while (1) {
+		len = strcspn(arg, ",:");
+		if (arg[len] == 0)
 			break;
-
-	if (n == evt_max) {
-		char *p;
-		n = strtoul(arg, &p, 10);
-		if (*p || !(n >= 0 && n < evt_max)) {
+		ev = ev_name_to_code(arg, len);
+		if (ev == 0) {
 			diag(LOG_CRIT, "unrecognized event: %*.*s",
 			     len, len, arg);
 			exit(1);
 		}
+		h->ev_mask |= ev;
+		arg += len;
+		if (*arg == ',')
+			arg++;
+		else
+			break;
 	}
 
-	/* flag */
-	handler[n].flags = 0;
-	handler[n].timeout = handler_timeout;
+	if (!*arg) {
+		diag(LOG_CRIT, "bad handler specification");
+		exit(1);
+	}
 	
-	for (arg += len; *arg == ','; arg += len) {
-		++arg;
+	/* parse flags */
+	h->flags = 0;
+	h->timeout = handler_timeout;
+
+	++arg;
+	while (1) {
 		len = strcspn(arg, ",:");
 		if (arg[len] == 0)
 			break;
 		if (strncmp(arg, "wait", len) == 0)
-			handler[n].flags &= ~HF_NOWAIT;
+			h->flags &= ~HF_NOWAIT;
 		else if (strncmp(arg, "nowait", len) == 0)
-			handler[n].flags |= HF_NOWAIT;
+			h->flags |= HF_NOWAIT;
 		else if (strncmp(arg, "stdout", len) == 0)
-			handler[n].flags |= HF_STDOUT;
+			h->flags |= HF_STDOUT;
 		else if (strncmp(arg, "stderr", len) == 0)
-			handler[n].flags |= HF_STDERR;
+			h->flags |= HF_STDERR;
 		else if (len > TIMEOUT_FLAG_LEN &&
 			 !memcmp(arg, TIMEOUT_FLAG_STR, TIMEOUT_FLAG_LEN)) {
 			char *p;
 
-			handler[n].timeout = strtoul(arg+TIMEOUT_FLAG_LEN,
-						     &p, 10);
+			h->timeout = strtoul(arg+TIMEOUT_FLAG_LEN,&p, 10);
 			if (p != arg + len) {
 				diag(LOG_CRIT, "invalid timeout: %s", arg);
 				exit(1);
@@ -288,6 +394,11 @@ set_handler(const char *arg)
 			diag(LOG_CRIT, "unknown flag %*.*s", len, len, arg);
 			exit(1);
 		}
+		arg += len;
+		if (*arg == ',')
+			arg++;
+		else
+			break;
 	}
 
 	if (*arg != ':') {
@@ -299,61 +410,18 @@ set_handler(const char *arg)
 	++arg;
 
 	if (*arg == 0)
-		handler[n].prog = NULL;
+		h->prog = NULL;
 	else {
-		handler[n].prog = arg;
+		h->prog = arg;
 		if (access(arg, X_OK))
 			diag(LOG_WARNING, "handler %s: %s", arg,
 			     strerror(errno));
 	}
+
+	handler_mask |= h->ev_mask;
+	handler_push(&handler_list, h);
 }
 
-/* Memory allocation with error checking */
-void *
-emalloc(size_t size)
-{
-	void *p = malloc(size);
-	if (!p) {
-		diag(LOG_CRIT, "not enough memory");
-		exit(2);
-	}
-	return p;
-}
-
-void *
-ecalloc(size_t nmemb, size_t size)
-{
-	void *p = calloc(nmemb, size);
-	if (!p) {
-		diag(LOG_CRIT, "not enough memory");
-		exit(2);
-	}
-	return p;
-}
-
-/* Create a full file name from directory and file name */
-char *
-mkfilename(const char *dir, const char *file)
-{
-	char *tmp;
-	size_t dirlen = strlen(dir);
-	size_t fillen = strlen(file);
-	size_t len;
-
-	while (dirlen > 0 && dir[dirlen-1] == '/')
-		dirlen--;
-
-	len = dirlen + (dir[0] ? 1 : 0) + fillen;
-	tmp = malloc(len + 1);
-	if (tmp) {
-		memcpy(tmp, dir, dirlen);
-		if (dir[0])
-			tmp[dirlen++] = '/';
-		memcpy(tmp + dirlen, file, fillen);
-		tmp[len] = 0;
-	}
-	return tmp;
-}
 
 void
 signal_setup(void (*sf) (int))
@@ -611,14 +679,14 @@ open_redirector(const char *tag, int prio, pid_t *return_pid)
 }
 
 static int
-run_handler(struct dirwatcher *dp, int event, const char *file)
+run_handler(struct dirwatcher *dp, struct handler *hp, int event,
+	    const char *file)
 {
 	pid_t pid;
 	char buf[1024];
 	int redir_fd[2] = { -1, -1 };
 	pid_t redir_pid[2];
 	struct process *p;
-	struct handler *hp = &dp->handler[event];
 
 	if (!hp->prog)
 		return 0;
@@ -681,7 +749,7 @@ run_handler(struct dirwatcher *dp, int event, const char *file)
 		argv[1] = NULL;
 		snprintf(buf, sizeof buf, "%d", event);
 		setenv("DIRCOND_EVENT_CODE", buf, 1);
-		setenv("DIRCOND_EVENT", evtstr[event], 1);
+		setenv("DIRCOND_EVENT", ev_code_to_name(event), 1);
 		if (file)
 			setenv("DIRCOND_FILE", file, 1);
 		execv(argv[0], argv);
@@ -740,6 +808,8 @@ dirwatcher_create(int ifd, const char *name)
 {
 	struct dirwatcher *dwp;
 	int wd;
+	int mask = 0;
+	struct handler *h;
 
 	debug(1, ("creating watcher %s", name));
 	dwp = calloc(1, sizeof(*dwp));
@@ -755,9 +825,7 @@ dirwatcher_create(int ifd, const char *name)
 	}
 	dwp->parent = NULL;
 	
-	wd = inotify_add_watch(ifd, name,
-			       IN_DELETE|IN_CREATE|IN_CLOSE_WRITE|
-		               IN_MOVED_FROM|IN_MOVED_TO);
+	wd = inotify_add_watch(ifd, name, handler_mask);
 	if (wd == -1) {
 		diag(LOG_ERR, "cannot set watch on %s: %s",
 		     name, strerror(errno));
@@ -778,6 +846,13 @@ dirwatcher_destroy(int ifd, struct dirwatcher *dwp)
 	debug(1, ("removing watcher %s", dwp->name));
 	dirwatcher_unlink(&dirwatcher_list, dwp);
 	inotify_rm_watch(ifd, dwp->wd);
+	if (!dwp->parent) {
+		while (dwp->handler_list) {
+			struct handler *h = dwp->handler_list;
+			handler_unlink(&dwp->handler_list, h);
+			free(h);
+		}
+	}
 	dirwatcher_free(dwp);
 }
 
@@ -850,7 +925,7 @@ subwatcher_create(int ifd, struct dirwatcher *parent, const char *dirname)
 	struct dirwatcher *dwp = dirwatcher_create(ifd, dirname);
 	if (dwp) {
 		dwp->parent = parent;
-		memcpy(dwp->handler, parent->handler, sizeof(dwp->handler));
+		dwp->handler_list = parent->handler_list;
 		if (parent->autowatch == -1)
 			dwp->autowatch = parent->autowatch;
 		else if (parent->autowatch)
@@ -1073,7 +1148,7 @@ main(int argc, char **argv)
 				     "cannot create watcher; exiting");
 				exit(1);
 			}
-			memcpy(dwp->handler, handler, sizeof (dwp->handler));
+			dwp->handler_list = handler_list;
 			dwp->autowatch = autowatch;
 			watch_subdirs (dwp, ifd);
 		}
@@ -1082,6 +1157,8 @@ main(int argc, char **argv)
 			break;
 		argv += i - 1;
 		argv[0] = (char*) program_name;
+		handler_list = NULL;
+		handler_mask = 0;
 	}
 
 	if (!dirwatcher_list) {
@@ -1138,7 +1215,8 @@ main(int argc, char **argv)
 		ep = (struct inotify_event *) buffer;
 		while (rdbytes) {
 			if (ep->wd >= 0) {
-				int ev = -1;
+				struct handler *h;
+				
 				dp = dirwatcher_find_wd(ep->wd);
 				if (ep->mask & IN_IGNORED)
 					/* nothing */;
@@ -1161,31 +1239,32 @@ main(int argc, char **argv)
 						diag(LOG_NOTICE,
 						     "unrecognized event %x",
 						     ep->mask);
+				} else if (ep->mask & IN_ATTRIB) {
+					debug(1, ("%s/%s changed metadata",
+                                                  dp->name, ep->name));
 				} else if (ep->mask & IN_CREATE) {
-					ev = evt_create;
 					debug(1, ("%s/%s created",
 						  dp->name, ep->name));
 					check_new_watcher(ifd,
 							  dp->name, ep->name);
 				} else if (ep->mask & (IN_DELETE|
 						       IN_MOVED_FROM)) {
-					ev = evt_delete;
 					debug(1, ("%s/%s deleted",
 						  dp->name, ep->name));
 					remove_watcher(ifd, dp->name,
 						       ep->name);
 				} else if (ep->mask & (IN_CLOSE_WRITE|
 						       IN_MOVED_TO)) {
-					ev = evt_close;
 					debug(1, ("%s/%s written",
 						  dp->name, ep->name));
 				} else
 					diag(LOG_NOTICE,
 					     "%s/%s: unexpected event %x",
 					     dp->name, ep->name, ep->mask);
-
-				if (ev >= 0 && ev < evt_max) {
-					run_handler(dp, ev, ep->name);
+				for (h = dp->handler_list; h; h = h->next) {
+					if (h->ev_mask & ep->mask)
+						run_handler(dp, h, ep->mask,
+							    ep->name);
 				}
 			}
 			size = sizeof(*ep) + ep->len;
