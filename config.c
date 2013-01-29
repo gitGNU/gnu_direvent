@@ -72,11 +72,11 @@ nextln()
 			bufsize *= 2;
 			buffer = erealloc(buffer, bufsize);
 		}
-
+		
 		if (!p && off == 0)
 			return -1;
 		
-		if (buffer[off-1] == '\\')
+		if (off > 0 && buffer[off-1] == '\\')
 			buffer[--off] = 0;
 		else
 			break;

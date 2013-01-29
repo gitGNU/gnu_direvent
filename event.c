@@ -75,7 +75,7 @@ ev_code_to_name(int code)
 	int i;
 
 	for (i = 0; events[i].evname; i++) {
-		if (events[i].evcode == code)
+		if (events[i].evcode & code)
 			return events[i].evname;
 	}
 	return NULL;
