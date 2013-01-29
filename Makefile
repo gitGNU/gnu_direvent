@@ -20,10 +20,13 @@ BINDIR=$(PREFIX)/bin
 MANDIR=$(PREFIX)/share/man
 PACKAGE=dircond
 VERSION=2.0
-DISTFILES=README COPYING NEWS ChangeLog Makefile dircond.c dlist.c dircond.1
+DISTFILES=README COPYING NEWS ChangeLog Makefile $(OBJS) $(INCS) dircond.1
+SRCS=dircond.c config.c event.c hashtab.c watcher.c pathdefn.c
+OBJS=$(SRCS:.c=.o)
+INCS=dircond.h
 
-dircond: dircond.c dlist.c
-	cc -odircond $(CFLAGS) dircond.c
+dircond: $(OBJS)
+	cc -odircond $(CFLAGS) $(OBJS)
 
 install-bin: dircond
 	mkdir -p $(DESTDIR)$(BINDIR)
@@ -64,4 +67,4 @@ ChangeLog:
         fi
 
 clean:
-	rm -f dircond
+	rm -f $(OBJS)

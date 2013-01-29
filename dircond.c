@@ -29,100 +29,23 @@
 #include <sys/types.h>
 #include <sys/inotify.h>
 #include <sys/wait.h>
-#include <sys/stat.h>
-#include <dirent.h>
+#include "dircond.h"
+
+#ifndef SYSCONFDIR
+# define SYSCONFDIR "/etc/"
+#endif
 
 /* Configuration settings */
 const char *program_name;         /* This program name */
+const char *conffile = SYSCONFDIR "/dircond.conf";
 int foreground;                   /* Remain in the foreground */
-const char *tag;                  /* Syslog tag */
-int facility = LOG_DAEMON;        /* Use this syslog facility for logging.
+char *tag;                        /* Syslog tag */
+int facility = -1;                /* Use this syslog facility for logging.
 				     -1 means log to stderr */
 int debug_level;                  /* Debug verbosity level */
-unsigned handler_timeout = 5;     /* Timeout for handler program (seconds) */
-int autowatch;                    /* Automatically add directories created
-				     under watchpoints to the watcher. If set
-				     to -1, nesting level is not limited. If
-				     set to a positive value, this value limits
-				     the nesting depth. */
 char *pidfile = NULL;             /* Store PID to this file */
 char *user = NULL;                /* User to run as */
 
-/* Event codes */
-struct event {
-	int evcode;
-	char *evname;
-};
-
-struct event evtab[] = {
-	{ IN_ACCESS,        "access" },
-	{ IN_ATTRIB,        "attrib" },       
-	{ IN_CLOSE_WRITE,   "close_write" },  
-	{ IN_CLOSE_NOWRITE, "close_nowrite" },
-	{ IN_CREATE,        "create" },       
-	{ IN_DELETE,        "delete" },      
-	{ IN_MODIFY,        "modify" },
-	{ IN_MOVED_FROM,    "moved_from" },    
-	{ IN_MOVED_TO,      "moved_to" },      
-	{ IN_OPEN,          "open" },
-	{ 0 }
-};
-
-/* Handler flags. */
-#define HF_NOWAIT 0x01       /* Don't wait for termination */
-#define HF_STDOUT 0x02       /* Capture stdout */
-#define HF_STDERR 0x04       /* Capture stderr */
-
-/* Handler structure */
-struct handler {
-	struct handler *next, *prev;
-	int ev_mask;         /* Event mask */
-	int flags;           /* Handler flags */
-	const char *prog;    /* Handler program (no arguments allowed) */
-	unsigned timeout;    /* Handler timeout */
-};
-
-/* A directory watcher is described by the following structure */
-struct dirwatcher {
-	struct dirwatcher *next, *prev;
-	struct dirwatcher *parent;           /* Points to the parent watcher.
-					        NULL for top-level watchers */
-	char *name;                          /* Pathname being watched */
-	int wd;                              /* Watch descriptor */
-	struct handler *handler_list;        /* Handlers */
-	int autowatch;
-};
-
-/* Array of handlers for each event */
-struct handler *handler_list;
-int handler_mask;
-
-
-/* Convert event name to event code */
-int
-ev_name_to_code(const char *name, int len)
-{
-	int i;
-
-	for (i = 0; evtab[i].evname; i++) {
-		if (strlen(evtab[i].evname) == len &&
-		    memcmp(evtab[i].evname, name, len) == 0)
-			return evtab[i].evcode;
-	}
-	return 0;
-}
-
-const char *
-ev_code_to_name(int code)
-{
-	int i;
-
-	for (i = 0; evtab[i].evname; i++) {
-		if (evtab[i].evcode == code)
-			return evtab[i].evname;
-	}
-	return NULL;
-}
 
 /* Diagnostic functions */
 const char *
@@ -176,7 +99,7 @@ diag(int prio, const char *fmt, ...)
 	va_end(ap);
 }
 	
-static void
+void
 debugprt(const char *fmt, ...)
 {
 	va_list ap;
@@ -185,8 +108,6 @@ debugprt(const char *fmt, ...)
 	vdiag(LOG_DEBUG, fmt, ap);
 	va_end(ap);
 }
-
-#define debug(l, c) do { if (debug_level>=(l)) debugprt c; } while(0)
 
 /* Memory allocation with error checking */
 void *
@@ -208,6 +129,27 @@ ecalloc(size_t nmemb, size_t size)
 		diag(LOG_CRIT, "not enough memory");
 		exit(2);
 	}
+	return p;
+}
+
+void *
+erealloc(void *ptr, size_t size)
+{
+	void *p = realloc(ptr, size);
+	if (!p) {
+		diag(LOG_CRIT, "not enough memory");
+		exit(2);
+	}
+	return p;
+}
+
+char *
+estrdup(const char *str)
+{
+	size_t len = strlen(str);
+	char *p = emalloc(len + 1);
+	memcpy(p, str, len);
+	p[len] = 0;
 	return p;
 }
 
@@ -235,14 +177,6 @@ mkfilename(const char *dir, const char *file)
 	return tmp;
 }
 
-/* Declare functions for handler lists */
-#define LIST handler
-#define LIST_PUSH handler_push
-#define LIST_POP handler_pop
-#define LIST_UNLINK handler_unlink
-#include "dlist.c"
-
-
 /* Process list */
 
 /* Redirector codes */
@@ -263,12 +197,38 @@ struct process {
 struct process *proc_list;
 /* List of available process slots */
 struct process *proc_avail;
+
 /* Declare functions for handling process lists */
-#define LIST process
-#define LIST_PUSH proc_push
-#define LIST_POP proc_pop
-#define LIST_UNLINK proc_unlink
-#include "dlist.c"
+struct process *
+proc_unlink(struct process **root, struct process *p)
+{
+	if (p->prev)
+		p->prev->next = p->next;
+	else
+		*root = p->next;
+	if (p->next)
+		p->next->prev = p->prev;
+	p->next = p->prev = NULL;
+	return p;
+}
+
+struct process *
+proc_pop(struct process **pp)
+{
+	if (*pp)
+		return proc_unlink(pp, *pp);
+	return NULL;
+}
+
+void
+proc_push(struct process **pp, struct process *p)
+{
+	p->prev = NULL;
+	p->next = *pp;
+	if (*pp)
+		(*pp)->prev = p;
+	*pp = p;
+}
 
 /* Command line processing and auxiliary functions */
 
@@ -282,146 +242,6 @@ set_program_name(const char *arg)
 		program_name = arg;
 }
 
-static int
-read_facility(const char *arg)
-{
-	static struct transtab { int f; char *s; } ftab[] = {
-		{ LOG_AUTH, "auth" },
-		{ LOG_AUTHPRIV, "authpriv" },
-		{ LOG_CRON, "cron" },
-		{ LOG_DAEMON, "daemon" },
-		{ LOG_FTP, "ftp" },
-		{ LOG_LOCAL0, "local0" },
-		{ LOG_LOCAL1, "local1" },
-		{ LOG_LOCAL2, "local2" },
-		{ LOG_LOCAL3, "local3" },
-		{ LOG_LOCAL4, "local4" },
-		{ LOG_LOCAL5, "local5" },
-		{ LOG_LOCAL6, "local6" },
-		{ LOG_LOCAL7, "local7" },
-		{ LOG_LPR, "lpr" },
-		{ LOG_MAIL, "mail" },
-		{ LOG_NEWS, "news" },
-		{ LOG_USER, "user" },
-		{ LOG_UUCP, "uucp" },
-		{ 0, NULL }
-	};
-	struct transtab *p;
-	char *s;
-	unsigned long n;
-	
-	for (p = ftab; p->s; p++) {
-		if (strcmp(p->s, arg) == 0)
-			return p->f;
-	}
-	n = strtoul(arg, &s, 10);
-	if (*s) {
-		diag(LOG_CRIT, "unknown facility: %s", arg);
-		exit(1);
-	}
-	if (n > 256) {
-		diag(LOG_CRIT, "facility out of range: %s", arg);
-		exit(1);
-	}
-	return n;
-}
-
-#define TIMEOUT_FLAG_STR "timeout="
-#define TIMEOUT_FLAG_LEN sizeof(TIMEOUT_FLAG_STR)-1
-
-void
-set_handler(const char *arg)
-{
-	int len;
-	int n;
-	struct handler *h;
-	int ev;
-
-	h = emalloc(sizeof(*h));
-	memset(h, 0, sizeof(*h));
-	
-	/* Parse event mask */
-	while (1) {
-		len = strcspn(arg, ",:");
-		if (arg[len] == 0)
-			break;
-		ev = ev_name_to_code(arg, len);
-		if (ev == 0) {
-			diag(LOG_CRIT, "unrecognized event: %*.*s",
-			     len, len, arg);
-			exit(1);
-		}
-		h->ev_mask |= ev;
-		arg += len;
-		if (*arg == ',')
-			arg++;
-		else
-			break;
-	}
-
-	if (!*arg) {
-		diag(LOG_CRIT, "bad handler specification");
-		exit(1);
-	}
-	
-	/* parse flags */
-	h->flags = 0;
-	h->timeout = handler_timeout;
-
-	++arg;
-	while (1) {
-		len = strcspn(arg, ",:");
-		if (arg[len] == 0)
-			break;
-		if (strncmp(arg, "wait", len) == 0)
-			h->flags &= ~HF_NOWAIT;
-		else if (strncmp(arg, "nowait", len) == 0)
-			h->flags |= HF_NOWAIT;
-		else if (strncmp(arg, "stdout", len) == 0)
-			h->flags |= HF_STDOUT;
-		else if (strncmp(arg, "stderr", len) == 0)
-			h->flags |= HF_STDERR;
-		else if (len > TIMEOUT_FLAG_LEN &&
-			 !memcmp(arg, TIMEOUT_FLAG_STR, TIMEOUT_FLAG_LEN)) {
-			char *p;
-
-			h->timeout = strtoul(arg+TIMEOUT_FLAG_LEN,&p, 10);
-			if (p != arg + len) {
-				diag(LOG_CRIT, "invalid timeout: %s", arg);
-				exit(1);
-			}
-		} else {
-			diag(LOG_CRIT, "unknown flag %*.*s", len, len, arg);
-			exit(1);
-		}
-		arg += len;
-		if (*arg == ',')
-			arg++;
-		else
-			break;
-	}
-
-	if (*arg != ':') {
-		diag(LOG_CRIT,
-		     "bad handler specification near %s",
-		     *arg ? arg : "end");
-		exit(1);
-	}
-	++arg;
-
-	if (*arg == 0)
-		h->prog = NULL;
-	else {
-		h->prog = arg;
-		if (access(arg, X_OK))
-			diag(LOG_WARNING, "handler %s: %s", arg,
-			     strerror(errno));
-	}
-
-	handler_mask |= h->ev_mask;
-	handler_push(&handler_list, h);
-}
-
 
 void
 signal_setup(void (*sf) (int))
@@ -692,11 +512,11 @@ run_handler(struct dirwatcher *dp, struct handler *hp, int event,
 		return 0;
 	if (access(hp->prog, X_OK)) {
 		diag(LOG_ERR, "watchpoint %s: cannot execute %s: %s",
-		     dp->name, hp->prog, strerror(errno));
+		     dp->dirname, hp->prog, strerror(errno));
 		return 1;
 	}
 	
-	debug(1, ("starting %s, dir=%s, file=%s", hp->prog, dp->name, file));
+	debug(1, ("starting %s, dir=%s, file=%s", hp->prog, dp->dirname, file));
 	if (hp->flags & HF_STDERR)
 		redir_fd[REDIR_ERR] = open_redirector(hp->prog, LOG_INFO,
 						      &redir_pid[REDIR_ERR]);
@@ -717,9 +537,9 @@ run_handler(struct dirwatcher *dp, struct handler *hp, int event,
 		char *argv[2];
 		fd_set fdset;
 
-		if (chdir(dp->name)) {
+		if (chdir(dp->dirname)) {
 			diag(LOG_CRIT, "cannot change to %s: %s",
-			     dp->name, strerror(errno));
+			     dp->dirname, strerror(errno));
 			exit(1);
 		}
 
@@ -758,7 +578,7 @@ run_handler(struct dirwatcher *dp, struct handler *hp, int event,
 
 	/* master */
 	debug(1, ("%s running; dir=%s, file=%s, pid=%lu",
-		  hp->prog, dp->name, file, (unsigned long)pid));
+		  hp->prog, dp->dirname, file, (unsigned long)pid));
 
 	p = register_process(pid, time(NULL), hp->timeout);
 	
@@ -781,247 +601,6 @@ run_handler(struct dirwatcher *dp, struct handler *hp, int event,
 	}
 	return 0;
 }
-
-			
-/* Directory watcher functions */
-
-/* A doubly-linked list of active watchers */
-struct dirwatcher *dirwatcher_list;
-/* Declare low-level functions for handling the watchers list */
-#define LIST dirwatcher
-#define LIST_PUSH dirwatcher_push
-#define LIST_POP dirwatcher_pop
-#define LIST_UNLINK dirwatcher_unlink
-#include "dlist.c"
-
-/* Free the allocated watcher (must have been unlinked from the list first) */
-void
-dirwatcher_free(struct dirwatcher *dwp)
-{
-	free(dwp->name);
-	free(dwp);
-}
-
-/* Create a new watcher and attach it to the list. */
-struct dirwatcher *
-dirwatcher_create(int ifd, const char *name)
-{
-	struct dirwatcher *dwp;
-	int wd;
-	int mask = 0;
-	struct handler *h;
-
-	debug(1, ("creating watcher %s", name));
-	dwp = calloc(1, sizeof(*dwp));
-	if (!dwp) {
-		diag(LOG_ERR, "not enough memory");
-		return NULL;
-	}
-	dwp->name = strdup(name);
-	if (!dwp->name) {
-		diag(LOG_ERR, "not enough memory");
-		free(dwp);
-		return NULL;
-	}
-	dwp->parent = NULL;
-	
-	wd = inotify_add_watch(ifd, name, handler_mask);
-	if (wd == -1) {
-		diag(LOG_ERR, "cannot set watch on %s: %s",
-		     name, strerror(errno));
-		dirwatcher_free(dwp);
-		return NULL;
-	}
-	
-	dwp->wd = wd;
-	dirwatcher_push(&dirwatcher_list, dwp);
-	
-	return dwp;
-}
-
-/* Destroy a watcher, unlink it and reclaim the allocated memory. */
-void
-dirwatcher_destroy(int ifd, struct dirwatcher *dwp)
-{
-	debug(1, ("removing watcher %s", dwp->name));
-	dirwatcher_unlink(&dirwatcher_list, dwp);
-	inotify_rm_watch(ifd, dwp->wd);
-	if (!dwp->parent) {
-		while (dwp->handler_list) {
-			struct handler *h = dwp->handler_list;
-			handler_unlink(&dwp->handler_list, h);
-			free(h);
-		}
-	}
-	dirwatcher_free(dwp);
-}
-
-/* Find a watcher with the given descriptor */
-struct dirwatcher *
-dirwatcher_find_wd(int wd)
-{
-	struct dirwatcher *dwp;
-	
-	for (dwp = dirwatcher_list; dwp; dwp = dwp->next)
-		if (dwp->wd == wd)
-			break;
-	return dwp;
-}
-
-/* Find a watcher with the given pathname */
-struct dirwatcher *
-dirwatcher_find_name(const char *name)
-{
-	struct dirwatcher *dwp;
-	
-	for (dwp = dirwatcher_list; dwp; dwp = dwp->next)
-		if (strcmp(dwp->name, name) == 0)
-			break;
-	return dwp;
-}
-
-/* Compare full pathname with a directory and file name.  Return
-   semantics is the same as in strcmp(2). */
-int
-name2cmp(const char *pathname, const char *dir, const char *name)
-{
-	int c;
-	
-	for (; *pathname && *dir; pathname++, dir++)
-		if (c = *pathname - *dir)
-			return c;
-	while (*pathname && *pathname == '/')
-		++pathname;
-	while (*dir && *dir == '/')
-		++dir;
-	if (*dir)
-		return - *dir;
-
-	for (; *pathname && *name; pathname++, name++)
-		if (c = *pathname - *name)
-			return c;
-	if (*pathname)
-		return *pathname;
-	if (*name)
-		return - *name;
-	return 0;
-}
-
-/* Remove a watcher identified by its directory and file name */
-void
-remove_watcher(int ifd, const char *dir, const char *name)
-{
-	struct dirwatcher *dwp;
-	for (dwp = dirwatcher_list; dwp; dwp = dwp->next)
-		if (name2cmp(dwp->name, dir, name) == 0) {
-			dirwatcher_destroy(ifd, dwp);
-			return;
-		}
-}
-
-struct dirwatcher *
-subwatcher_create(int ifd, struct dirwatcher *parent, const char *dirname)
-{
-	struct dirwatcher *dwp = dirwatcher_create(ifd, dirname);
-	if (dwp) {
-		dwp->parent = parent;
-		dwp->handler_list = parent->handler_list;
-		if (parent->autowatch == -1)
-			dwp->autowatch = parent->autowatch;
-		else if (parent->autowatch)
-			dwp->autowatch = parent->autowatch - 1;
-	}
-	return dwp;
-}
-
-/* Check if a new watcher must be created and create it if so.
-
-   A watcher must be created if its parent's autowatch has a non-null
-   value.  If it has a negative value, it will be inherited by the new
-   watcher.  Otherwise, the new watcher will inherit the parent's autowatch
-   decreased by one.
-
-   Return 0 on success, -1 on error.
-*/
-int
-check_new_watcher(int ifd, const char *dir, const char *name)
-{
-	int rc;
-	char *fname;
-	struct stat st;
-	struct dirwatcher *parent;
-
-	parent = dirwatcher_find_name(dir);
-	if (!parent || !parent->autowatch)
-		return 0;
-	
-	fname = mkfilename(dir, name);
-	if (!fname) {
-		diag(LOG_ERR, "cannot create watcher %s/%s: not enough memory",
-		     dir, name);
-		return -1;
-	}
-
-	if (stat(fname, &st)) {
-		diag(LOG_ERR, "cannot create watcher %s/%s, stat failed: %s",
-		     dir, name, strerror(errno));
-		rc = -1;
-	} else if (S_ISDIR(st.st_mode))
-		rc = subwatcher_create(ifd, parent, fname) ? 0 : -1;
-	else
-		rc = 0;
-	free(fname);
-	return rc;
-}
-
-/* Recursively scan subdirectories of parent and add them to the
-   wather list, as requested by the parent's autowatch value. */
-static void
-watch_subdirs(struct dirwatcher *parent, int ifd)
-{
-	DIR *dir;
-	struct dirent *ent;
-	
-	if (parent->autowatch == 0)
-		return;
-	dir = opendir(parent->name);
-	if (!dir) {
-		diag(LOG_ERR, "cannot open directory %d: %s",
-		     parent->name, strerror(errno));
-		return;
-	}
-
-	while (ent = readdir(dir)) {
-		struct stat st;
-		char *dirname;
-		
-		if (ent->d_name[0] == '.' &&
-		    (ent->d_name[1] == 0 ||
-		     (ent->d_name[1] == '.' && ent->d_name[2] == 0)))
-			continue;
-
-		dirname = mkfilename(parent->name, ent->d_name);
-		if (!dirname) {
-			diag(LOG_ERR, "cannot stat %s/%s: not enough memory",
-			     parent->name, ent->d_name);
-			continue;
-		}
-		if (stat(dirname, &st)) {
-			diag(LOG_ERR, "cannot stat %s: %s",
-			     dirname, strerror(errno));
-		} else if (S_ISDIR(st.st_mode)) {
-			struct dirwatcher *dwp =
-				subwatcher_create(ifd, parent, dirname);
-			if (dwp)
-				watch_subdirs(dwp, ifd);
-		}
-		free(dirname);
-		
-	}
-	closedir(dir);
-}
-
-	
 
 /* Output a help summary. Return a code suitable for exit(2). */
 int
@@ -1030,29 +609,91 @@ help()
 	printf("Usage: %s [OPTIONS] DIR [DIR...]\n", program_name);
 	printf("OPTIONS are:\n\n");
 
-	printf("   -a            automatically watch created directories\n");
 	printf("   -d            increase debug verbosity\n");
         printf("   -f            run in the foreground\n");
 	printf("   -F FACILITY   log under this syslog facility (default: daemon);\n");
 	printf("                 use -F 0 to log to stderr instead\n");
-	printf("   -l N          automatically watch new directories located\n");
-	printf("                 up to Nth nesting level\n");
 	printf("   -P FILE       write PID to FILE\n");
-	printf("   -p EVENT,[FLAG[,FLAG...]:][COMMAND]\n");
-	printf("                 start COMMAND upon EVENT; empty COMMAND means\n");	
-	printf("                 forget prior definition\n");
-	printf("   -T TIMEOUT    set timeout for external commands\n");
         printf("   -t TAG        log with this syslog tag\n");
 	printf("   -u USER       run as this USER\n");
 
 	printf("   -h            output this help summary\n\n");
 
-	printf("The options -T and -p can be intermixed with DIRs.\n\n");
-
 	printf("Report bugs to <gray+dircond@gnu.org.ua>.\n");
 		
 	return 0;
 }
+
+int
+get_facility(const char *arg)
+{
+	int f;
+	
+	if (read_facility(arg, &f)) {
+		switch (errno) {
+		case EINVAL:
+			diag(LOG_CRIT,
+			     "unknown syslog facility: %s", arg);
+			break;
+
+		case ERANGE:
+			diag(LOG_CRIT, "syslog facility out of range");
+			break;
+				
+		default:
+			abort();
+		}
+		exit(1);
+	}
+	return f;
+}
+
+static void
+process_event(struct inotify_event *ep)
+{
+	struct dirwatcher *dp;
+	struct handler *h;
+				
+	dp = dirwatcher_lookup_wd(ep->wd);
+	if (ep->mask & IN_IGNORED)
+		return;
+	else if (ep->mask & IN_Q_OVERFLOW) {
+		diag(LOG_NOTICE,
+		     "event queue overflow");
+		return;
+	} else if (ep->mask & IN_UNMOUNT) {
+		/* FIXME: not sure if there's
+		   anything to do. Perhaps we should
+		   deregister the watched dirs that
+		   were located under the mountpoint
+		*/
+		return;
+	} else if (!dp) {
+		if (ep->name)
+			diag(LOG_NOTICE, "unrecognized event %x"
+			     "for %s", ep->mask, ep->name);
+		else
+			diag(LOG_NOTICE,
+			     "unrecognized event %x", ep->mask);
+		return;
+	} else if (ep->mask & IN_ATTRIB) {
+		debug(1, ("%s/%s changed metadata", dp->dirname, ep->name));
+	} else if (ep->mask & IN_CREATE) {
+		debug(1, ("%s/%s created", dp->dirname, ep->name));
+		check_new_watcher(dp->dirname, ep->name);
+	} else if (ep->mask & (IN_DELETE|IN_MOVED_FROM)) {
+		debug(1, ("%s/%s deleted", dp->dirname, ep->name));
+		remove_watcher(dp->dirname, ep->name);
+	} else if (ep->mask & (IN_CLOSE_WRITE|IN_MOVED_TO)) {
+		debug(1, ("%s/%s written", dp->dirname, ep->name));
+	} else
+		diag(LOG_NOTICE, "%s/%s: unexpected event %x",
+		     dp->dirname, ep->name, ep->mask);
+	for (h = dp->handler_list; h; h = h->next) {
+		if (h->ev_mask & ep->mask)
+			run_handler(dp, h, ep->mask, ep->name);
+	}
+}	
 
 int signo = 0;
 
@@ -1065,65 +706,21 @@ sigmain(int sig)
 
 char buffer[4096];
 
-static void
-parse_options (int argc, char **argv)
-{
-	int c;
-
-	optind = 0;
-	while ((c = getopt(argc, argv, "+adF:fhl:P:p:T:t:u:")) != EOF) {
-		switch (c) {
-		case 'a':
-			autowatch = -1;
-			break;
-		case 'd':
-			debug_level++;
-			break;
-		case 'f':
-			foreground++;
-			break;
-		case 'h':
-			exit(help());
-			break;
-		case 'l':
-			autowatch = atoi(optarg);
-			break;
-		case 'T':
-			handler_timeout = atoi(optarg);
-			break;
-		case 't':
-			tag = optarg;
-			break;
-		case 'F':
-			facility = read_facility(optarg);
-			break;
-		case 'P':
-			pidfile = optarg;
-			break;
-		case 'p':
-			set_handler(optarg);
-			break;
-		case 'u':
-			user = optarg;
-			if (!getpwnam(user)) {
-				diag(LOG_CRIT, "no such user: %s", user);
-				exit(1);
-			}
-			break;
-		default:
-			exit(1);
-		}
-	}
-}
+int ifd;
 
 int
 main(int argc, char **argv)
 {
-	int ifd, c, i;
-	struct dirwatcher *dp;
+	int c;
+	int opt_debug_level = 0;
+	int opt_foreground = 0;
+	char *opt_tag = NULL;
+	char *opt_pidfile = NULL;
+	int opt_facility = -1;
+	char *opt_user = NULL;
 	
 	set_program_name(argv[0]);
-	tag = program_name;
+	tag = (char*) program_name;
 
 	ifd = inotify_init();
 	if (ifd == -1) {
@@ -1131,40 +728,68 @@ main(int argc, char **argv)
 		exit(1);
 	}
 
-	while (1) {
-		parse_options (argc, argv);
-		argc -= optind;
-		argv += optind;
-		if (!argc)
+	while ((c = getopt(argc, argv, "dF:fhP:u:")) != EOF) {
+		switch (c) {
+		case 'd':
+			opt_debug_level++;
 			break;
-		for (i = 0; i < argc; i++) {
-			struct dirwatcher *dwp;
-			
-			if (argv[i][0] == '-')
-				break;
-			dwp = dirwatcher_create(ifd, argv[i]);
-			if (!dwp) {
-				diag(LOG_CRIT,
-				     "cannot create watcher; exiting");
+		case 'f':
+			opt_foreground++;
+			break;
+		case 'h':
+			exit(help());
+			break;
+		case 't':
+			opt_tag = optarg;
+			break;
+		case 'F':			
+			opt_facility = get_facility(optarg);
+			break;
+		case 'P':
+			opt_pidfile = optarg;
+			break;
+		case 'u':
+			opt_user = optarg;
+			if (!getpwnam(opt_user)) {
+				diag(LOG_CRIT, "no such user: %s", opt_user);
 				exit(1);
 			}
-			dwp->handler_list = handler_list;
-			dwp->autowatch = autowatch;
-			watch_subdirs (dwp, ifd);
-		}
-		argc -= i - 1;
-		if (argc == 1)
 			break;
-		argv += i - 1;
-		argv[0] = (char*) program_name;
-		handler_list = NULL;
-		handler_mask = 0;
+		default:
+			exit(1);
+		}
 	}
 
-	if (!dirwatcher_list) {
-		diag(LOG_CRIT, "not enough arguments");
+	argc -= optind;
+	argv += optind;
+
+	switch (argc) {
+	default:
+		diag(LOG_CRIT, "too many arguments");
 		exit(1);
+	case 1:
+		conffile = argv[0];
+		break;
+	case 0:
+		break;
 	}
+
+	config_parse(conffile);
+
+	if (opt_debug_level)
+		debug_level += opt_debug_level;
+	if (opt_foreground)
+		foreground = opt_foreground;
+	if (opt_tag)
+		tag = opt_tag;
+	if (opt_pidfile)
+		pidfile = opt_pidfile;
+	if (opt_facility != -1)
+		facility = opt_facility;
+	if (opt_user)
+		user = opt_user;
+	
+	setup_watchers();
 	
 	/* Become a daemon */
 	if (!foreground) {
@@ -1172,6 +797,8 @@ main(int argc, char **argv)
 			diag(LOG_CRIT, "daemon: %s", strerror(errno));
 			exit(1);
 		}
+		if (facility <= 0)
+			facility = LOG_DAEMON;
 	}
 	
 	if (facility > 0)
@@ -1214,59 +841,8 @@ main(int argc, char **argv)
 		
 		ep = (struct inotify_event *) buffer;
 		while (rdbytes) {
-			if (ep->wd >= 0) {
-				struct handler *h;
-				
-				dp = dirwatcher_find_wd(ep->wd);
-				if (ep->mask & IN_IGNORED)
-					/* nothing */;
-				else if (ep->mask & IN_Q_OVERFLOW)
-					diag(LOG_NOTICE,
-					     "event queue overflow");
-				else if (ep->mask & IN_UNMOUNT)
-					/* FIXME: not sure if there's
-					   anything to do. Perhaps we should
-					   deregister the watched dirs that
-					   were located under the mountpoint
-					*/;
-				else if (!dp) {
-					if (ep->name)
-						diag(LOG_NOTICE,
-						     "unrecognized event %x"
-						     "for %s", ep->mask,
-						     ep->name);
-					else
-						diag(LOG_NOTICE,
-						     "unrecognized event %x",
-						     ep->mask);
-				} else if (ep->mask & IN_ATTRIB) {
-					debug(1, ("%s/%s changed metadata",
-                                                  dp->name, ep->name));
-				} else if (ep->mask & IN_CREATE) {
-					debug(1, ("%s/%s created",
-						  dp->name, ep->name));
-					check_new_watcher(ifd,
-							  dp->name, ep->name);
-				} else if (ep->mask & (IN_DELETE|
-						       IN_MOVED_FROM)) {
-					debug(1, ("%s/%s deleted",
-						  dp->name, ep->name));
-					remove_watcher(ifd, dp->name,
-						       ep->name);
-				} else if (ep->mask & (IN_CLOSE_WRITE|
-						       IN_MOVED_TO)) {
-					debug(1, ("%s/%s written",
-						  dp->name, ep->name));
-				} else
-					diag(LOG_NOTICE,
-					     "%s/%s: unexpected event %x",
-					     dp->name, ep->name, ep->mask);
-				for (h = dp->handler_list; h; h = h->next) {
-					if (h->ev_mask & ep->mask)
-						run_handler(dp, h, ep->mask,
-							    ep->name);
-				}
-			}
+			if (ep->wd >= 0)
+				process_event(ep);
 			size = sizeof(*ep) + ep->len;
 			ep = (struct inotify_event *) ((char*) ep + size);
 			rdbytes -= size;
