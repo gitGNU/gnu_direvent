@@ -27,7 +27,6 @@
 #include <signal.h>
 #include <time.h>
 #include <sys/types.h>
-#include <sys/inotify.h>
 #include <sys/wait.h>
 #include "dircond.h"
 
@@ -676,19 +675,16 @@ process_event(struct inotify_event *ep)
 			diag(LOG_NOTICE,
 			     "unrecognized event %x", ep->mask);
 		return;
-	} else if (ep->mask & IN_ATTRIB) {
-		debug(1, ("%s/%s changed metadata", dp->dirname, ep->name));
 	} else if (ep->mask & IN_CREATE) {
 		debug(1, ("%s/%s created", dp->dirname, ep->name));
 		check_new_watcher(dp->dirname, ep->name);
 	} else if (ep->mask & (IN_DELETE|IN_MOVED_FROM)) {
 		debug(1, ("%s/%s deleted", dp->dirname, ep->name));
 		remove_watcher(dp->dirname, ep->name);
-	} else if (ep->mask & (IN_CLOSE_WRITE|IN_MOVED_TO)) {
-		debug(1, ("%s/%s written", dp->dirname, ep->name));
-	} else
-		diag(LOG_NOTICE, "%s/%s: unexpected event %x",
-		     dp->dirname, ep->name, ep->mask);
+	}
+
+	ev_log(ep, dp);
+	
 	for (h = dp->handler_list; h; h = h->next) {
 		if (h->ev_mask & ep->mask)
 			run_handler(dp, h, ep->mask, ep->name);

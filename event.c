@@ -42,6 +42,20 @@ struct event events[] = {
 	{ 0 }
 };
 
+void
+ev_log(struct inotify_event *ep, struct dirwatcher *dp)
+{
+	int i;
+
+	if (debug_level > 0) {
+		for (i = 0; events[i].evname; i++) {
+			if (events[i].evcode & ep->mask)
+				debug(1, ("%s/%s: %s", dp->dirname, ep->name,
+					  events[i].evname));
+		}
+	}
+}
+
 /* Convert event name to event code */
 int
 ev_name_to_code(const char *name)

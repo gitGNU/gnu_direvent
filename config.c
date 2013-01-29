@@ -22,22 +22,6 @@
 #include <pwd.h>
 #include "dircond.h"
 
-/*
-  option capture stdout
-  option capture stderr
-  option timeout 10
-  option wait
-  option nowait
-
-  path ID /some/path [depth[=N]]
-
-  event ID close_write create delete moved_from moved_to
-  
-  on EVTID PATHID call [PROGRAM]
-
-  e.g.:  on modify confdir call /etc/rc.d/rc.vname
-*/
-
 unsigned opt_timeout;
 unsigned opt_flags;
 
@@ -372,13 +356,18 @@ parse_path()
 	path = tknp;
 	
 	if (*nextkn()) {
-		char *p;
+		if (strcmp(tknp, "recursive") == 0) {
+			if (*nextkn()) {
+				char *p;
 
-		depth = strtol(tknp, &p, 10);
-		if (*p) {
-			diag(LOG_ERR, "%s:%d: invalid depth",
-			     filename, line);
-			return 1;
+				depth = strtol(tknp, &p, 10);
+				if (*p) {
+					diag(LOG_ERR, "%s:%d: invalid depth",
+					     filename, line);
+					return 1;
+				}
+			} else
+				depth = -1;
 		}
 	}
 		

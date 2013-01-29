@@ -13,130 +13,79 @@
 .\"
 .\" You should have received a copy of the GNU General Public License along
 .\" with dircond. If not, see <http://www.gnu.org/licenses/>.
-.TH DIRCOND 1 "January 10, 2013" "DIRCOND" "Dircond User Reference"
+.TH DIRCOND 1 "January 29, 2013" "DIRCOND" "Dircond User Reference"
 .SH NAME
 dircond \- directory content watcher
 .SH SYNOPSIS
-\fBdircond\fR [\fB\-adf\fR] [\fB\-F\fR \fIFACILITY\fR]\
- [\fB\-l\fR \fIN\fR]\
+\fBdircond\fR [\fB\-df\fR] [\fB\-F\fR \fIFACILITY\fR]\
  [\fB\-P\fR \fIFILE\fR]\
- [\fB\-T\fR \fISECONDS\fR]
-        [\fB\-t\fR \fITAG\fR]\
- [\fB\-u\fR \fIUSER\fR]
-        [[\fB\-p\fR \fIEVENT\fR[,\fIFLAG\fR[,\fIFLAG\fR...]:][\fICOMMAND\fR]]
-         \fIDIR\fR [\fIDIR\fR...]...]
+ [\fB\-u\fR \fIUSER\fR]\
+ [\fICONFIG\fR]
 
 .B dircond -h
 .SH DESCRIPTION
 .B Dircond
 monitors a set of directories on the file system and reacts when
-their content changes. The following changes are monitored:
-file creation, file removal, file update, and move of a file between
-directories. When a change is detected, the daemon reacts by invoking
-the external command configured for that kind of change.
+a file system event occurs in any of them.  Directories and events
+to monitor are specified in the configuration file.  When an event
+occurs the utility reacts by invoking an external command configured
+for that event.
 .PP
-The monitored directories are called
-.BR watchpoints .
-When a directory is created within one of the watchpoints, it can
-become a new watchpoint, if the command line options request so (see
-\fB\-a\fR and \fB\-l\fR options below).
+The following events can be monitored by the program:
+.TP
+.B access
+A file was accessed.
+.TP
+.B attrib
+A file's metadata changed.
+.TP
+.B close_write
+A writable file was closed.
+.TP
+.B close_nowrite
+An unwrittable file closed.
+.TP
+.B create
+A file was created.
+.TP
+.B delete
+A file was deleted.
+.TP
+.B modify
+A file was modified.
+.TP
+.B moved_from
+A file was moved into a monitored directory.
+.TP
+.B moved_to
+A file was moved out from a monitored directory.
+.TP
+.B open
+A file was opened.
 .PP
-The monitored changes are grouped into
-.BR events ,
-each event being identified by its numeric ID or symbolic name. The
-existing events are listed in the table below:
-.IP 0.
-(\fBcreate\fR) A file was created.
-.IP 1.
-(\fBdelete\fR) A file was deleted or moved out to another location.
-.IP 2.
-(\fBclose\fR) A file was written and closed or was moved in from
-another location.
-.PP
-When an event is detected for which a handler is declared,
+Wherever an event is detected,
 .B dircond
-changes to the directory where the event occurred and invokes that
-handler, passing it the description of the event in the
-environment variables listed below. Apart from these variables, the
+invokes the handler configured for it.  The handler is invoked in the
+directory where the event occured.  Additional information about the
+event is passed in the following environment variables:
+.TP
+.B DIRCOND_EVENT
+Event symbolic name (see the event table above). 
+.TP
+.B DIRCOND_EVENT_CODE
+Event number as per
+.BR /usr/include/sys/inotify.h .
+.TP
+.B DIRCOND_FILE
+The name of the affected file.
+.PP
+Apart from these variables, the
 handler environment is inherited from the calling process. If you need
 to restrict the environment, start
 .B dircond
 via
-.BR env (1),
-(see the section
-.BR EXAMPLES ).
-.PP
-Information about the event is supplied to the handler in the following 
-environment variables:
-.TP
-.B DIRCOND_EVENT_CODE
-Event number as per the above table.
-.TP
-.B DIRCOND_EVENT
-Event symbolic name, as shown in parentheses in the above table.
-.TP
-.B DIRCOND_FILE
-The name of the affected file.
-.SH HANDLERS AND WATCHPOINTS
-.PP
-Any non-optional arguments are treated as names of the directories
-to monitor.  Handlers for these directories are specified using the
-following command line option, which must precede the directory
-arguments it applies to:
-.TP
-\fB\-p\fR \fIEVENT\fR[,\fIFLAG\fR[,\fIFLAG\fR...]:][\fICOMMAND\fR]
-Define a handler to execute upon an event.  The \fIEVENT\fR argument
-specifies the event to monitor.  It is either the event symbolic name
-or its decimal code.  Optional flags instruct how to run
-\fICOMMAND\fR.  The following flags are defined:
-.RS
-.TP
-.B wait
-Wait for the command to terminate before continuing the main loop.
-This is the default.
-.TP
-.B nowait
-Do not wait for the command to terminate, go to the next event right
-away.  If the command fails to exit within the preconfigured time
-frame (see the \fB\-T\fR command line) it will be terminated with the
-signal 9 (\fBSIGKILL\fR).
-.TP
-\fBtimeout=\fIN\fR
-Sets timeout for that handler.  If not supplied, the timeout is
-supplied by the nearest prior
-.B \-T
-option.  The default timeout is 5 seconds.  Note, that the timeout
-setting affects both
-.BR wait " and " nowait
-handlers, i.e. in any case, the handler that runs longer than that
-amount of time will be terminated by
-.BR SIGKILL .
-.TP
-.B stdout
-Capture the command's standard output and log it using the default
-logging channel.
-.TP
-.B stderr
-Capture the command's standard error and log it using the default
-logging channel.
-.PP
-If the \fICOMMAND\fR is empty, the previous definition of the
-corresponding handler is forgotten.
-.RE
-.PP
-The handler set by the
-.B \-p
-option remains in effect for all directories specified after it in the
-command line, until the next
-occurrence of the
-.B \-p
-option with the same \fIEVENT\fR part.
+.BR env (1).
 .SH OPTIONS
-Most options have global effect, but some of them apply to handlers
-and watchpoints that follow them in the command line.  These latter
-remain in effect until the next occurrence of the same option, or end
-of the command line, whichever occurs first.
-.SS Global Options
 .TP
 .B \-d
 Increase debug verbosity level.
@@ -160,7 +109,7 @@ a decimal number or any of the following symbolic names:
 and
 .BR uucp .
 
-The option \fB\-F 0\fR directs the logging to the standard error.
+The option \fB\-F 0\fR directs logging to the standard error.
 .TP
 \fB\-P\fR \fIFILE\fR
 Write PID to \fIFILE\fR.
@@ -173,25 +122,148 @@ Run as this \fIUSER\fR.
 .TP
 \fB\-h\fR
 Output a terse help summary and exit.
-.SS Position-dependent options
+.SH CONFIGURATION
+The default configuration file is
+.BR /etc/dircond.conf .
+If a file name is supplied as an argument to the program, that file
+will be read instead.
+.PP
+The configuration file has the traditional line-oriented format.  Very
+long lines can be split into several physical lines by ending each of
+them with a backslash immediately followed by a newline character.
+.PP
+Comments are introduced with a sharp sign and extend to the end of
+logical line.
+.PP
+Empty lines are ignored.
+.SS Global settings
 .TP
-.B \-a
-Automatically watch created directories.  Whenever a new directory
-appears under one of watchpoints, it is added to the list of
-watchpoints.  Upon startup, the watchpoints affected by this option
-are scanned recursively, and any directory located under them is added
-to the watchpoint list.
+\fBforeground\fR [\fBon\fR|\fBoff\fR]
+Remain in foreground (if \fBon\fR or no argument given), or detach
+from the controlling terminal and become a daemon (if \fBoff\fR).
+The latter is the default.  See also the \fB\-f\fR option.
 .TP
-\fB\-l\fR \fIN\fR
-Automatically watch new directories located up to Nth nesting level.
-Any directory created under one of the watchpoints is added to the
-list of watchpoints unless it is located more than \fIN\fR directories
-under the root watchpoint.  Upon startup, the watchpoints affected by
-this option are scanned recursively up to \fIN\fR directories deep,
-and any directory located under them is added to the watchpoint list.
+\fBdebug\fR \fIN\fR
+Set debugging level.  See also the \fB\-d\fR option.
 .TP
-\fB\-T\fR \fITIMEOUT\fR
-Set execution timeout for external commands (seconds).
+\fBpidfile\fR \fIFILE\fR
+Store PID of the started process in \fIFILE\fR.  See also the
+\fB\-P\fR option.
+.TP
+\fBuser\fR \fINAME\fR
+Run as user \fINAME\fR.  See also the \fB\-u\fR option.
+.SS Logging
+The \fBsyslog\fR statement configures where the log output goes.  By
+default, the program logs to standard error until it finishes parsing
+the configuration file and processing command line options.  From then
+on it begins logging to syslog with the facility \fBdaemon\fR.  The
+syslog settings can be altered using this statement.
+.TP
+.B syslog off
+Disable syslog output, log everything to standard error instead.  This
+setting has effect only when running in the foreground.
+.TP
+\fBsyslog facility\fR \fIFNAME\fR
+Log to syslog facility \fIFNAME\fR.  The latter can be either 
+a decimal number or any of the following symbolic names:
+.BR auth ,
+.BR authpriv ,
+.BR cron ,
+.BR daemon ,
+.BR ftp ,
+.BR local0 " through " local7 ,
+.BR lpr ,
+.BR mail ,
+.BR news ,
+.BR user ,
+and
+.BR uucp .
+.TP
+\fBsyslog tag\fR \fISTRING\fR
+Log with the given syslog tag.
+.SS Handler options
+Handler options affect all event handlers defined in the \fBonevent\fR
+statements appearing below them.
+.TP 
+\fBoption capture\fR \fIstream\fR [\fIenable\fR]
+Capture the output stream of a handler.  The \fIstream\fR parameter
+specifies which stream to capture.  Its possible values are:
+\fBstdout\fR for the standard output, \fBstderr\fR for the standard
+error, or \fBboth\fR for both streams.  Optional \fIenable\fR
+parameter can be \fBon\fR to enable capturing and \fBoff\fR to disable
+it.
+.TP
+\fBoption wait\fR
+Wait for the handler to terminate before handling subsequent events.
+This is the default.
+.TP
+\fBoption nowait\fR
+Do not wait for the handler to terminate.  Start it in the background
+and continue processing requests.
+.TP
+\fBoption timeout\fR \fIN\fR
+Sets timeout in seconds for handler runtime.  The default value is 5
+seconds.  Note, that the timeout setting affects both \fBwait\fR and
+\fBnowait\fR handlers, i.e. any handler that runs longer
+than \fIN\fR seconds will be terminated by
+.B SIGKILL.
+.SS Event handling
+.TP
+\fBevent\fR \fINAME\fR \fIEVENT-ID\fR [\fIEVENT-ID\fR...]
+Add listed events to the event set \fINAME\fR, creating it if it does
+not exist.  Each \fIEVENT-ID\fR is either a predefined event name (see
+the \fBDESCRIPTION\fR section) or a \fINAME\fR of an event 
+set defined in a previous
+.B event
+statement.
+.TP
+\fBpath\fR \fINAME\fR \fIDIR\fR [\fBrecursive\fR [\fIN\fR]]
+Add directory \fIDIR\fR to the pathset \fINAME\fR.  If \fBrecursive\fR
+is specified, all directories below \fIDIR\fR are also added to the
+pathset.  If \fBrecursive\fR is followed by a decimal number \fIN\fR,
+recursive inclusion is limited to directories located no deeper than
+\fIN\fR levels of nesting.
+.TP
+\fBonevent\fR \fIEVENT-ID\fR \fBin\fR \fIPATH-NAME\fR \fBcall\fR \fICOMMAND\fR
+Configures the handler for events occurring in the given pathset.
+\fICOMMAND\fR is the full pathname of an external program.  This
+program will be started wherever one of the events from \fIEVENT-ID\fR
+occur for any file in directories comprising the pathset \fIPATH-NAME\fR.
+.SH EXAMPLE
+.sp
+.nf
+.in +2
+# Store the PID of the master process to this file:
+pidfile /var/run/dircond.pid
+
+# Log using syslog facility \fBlocal0\fR.
+facility local0
+
+# Define event set \fBupdate\fR to match any modifications
+# of file contents.
+event update modify close_write moved_to
+
+# Define event set \fBremove\fR to cover removal of a file
+# from the watched directory.
+event remove delete moved_from
+
+# Add \fB/etc/fR and all subdirectories to pathset \fBconfigs\fR.
+path configs /etc recursive
+
+# Don't allow event handler to run longer than 10 seconds.
+option timeout 10
+# Capture both standard output and error and divert them
+# to the log file.
+option capture both
+
+# If any file gets updated in \fB/etc\fR or any of its
+# subdirectories, call the program \fB/usr/bin/confchange\fR.
+onevent update in configs call /usr/bin/confchange
+
+# Another handler, for removals in the configuration directory.
+onevent delete in configs call /usr/bin/confdel
+.in
+.fi
 .SH "EXIT CODE"
 .IP 0.
 Successful termination.
@@ -199,36 +271,6 @@ Successful termination.
 Command line usage error.
 .IP 2.
 Another error occurred.
-.SH EXAMPLES
-.nr step 0 1
-.IP \n+[step].
-Run as user \fBftp\fR monitoring changes in
-.BR /var/ftp/upload .
-Wherever a new file appears, start
-.BR /usr/libexec/handler :
-.sp
-.nf
-.in +2
-$ \fBdircond \-u ftp \-p close,nowait:/usr/libexec/handler \\
-  /var/ftp/upload\fR
-.in
-.fi
-.IP \n+[step].
-Same as above, but also clear the environment:
-.sp
-.nf
-.in +2
-$ \fBenv \- \fBdircond \-u ftp \-p close,nowait:/usr/libexec/handler \\
-  /var/ftp/upload\fR
-.nf
-.IP \n+[step].
-Watch two directories, using a separate handler for each of them:
-.sp
-.nf
-.in +2
-$ \fBdircond -p close:/usr/libexec/upload-handler /var/ftp/upload\\
-          -p close:/usr/libexec/log-handler /var/log\fR
-.nf
 .SH "SEE ALSO"
 .BR inotify (8).
 .SH AUTHORS
