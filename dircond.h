@@ -96,6 +96,7 @@ size_t hashtab_count_entries(struct hashtab *st);
 typedef int (*hashtab_enumerator_t) (struct hashent *, void *);
 int hashtab_foreach(struct hashtab *st, hashtab_enumerator_t fun,
 		    void *data);
+size_t hashtab_count(struct hashtab *st);
 
 unsigned hash_string(const char *name, unsigned long hashsize);
 

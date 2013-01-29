@@ -378,7 +378,15 @@ setwatcher(struct hashent *ent, void *null)
 void
 setup_watchers()
 {
+	if (hashtab_count(texttab) == 0) {
+		diag(LOG_CRIT, "no event handlers configured");
+		exit(1);
+	}
 	hashtab_foreach(texttab, setwatcher, NULL);
+	if (hashtab_count(dwtab) == 0) {
+		diag(LOG_CRIT, "no event handlers installed");
+		exit(2);
+	}
 }
 
 void

@@ -368,6 +368,11 @@ parse_path()
 				}
 			} else
 				depth = -1;
+		} else {
+			diag(LOG_ERR, "%s:%d: expected \"recursive\", "
+			     "but found \"%s\"",
+			     filename, line, tknp);
+			return 1;
 		}
 	}
 		

@@ -336,6 +336,20 @@ hashtab_foreach(struct hashtab *st, hashtab_enumerator_t fun, void *data)
 	return 0;
 }
 
+size_t
+hashtab_count(struct hashtab *st)
+{
+	unsigned i;
+	size_t count = 0;
+	
+	if (!st)
+		return 0;
+	for (i = 0; i < hash_size[st->hash_num]; i++) {
+		if (st->tab[i])
+			++count;
+	}
+	return count;
+}
 
 
 
