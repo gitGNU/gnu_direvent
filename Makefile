@@ -19,8 +19,8 @@ PREFIX=/usr/local
 BINDIR=$(PREFIX)/bin
 MANDIR=$(PREFIX)/share/man
 PACKAGE=dircond
-VERSION=2.0
-DISTFILES=README COPYING NEWS ChangeLog Makefile $(OBJS) $(INCS) dircond.1
+VERSION=3.0
+DISTFILES=README COPYING NEWS ChangeLog Makefile $(SRCS) $(INCS) dircond.1
 SRCS=dircond.c config.c event.c hashtab.c watcher.c pathdefn.c
 OBJS=$(SRCS:.c=.o)
 INCS=dircond.h

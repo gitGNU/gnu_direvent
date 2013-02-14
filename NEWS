@@ -1,10 +1,15 @@
-dircond -- history of user-visible changes. 2013-01-10
+dircond -- history of user-visible changes. 2013-02-14
 Copyright (C) 2012, 2013 Sergey Poznyakoff
 See the end of file for copying conditions.
 
 Please send radius bug reports to <gray+dircond@gnu.org.ua>
 
-Version 2.0, (Git)
+Version 3.0 (Git)
+
+Introduce configuration file.
+
+
+Version 2.0, 2013-01-11
 
 * Change command line handling
 

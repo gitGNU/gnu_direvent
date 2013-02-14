@@ -395,7 +395,7 @@ parse_event()
 		n = getevt(tknp);
 		if (n == 0) {
 			diag(LOG_ERR, "%s:%d: unrecognized event code: %s",
-			     filename, line, n);
+			     filename, line, tknp);
 			errors++;
 			continue;
 		}
