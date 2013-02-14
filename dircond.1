@@ -45,7 +45,7 @@ A file's metadata changed.
 A writable file was closed.
 .TP
 .B close_nowrite
-An unwrittable file closed.
+An unwritable file closed.
 .TP
 .B create
 A file was created.
@@ -65,7 +65,7 @@ A file was moved out from a monitored directory.
 .B open
 A file was opened.
 .PP
-Wherever an event is detected,
+When an event has been detected,
 .B dircond
 invokes the handler configured for it.  The handler is invoked in the
 directory where the event occured.  Additional information about the
@@ -232,13 +232,13 @@ recursive inclusion is limited to directories located no deeper than
 \fBonevent\fR \fIEVENT-ID\fR \fBin\fR \fIPATH-NAME\fR \fBcall\fR \fICOMMAND\fR
 Configures the handler for events occurring in the given pathset.
 \fICOMMAND\fR is the full pathname of an external program.  This
-program will be started wherever one of the events from \fIEVENT-ID\fR
+program will be started when one of the events from \fIEVENT-ID\fR
 occur for any file in directories comprising the pathset \fIPATH-NAME\fR.
 .SH EXAMPLE
 .sp
 .nf
 .in +2
-# Store the PID of the master process to this file:
+# Store the PID of the master process in this file:
 pidfile /var/run/dircond.pid
 
 # Log using syslog facility \fBlocal0\fR.
@@ -252,7 +252,7 @@ event update modify close_write moved_to
 # from the watched directory.
 event remove delete moved_from
 
-# Add \fB/etc/fR and all subdirectories to pathset \fBconfigs\fR.
+# Add \fB/etc\fR and its subdirectories to pathset \fBconfigs\fR.
 path configs /etc recursive
 
 # Don't allow event handler to run longer than 10 seconds.
@@ -270,11 +270,11 @@ onevent delete in configs call /usr/bin/confdel
 .in
 .fi
 .SH "EXIT CODE"
-.IP 0.
+.IP 0
 Successful termination.
-.IP 1.
+.IP 1
 Command line usage error.
-.IP 2.
+.IP 2
 Another error occurred.
 .SH "SEE ALSO"
 .BR inotify (8).
