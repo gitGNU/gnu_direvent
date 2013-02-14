@@ -13,7 +13,7 @@
 .\"
 .\" You should have received a copy of the GNU General Public License along
 .\" with dircond. If not, see <http://www.gnu.org/licenses/>.
-.TH DIRCOND 1 "January 29, 2013" "DIRCOND" "Dircond User Reference"
+.TH DIRCOND 1 "February 14, 2013" "DIRCOND" "Dircond User Reference"
 .SH NAME
 dircond \- directory content watcher
 .SH SYNOPSIS
@@ -23,6 +23,8 @@ dircond \- directory content watcher
  [\fICONFIG\fR]
 
 .B dircond -h
+
+.B dircond -V
 .SH DESCRIPTION
 .B Dircond
 monitors a set of directories on the file system and reacts when
@@ -122,6 +124,9 @@ Run as this \fIUSER\fR.
 .TP
 \fB\-h\fR
 Output a terse help summary and exit.
+.TP
+\fB\-V\fR
+Print program version and copyright information.
 .SH CONFIGURATION
 The default configuration file is
 .BR /etc/dircond.conf .

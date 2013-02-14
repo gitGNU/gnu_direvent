@@ -623,6 +623,20 @@ help()
 	return 0;
 }
 
+static char license[] = "\
+License GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>\n\
+This is free software: you are free to change and redistribute it.\n\
+There is NO WARRANTY, to the extent permitted by law.\n";
+
+int
+version()
+{
+	printf("dircond %s\n", VERSION);
+	printf("Copyright (C) 2012, 2013 Sergey Poznyakoff\n");
+	printf("%s\n", license);
+	return 0;
+}
+
 int
 get_facility(const char *arg)
 {
@@ -724,7 +738,7 @@ main(int argc, char **argv)
 		exit(1);
 	}
 
-	while ((c = getopt(argc, argv, "dF:fhP:u:")) != EOF) {
+	while ((c = getopt(argc, argv, "dF:fhP:u:V")) != EOF) {
 		switch (c) {
 		case 'd':
 			opt_debug_level++;
@@ -751,6 +765,8 @@ main(int argc, char **argv)
 				exit(1);
 			}
 			break;
+		case 'V':
+			exit(version());
 		default:
 			exit(1);
 		}

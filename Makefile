@@ -24,6 +24,7 @@ DISTFILES=README COPYING NEWS ChangeLog Makefile $(SRCS) $(INCS) dircond.1
 SRCS=dircond.c config.c event.c hashtab.c watcher.c pathdefn.c
 OBJS=$(SRCS:.c=.o)
 INCS=dircond.h
+CPPFLAGS=-DVERSION=\"$(VERSION)\"
 
 dircond: $(OBJS)
 	cc -odircond $(CFLAGS) $(OBJS)
