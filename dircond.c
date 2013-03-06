@@ -352,7 +352,7 @@ process_lookup(pid_t pid)
 }
 
 static void
-print_status(pid_t pid, int status, int expect_term)
+print_status(pid_t pid, int status, sigset_t *mask)
 {
 	if (WIFEXITED(status)) {
 		if (WEXITSTATUS(status) == 0)
@@ -364,7 +364,7 @@ print_status(pid_t pid, int status, int expect_term)
 	} else if (WIFSIGNALED(status)) {
 		int prio;
 
-		if (expect_term && WTERMSIG(status) == SIGTERM)
+		if (sigismember(mask, WTERMSIG(status)))
 			prio = LOG_DEBUG;
 		else
 			prio = LOG_ERR;
@@ -390,10 +390,19 @@ process_cleanup(int expect_term)
 {
 	pid_t pid;
 	int status;
-
+	
 	while ((pid = waitpid(-1, &status, WNOHANG)) > 0) {
+		sigset_t set;
 		struct process *p = process_lookup(pid);
-		print_status(pid, status, expect_term);
+
+		sigemptyset(&set);
+		if (expect_term)
+			sigaddset(&set, SIGTERM);
+		if (!p) {
+			sigaddset(&set, SIGTERM);
+			sigaddset(&set, SIGKILL);
+		}
+		print_status(pid, status, &set);
 		if (p) {
 			if (p->redir[REDIR_OUT])
 				kill(p->redir[REDIR_OUT], SIGKILL);
@@ -517,10 +526,10 @@ run_handler(struct dirwatcher *dp, struct handler *hp, int event,
 	
 	debug(1, ("starting %s, dir=%s, file=%s", hp->prog, dp->dirname, file));
 	if (hp->flags & HF_STDERR)
-		redir_fd[REDIR_ERR] = open_redirector(hp->prog, LOG_INFO,
+		redir_fd[REDIR_ERR] = open_redirector(hp->prog, LOG_ERR,
 						      &redir_pid[REDIR_ERR]);
 	if (hp->flags & HF_STDOUT)
-		redir_fd[REDIR_OUT] = open_redirector(hp->prog, LOG_ERR,
+		redir_fd[REDIR_OUT] = open_redirector(hp->prog, LOG_INFO,
 						      &redir_pid[REDIR_OUT]);
 	
 	pid = fork();
