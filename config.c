@@ -211,8 +211,10 @@ read_facility(const char *arg, int *pres)
 	unsigned long n;
 	
 	for (p = ftab; p->s; p++) {
-		if (strcmp(p->s, arg) == 0)
-			return p->f;
+		if (strcmp(p->s, arg) == 0) {
+			*pres = p->f;
+			return 0;
+		}
 	}
 	n = strtoul(arg, &s, 10);
 	if (*s) {

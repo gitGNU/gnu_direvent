@@ -605,7 +605,7 @@ run_handler(struct dirwatcher *dp, struct handler *hp, int event,
 int
 help()
 {
-	printf("Usage: %s [OPTIONS] DIR [DIR...]\n", program_name);
+	printf("Usage: %s [OPTIONS] [CONFIG]\n", program_name);
 	printf("OPTIONS are:\n\n");
 
 	printf("   -d            increase debug verbosity\n");
@@ -614,9 +614,10 @@ help()
 	printf("                 use -F 0 to log to stderr instead\n");
 	printf("   -P FILE       write PID to FILE\n");
         printf("   -t TAG        log with this syslog tag\n");
-	printf("   -u USER       run as this USER\n");
+	printf("   -u USER       run as this USER\n\n");
 
-	printf("   -h            output this help summary\n\n");
+	printf("   -h            output this help summary\n");
+        printf("   -V            print program version and exit\n\n");
 
 	printf("Report bugs to <gray+dircond@gnu.org.ua>.\n");
 		
