@@ -24,6 +24,7 @@
 
 unsigned opt_timeout;
 unsigned opt_flags;
+int opt_facility = -1;
 
 static const char *filename;
 static int line;
@@ -247,7 +248,9 @@ parse_syslog()
 	if (strcmp(kw, "tag") == 0) 
 		tag = estrdup(tknp);
 	else if (strcmp(kw, "facility") == 0) {
-		if (read_facility(tknp, &facility)) {
+		int n;
+		
+		if (read_facility(tknp, &n)) {
 			switch (errno) {
 			case EINVAL:
 				diag(LOG_ERR,
@@ -266,6 +269,8 @@ parse_syslog()
 			}
 			return 1;
 		}
+		if (opt_facility == -1)
+			opt_facility = n;
 	} else {
 		diag(LOG_ERR, "%s:%d: unrecognized keyword: %s",
 		     filename, line, tknp);

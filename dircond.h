@@ -51,6 +51,7 @@ extern char *pidfile;
 extern char *user;
 extern unsigned opt_timeout;
 extern unsigned opt_flags;
+extern int opt_facility;
 extern int ifd;
 
 void *emalloc(size_t size);

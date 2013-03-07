@@ -736,7 +736,6 @@ main(int argc, char **argv)
 	int opt_foreground = 0;
 	char *opt_tag = NULL;
 	char *opt_pidfile = NULL;
-	int opt_facility = -1;
 	char *opt_user = NULL;
 	
 	set_program_name(argv[0]);

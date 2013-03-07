@@ -68,4 +68,4 @@ ChangeLog:
         fi
 
 clean:
-	rm -f $(OBJS)
+	rm -f $(OBJS) dircond
