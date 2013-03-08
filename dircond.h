@@ -29,6 +29,9 @@ struct handler {
 	int ev_mask;         /* Event mask */
 	int flags;           /* Handler flags */
 	const char *prog;    /* Handler program (no arguments allowed) */
+	uid_t uid;           /* Run as this user (unless 0) */
+	gid_t *gidv;          /* Run with these groups' privileges */
+	size_t gidc;         /* Number of elements in gidv */
 	unsigned timeout;    /* Handler timeout */
 };
 

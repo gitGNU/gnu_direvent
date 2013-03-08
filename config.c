@@ -20,6 +20,7 @@
 #include <syslog.h>
 #include <errno.h>
 #include <pwd.h>
+#include <grp.h>
 #include "dircond.h"
 
 unsigned opt_timeout;
@@ -428,6 +429,47 @@ parse_event()
 	return 0;
 }
 
+static int
+membergid(gid_t gid, size_t gc, gid_t *gv)
+{
+	int i;
+	for (i = 0; i < gc; i++)
+		if (gv[i] == gid)
+			return 1;
+	return 0;
+}
+
+static void
+get_user_groups(char *user, gid_t gid, size_t *pgidc, gid_t **pgidv)
+{
+	size_t gidc = 0, n = 0;
+	gid_t *gidv = NULL;
+	struct group *gr;
+
+	n = 32;
+	gidv = emalloc(n * sizeof(gidv[0]));
+	gidv[0] = gid;
+	gidc = 1;
+	
+	setgrent();
+	while (gr = getgrent()) {
+		char **p;
+		for (p = gr->gr_mem; *p; p++)
+			if (strcmp(*p, user) == 0) {
+				if (n == gidc) {
+					n += 32;
+					gidv = erealloc(gidv,
+							n * sizeof(gidv[0]));
+				}
+				if (!membergid(gr->gr_gid, gidc, gidv))
+					gidv[gidc++] = gr->gr_gid;
+			}
+	}
+	endgrent();
+	*pgidc = gidc;
+	*pgidv = gidv;
+}
+
 /* on EVTID PATHID call PROGRAM */
 static int
 parse_onevent()
@@ -435,6 +477,11 @@ parse_onevent()
 	int mask;
 	struct pathent *pathent;
 	struct handler *hp, *prev = NULL;
+	char *prog;
+	uid_t uid = 0;
+	gid_t gid;
+	gid_t *gidv = NULL;
+	size_t gidc = 0;
 	
 	if (!nextnetkn())
 		return 1;
@@ -465,14 +512,42 @@ parse_onevent()
 
 	if (!nextnetkn())
 		return 1;
-	if (strcmp(tknp, "call")) {
-		diag(LOG_ERR, "%s:%d: expected \"call\", but found \"%s\"",
+	if (strcmp(tknp, "run") && strcmp(tknp, "call")) {
+		diag(LOG_ERR, "%s:%d: expected \"run\", but found \"%s\"",
 		     filename, line, tknp);
 		return 1;
 	}
 	if (!nextnetkn())
 		return 1;
-
+	prog = estrdup(tknp);
+	if (*nextkn()) {
+		char *p;
+		struct passwd *pw;
+		
+		if (strcmp(tknp, "as")) {
+			diag(LOG_ERR, "%s:%d: expected \"as\", "
+			     "but found \"%s\"",
+			     filename, line, tknp);
+			return 1;
+		}
+		if (!nextnetkn())
+			return 1;
+		pw = getpwnam(tknp);
+		if (pw) {
+			uid = pw->pw_uid;
+			gid = pw->pw_gid;
+		} else {
+			uid = strtoul(tknp, &p, 10);
+			if (*p || !(pw = getpwuid(uid))) {
+				diag(LOG_ERR, "%s:%d: no such user",
+				     filename, line);
+				return 1;
+			}
+			gid = pw->pw_gid;
+		}
+		get_user_groups(pw->pw_name, gid, &gidc, &gidv);
+	}
+	
 	for (; pathent; pathent = pathent->next) {
 		struct dirwatcher *dwp = dirwatcher_install(pathent->path,
 							    NULL);
@@ -492,10 +567,14 @@ parse_onevent()
 		}
 
 		hp = emalloc(sizeof(*hp));
+		hp->next = NULL;
 		hp->ev_mask = mask;
 		hp->flags = opt_flags;
 		hp->timeout = opt_timeout;
-		hp->prog = estrdup(tknp);
+		hp->prog = prog;
+		hp->uid = uid;
+		hp->gidc = gidc;
+		hp->gidv = gidv;
 		
 		if (prev)
 			prev->next = hp;

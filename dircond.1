@@ -13,7 +13,7 @@
 .\"
 .\" You should have received a copy of the GNU General Public License along
 .\" with dircond. If not, see <http://www.gnu.org/licenses/>.
-.TH DIRCOND 1 "February 14, 2013" "DIRCOND" "Dircond User Reference"
+.TH DIRCOND 1 "March 8, 2013" "DIRCOND" "Dircond User Reference"
 .SH NAME
 dircond \- directory content watcher
 .SH SYNOPSIS
@@ -229,11 +229,16 @@ pathset.  If \fBrecursive\fR is followed by a decimal number \fIN\fR,
 recursive inclusion is limited to directories located no deeper than
 \fIN\fR levels of nesting.
 .TP
-\fBonevent\fR \fIEVENT-ID\fR \fBin\fR \fIPATH-NAME\fR \fBcall\fR \fICOMMAND\fR
+\fBonevent\fR \fIEVENT-ID\fR \fBin\fR \fIPATH-NAME\fR \fBrun\fR \fICOMMAND\fR\
+ [\fBas\fR \fIUSER\fR]
 Configures the handler for events occurring in the given pathset.
 \fICOMMAND\fR is the full pathname of an external program.  This
 program will be started when one of the events from \fIEVENT-ID\fR
 occur for any file in directories comprising the pathset \fIPATH-NAME\fR.
+If the optional \fBas\fR \fIUSER\fR clause is supplied, the program
+will be run with the UID and (main and supplementary) GIDs of \fIUSER\fR.
+The latter must be either a valid user name or a numeric UID of an
+existing user.
 .SH EXAMPLE
 .sp
 .nf
@@ -263,10 +268,10 @@ option capture both
 
 # If any file gets updated in \fB/etc\fR or any of its
 # subdirectories, call the program \fB/usr/bin/confchange\fR.
-onevent update in configs call /usr/bin/confchange
+onevent update in configs run /usr/bin/confchange as daemon
 
 # Another handler, for removals in the configuration directory.
-onevent delete in configs call /usr/bin/confdel
+onevent delete in configs run /usr/bin/confdel
 .in
 .fi
 .SH "EXIT CODE"

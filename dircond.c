@@ -507,6 +507,34 @@ open_redirector(const char *tag, int prio, pid_t *return_pid)
 }
 
 static int
+switchpriv(struct handler *hp)
+{
+	if (hp->uid == 0 || hp->uid == getuid())
+		return 0;
+	
+	if (setgroups(hp->gidc, hp->gidv) < 0) {
+		diag(LOG_CRIT, "setgroups: %s",
+		     strerror(errno));
+		return 1;
+	}
+	if (setregid(hp->gidv[0], hp->gidv[0]) < 0) {
+		diag(LOG_CRIT, "setregid(%lu,%lu): %s",
+		     (unsigned long) hp->gidv[0],
+		     (unsigned long) hp->gidv[0],
+		     strerror(errno));
+		return 1;
+	}
+	if (setreuid(hp->uid, hp->uid) < 0) {
+		diag(LOG_CRIT, "setreuid(%lu,%lu): %s",
+		     (unsigned long) hp->uid,
+		     (unsigned long) hp->uid,
+		     strerror(errno));
+		return 1;
+	}
+	return 0;
+}		
+
+static int
 run_handler(struct dirwatcher *dp, struct handler *hp, int event,
 	    const char *file)
 {
@@ -545,10 +573,13 @@ run_handler(struct dirwatcher *dp, struct handler *hp, int event,
 		char *argv[2];
 		fd_set fdset;
 
+		if (switchpriv(hp))
+			_exit(127);
+		
 		if (chdir(dp->dirname)) {
 			diag(LOG_CRIT, "cannot change to %s: %s",
 			     dp->dirname, strerror(errno));
-			exit(1);
+			_exit(127);
 		}
 
 		FD_ZERO(&fdset);
