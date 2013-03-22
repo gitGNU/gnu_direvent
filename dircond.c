@@ -24,6 +24,7 @@
 #include <string.h>
 #include <errno.h>
 #include <pwd.h>
+#include <grp.h>
 #include <signal.h>
 #include <time.h>
 #include <sys/types.h>
@@ -279,11 +280,63 @@ storepid(const char *pidfile)
 	}
 }
 
+static int
+membergid(gid_t gid, size_t gc, gid_t *gv)
+{
+	int i;
+	for (i = 0; i < gc; i++)
+		if (gv[i] == gid)
+			return 1;
+	return 0;
+}
+
+static void
+get_user_groups(uid_t uid, size_t *pgidc, gid_t **pgidv)
+{
+	size_t gidc = 0, n = 0;
+	gid_t *gidv = NULL;
+	struct passwd *pw;
+	struct group *gr;
+
+	pw = getpwuid(uid);
+	if (!pw) {
+		diag(LOG_ERR, 0, "no used with UID %lu",
+		     (unsigned long)uid);
+		exit(2);
+	}
+	
+	n = 32;
+	gidv = ecalloc(n, sizeof(gidv[0]));
+		
+	gidv[0] = pw->pw_gid;
+	gidc = 1;
+	
+	setgrent();
+	while (gr = getgrent()) {
+		char **p;
+		for (p = gr->gr_mem; *p; p++)
+			if (strcmp(*p, pw->pw_name) == 0) {
+				if (n == gidc) {
+					n += 32;
+					gidv = erealloc(gidv,
+							n * sizeof(gidv[0]));
+				}
+				if (!membergid(gr->gr_gid, gidc, gidv))
+					gidv[gidc++] = gr->gr_gid;
+			}
+	}
+	endgrent();
+	*pgidc = gidc;
+	*pgidv = gidv;
+}
+
 void
 setuser(const char *user)
 {
 	struct passwd *pw;
-
+	size_t gidc;
+	gid_t *gidv;
+		
 	pw = getpwnam(user);
 	if (!pw) {
 		diag(LOG_CRIT, "getpwnam(%s): %s", user, strerror(errno));
@@ -291,6 +344,14 @@ setuser(const char *user)
 	}
 	if (pw->pw_uid == 0)
 		return;
+
+	get_user_groups(pw->pw_uid, &gidc, &gidv);
+	if (setgroups(gidc, gidv) < 0) {
+		diag(LOG_CRIT, "setgroups: %s", strerror(errno));
+		exit(2);
+	}
+	free(gidv);
+
 	if (setgid(pw->pw_gid)) {
 		diag(LOG_CRIT, "setgid(%lu): %s", (unsigned long) pw->pw_gid,
 		     strerror(errno));
