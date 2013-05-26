@@ -829,6 +829,7 @@ main(int argc, char **argv)
 	char *opt_tag = NULL;
 	char *opt_pidfile = NULL;
 	char *opt_user = NULL;
+	int lint_only = 0;
 	
 	set_program_name(argv[0]);
 	tag = (char*) program_name;
@@ -839,7 +840,7 @@ main(int argc, char **argv)
 		exit(1);
 	}
 
-	while ((c = getopt(argc, argv, "dF:fhP:u:V")) != EOF) {
+	while ((c = getopt(argc, argv, "dF:fhLP:tu:V")) != EOF) {
 		switch (c) {
 		case 'd':
 			opt_debug_level++;
@@ -850,8 +851,11 @@ main(int argc, char **argv)
 		case 'h':
 			exit(help());
 			break;
-		case 't':
+		case 'L':
 			opt_tag = optarg;
+			break;
+		case 't':
+			lint_only = 1;
 			break;
 		case 'F':			
 			opt_facility = get_facility(optarg);
@@ -888,7 +892,9 @@ main(int argc, char **argv)
 	}
 
 	config_parse(conffile);
-
+	if (lint_only)
+		return 0;
+	
 	if (opt_debug_level)
 		debug_level += opt_debug_level;
 	if (opt_foreground)

@@ -17,7 +17,7 @@
 .SH NAME
 dircond \- directory content watcher
 .SH SYNOPSIS
-\fBdircond\fR [\fB\-df\fR] [\fB\-F\fR \fIFACILITY\fR]\
+\fBdircond\fR [\fB\-dft\fR] [\fB\-F\fR \fIFACILITY\fR] [\fB\-L\fR \fITAG\fR]\
  [\fB\-P\fR \fIFILE\fR]\
  [\fB\-u\fR \fIUSER\fR]\
  [\fICONFIG\fR]
@@ -113,11 +113,14 @@ and
 
 The option \fB\-F 0\fR directs logging to the standard error.
 .TP
+\fB\-L\fR \fITAG\fR
+Log with this syslog tag.
+.TP
 \fB\-P\fR \fIFILE\fR
 Write PID to \fIFILE\fR.
 .TP
-\fB\-t\fR \fITAG\fR
-Log with this syslog tag.
+\fB\-t\fR
+Check configuration file for errors and exit.
 .TP
 \fB\-u\fR \fIUSER\fR
 Run as this \fIUSER\fR.
@@ -197,6 +200,15 @@ specifies which stream to capture.  Its possible values are:
 error, or \fBboth\fR for both streams.  Optional \fIenable\fR
 parameter can be \fBon\fR to enable capturing and \fBoff\fR to disable
 it.
+
+When logging to syslog, the data read from the captured
+.B stdout
+will be logged with the priority
+.BR LOG_INFO ,
+and
+.B stderr
+will be logged with the priority
+.BR LOG_ERROR .
 .TP
 \fBoption wait\fR
 Wait for the handler to terminate before handling subsequent events.
