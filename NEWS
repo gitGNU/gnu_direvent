@@ -1,12 +1,14 @@
-dircond -- history of user-visible changes. 2013-06-01
+dircond -- history of user-visible changes. 2013-05-26
 Copyright (C) 2012, 2013 Sergey Poznyakoff
 See the end of file for copying conditions.
 
 Please send dircond bug reports to <gray+dircond@gnu.org.ua>
 
-Version 3.0, 2013-06-01
+Version 3.99 (Git)
+
+Version 3.0 (Git)
 
-Introduce configuration file.
+Introduce a configuration file.
 
 
 Version 2.0, 2013-01-11
