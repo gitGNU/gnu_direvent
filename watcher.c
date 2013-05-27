@@ -105,7 +105,7 @@ dirwatcher_install(const char *path, int *pnew)
 	return ent->dw;
 }
 
-static struct dirwatcher *
+struct dirwatcher *
 dirwatcher_lookup(const char *dirname)
 {
 	struct dirwatcher dwkey;

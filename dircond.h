@@ -151,6 +151,7 @@ void config_parse(const char *file);
 int read_facility(const char *arg, int *pres);
 
 void setup_watchers(void);
+struct dirwatcher *dirwatcher_lookup(const char *dirname);
 struct dirwatcher *dirwatcher_lookup_wd(int wd);
 int check_new_watcher(const char *dir, const char *name);
 struct dirwatcher *dirwatcher_install(const char *path, int *pnew);
