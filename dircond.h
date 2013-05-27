@@ -32,6 +32,10 @@
 #define HF_STDOUT 0x02       /* Capture stdout */
 #define HF_STDERR 0x04       /* Capture stderr */
 
+#ifndef DEFAULT_TIMEOUT
+# define DEFAULT_TIMEOUT 5
+#endif
+
 /* Event description */
 struct event {
 	int evcode;
