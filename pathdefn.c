@@ -132,9 +132,5 @@ pathdefn_get(const char *name)
 	memset(&key, 0, sizeof(key));
 	key.name = (char *) name;
 	defn = hashtab_lookup_or_install(pathtab, &key, NULL);
-	if (!defn) {
-		diag(LOG_CRIT, "not enough memory");
-		exit(1);
-	}
 	return defn ? defn->pathlist : NULL;
 }
