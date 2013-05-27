@@ -133,6 +133,14 @@ chclosed_elim()
 	chclosed = -1;
 }
 
+static char const *
+filename(struct dirwatcher *dp)
+{
+	if (!dp->parent)
+		return dp->dirname;
+	return dp->dirname + strlen(dp->parent->dirname) + 1;
+}
+
 static void
 process_event(struct kevent *ep)
 {
@@ -148,7 +156,7 @@ process_event(struct kevent *ep)
 
 	for (h = dp->handler_list; h; h = h->next) {
 		if (h->ev_mask & ep->fflags)
-			run_handler(dp->parent, h, ep->fflags, dp->dirname);
+			run_handler(dp->parent, h, ep->fflags, filename(dp));
 	}
 }	
 
