@@ -156,25 +156,23 @@ process_event(struct kevent *ep)
 }	
 
 
-void
-evsys_loop()
+int
+evsys_select()
 {
 	int i, n;
 	
-	/* Main loop */
-	while (1) {
-		chclosed_elim();
-		n = kevent(kq, chtab, chcnt, evtab, chcnt, NULL);
-		if (n == -1) {
-			if (signo == SIGCHLD || signo == SIGALRM)
-				continue;
-			diag(LOG_NOTICE, "got signal %d", signo);
-			break;
-		} 
+	chclosed_elim();
+	n = kevent(kq, chtab, chcnt, evtab, chcnt, NULL);
+	if (n == -1) {
+		if (signo == SIGCHLD || signo == SIGALRM)
+			return 0;
+		diag(LOG_NOTICE, "got signal %d", signo);
+		return 1;
+	} 
 
-		for (i = 0; i < n; i++) {
-			process_event(&evtab[i]);
-		}
-	}
+	for (i = 0; i < n; i++) 
+		process_event(&evtab[i]);
+
+	return 0;
 }
 		

@@ -17,6 +17,8 @@
 #include "config.h"
 #include "dircond.h"
 #include <signal.h>
+#include <string.h>
+#include <errno.h>
 #include <sys/inotify.h>
 
 
@@ -143,40 +145,35 @@ process_event(struct inotify_event *ep)
 	}
 }	
 
-void
-evsys_loop()
+int
+evsys_select()
 {
 	char buffer[4096];
+	struct inotify_event *ep;
+	size_t size;
+	ssize_t rdbytes;
 
-	/* Main loop */
-	while (1) {
-		struct inotify_event *ep;
-		size_t size;
-		ssize_t rdbytes;
-
-		process_timeouts();
-		process_cleanup(0);
-
-		rdbytes = read(ifd, buffer, sizeof(buffer));
-		if (rdbytes == -1) {
-			if (errno == EINTR) {
-				if (signo == SIGCHLD || signo == SIGALRM)
-					continue;
-				diag(LOG_NOTICE, "got signal %d", signo);
-				break;
-			}
-			
-			diag(LOG_NOTICE, "read failed: %s", strerror(errno));
-			break;
+	rdbytes = read(ifd, buffer, sizeof(buffer));
+	if (rdbytes == -1) {
+		if (errno == EINTR) {
+			if (signo == SIGCHLD || signo == SIGALRM)
+				return 0;
+			diag(LOG_NOTICE, "got signal %d", signo);
+			return 1;
 		}
 		
-		ep = (struct inotify_event *) buffer;
-		while (rdbytes) {
-			if (ep->wd >= 0)
-				process_event(ep);
-			size = sizeof(*ep) + ep->len;
-			ep = (struct inotify_event *) ((char*) ep + size);
-			rdbytes -= size;
-		}
+		diag(LOG_NOTICE, "read failed: %s", strerror(errno));
+		return 1;
 	}
+		
+	ep = (struct inotify_event *) buffer;
+	while (rdbytes) {
+		if (ep->wd >= 0)
+			process_event(ep);
+		size = sizeof(*ep) + ep->len;
+		ep = (struct inotify_event *) ((char*) ep + size);
+		rdbytes -= size;
+	}
+	
+	return 0;
 }

@@ -86,7 +86,7 @@ extern int evsys_filemask;
 void evsys_init(void);
 int evsys_add_watch(struct dirwatcher *dwp, int mask);
 void evsys_rm_watch(struct dirwatcher *dwp);
-void evsys_loop(void);
+int evsys_select(void);
 int evsys_name_to_code(const char *name);
 const char *evsys_code_to_name(int code);
 

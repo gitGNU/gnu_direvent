@@ -887,7 +887,11 @@ main(int argc, char **argv)
 	signal_setup(sigmain);
 	signal(SIGCHLD, sigmain);
 
-	evsys_loop();
+	/* Main loop */
+	do {
+		process_timeouts();
+		process_cleanup(0);
+	} while (evsys_select () == 0);
 
 	diag(LOG_INFO, "stopped");
 
