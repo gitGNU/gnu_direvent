@@ -23,7 +23,7 @@
 #include <grp.h>
 #include "dircond.h"
 
-unsigned opt_timeout;
+unsigned opt_timeout = DEFAULT_TIMEOUT;
 unsigned opt_flags;
 int opt_facility = -1;
 

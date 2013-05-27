@@ -18,6 +18,10 @@
 #include <stdlib.h>
 #include <sys/inotify.h>
 
+#ifndef DEFAULT_TIMEOUT
+# define DEFAULT_TIMEOUT 5
+#endif
+
 /* Handler flags. */
 #define HF_NOWAIT 0x01       /* Don't wait for termination */
 #define HF_STDOUT 0x02       /* Capture stdout */
