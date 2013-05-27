@@ -14,9 +14,12 @@
    You should have received a copy of the GNU General Public License along
    with dircond. If not, see <http://www.gnu.org/licenses/>. */
 
+#include <sys/types.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <sys/inotify.h>
+#include <syslog.h>
+#include <errno.h>
+#include <unistd.h>
 
 #ifndef DEFAULT_TIMEOUT
 # define DEFAULT_TIMEOUT 5
@@ -26,6 +29,12 @@
 #define HF_NOWAIT 0x01       /* Don't wait for termination */
 #define HF_STDOUT 0x02       /* Capture stdout */
 #define HF_STDERR 0x04       /* Capture stderr */
+
+/* Event description */
+struct event {
+	int evcode;
+	char *evname;
+};
 
 /* Handler structure */
 struct handler {
@@ -59,7 +68,7 @@ extern char *user;
 extern unsigned opt_timeout;
 extern unsigned opt_flags;
 extern int opt_facility;
-extern int ifd;
+extern int signo;
 
 void *emalloc(size_t size);
 void *ecalloc(size_t nmemb, size_t size);
@@ -73,10 +82,14 @@ void debugprt(const char *fmt, ...);
 
 #define debug(l, c) do { if (debug_level>=(l)) debugprt c; } while(0)
 
-int ev_name_to_code(const char *name);
-const char *ev_code_to_name(int code);
-void ev_log(struct inotify_event *ep, struct dirwatcher *dp);
-
+extern int evsys_filemask;
+void evsys_init(void);
+int evsys_add_watch(struct dirwatcher *dwp, int mask);
+void evsys_rm_watch(struct dirwatcher *dwp);
+void evsys_loop(void);
+int evsys_name_to_code(const char *name);
+const char *evsys_code_to_name(int code);
+
 int defevt(const char *name, int mask, int line);
 int getevt(const char *name);
 
@@ -133,3 +146,5 @@ int check_new_watcher(const char *dir, const char *name);
 struct dirwatcher *dirwatcher_install(const char *path, int *pnew);
 void remove_watcher(const char *dir, const char *name);
 
+int run_handler(struct dirwatcher *dp, struct handler *hp, int event,
+		const char *file);

@@ -21,7 +21,6 @@
 #include <dirent.h>
 #include <syslog.h>
 #include <sys/stat.h>
-#include <sys/inotify.h>
 #include "dircond.h"
 
 void
@@ -100,6 +99,7 @@ dirwatcher_install(const char *path, int *pnew)
 	if (install) {
 		dw = ecalloc(1, sizeof(*dw));
 		dw->dirname = estrdup(path);
+		dw->wd = -1;
 		dw->refcnt++;
 		ent->dw = dw;
 	}
@@ -238,7 +238,7 @@ dirwatcher_init(struct dirwatcher *dwp)
 	for (hp = dwp->handler_list; hp; hp = hp->next)
 		mask |= hp->ev_mask;
 	
-	wd = inotify_add_watch(ifd, dwp->dirname, mask);
+	wd = evsys_add_watch(dwp, mask);
 	if (wd == -1) {
 		diag(LOG_ERR, "cannot set watch on %s: %s",
 		     dwp->dirname, strerror(errno));
@@ -319,15 +319,19 @@ check_new_watcher(const char *dir, const char *name)
 }
 
 /* Recursively scan subdirectories of parent and add them to the
-   wather list, as requested by the parent's autowatch value. */
+   watcher list, as requested by the parent's autowatch value. */
 static void
 watch_subdirs(struct dirwatcher *parent)
 {
 	DIR *dir;
 	struct dirent *ent;
+	int filemask = evsys_filemask;
 	
-	if (parent->depth == 0)
+	if (parent->depth)
+		evsys_filemask |= S_IFDIR;
+	if (!evsys_filemask)
 		return;
+	
 	dir = opendir(parent->dirname);
 	if (!dir) {
 		diag(LOG_ERR, "cannot open directory %s: %s",
@@ -353,10 +357,10 @@ watch_subdirs(struct dirwatcher *parent)
 		if (stat(dirname, &st)) {
 			diag(LOG_ERR, "cannot stat %s: %s",
 			     dirname, strerror(errno));
-		} else if (S_ISDIR(st.st_mode)) {
+		} else if (st.st_mode & filemask) {
 			struct dirwatcher *dwp =
 				subwatcher_create(parent, dirname);
-			if (dwp)
+			if (dwp && S_ISDIR(st.st_mode))
 				watch_subdirs(dwp);
 		}
 		free(dirname);
@@ -371,7 +375,7 @@ setwatcher(struct hashent *ent, void *null)
 	struct dwref *dwref = (struct dwref *) ent;
 	struct dirwatcher *dwp = dwref->dw;
 	
-	if (dirwatcher_init(dwp) == 0)
+	if (dwp->wd == -1 && dirwatcher_init(dwp) == 0)
 		watch_subdirs(dwp);
 	return 0;
 }
@@ -394,7 +398,7 @@ void
 dirwatcher_destroy(struct dirwatcher *dwp)
 {
 	debug(1, ("removing watcher %s", dwp->dirname));
-	inotify_rm_watch(ifd, dwp->wd);
+	evsys_rm_watch(dwp);
 
 	dirwatcher_remove_wd(dwp->wd);
 	dirwatcher_remove(dwp->dirname);

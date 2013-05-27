@@ -596,7 +596,7 @@ switchpriv(struct handler *hp)
 	return 0;
 }		
 
-static int
+int
 run_handler(struct dirwatcher *dp, struct handler *hp, int event,
 	    const char *file)
 {
@@ -670,10 +670,11 @@ run_handler(struct dirwatcher *dp, struct handler *hp, int event,
 		argv[1] = NULL;
 		snprintf(buf, sizeof buf, "%d", event);
 		setenv("DIRCOND_EVENT_CODE", buf, 1);
-		setenv("DIRCOND_EVENT", ev_code_to_name(event), 1);
+		setenv("DIRCOND_EVENT", evsys_code_to_name(event), 1);
 		if (file)
 			setenv("DIRCOND_FILE", file, 1);
 		execv(argv[0], argv);
+		diag(LOG_ERR, "execv: %s: %s", argv[0], strerror(errno));
 		_exit(127);
 	}
 
@@ -722,7 +723,7 @@ help()
 	printf("   -h            output this help summary\n");
         printf("   -V            print program version and exit\n\n");
 
-	printf("Report bugs to <gray+dircond@gnu.org.ua>.\n");
+	printf("Report bugs to <%s>.\n", PACKAGE_BUGREPORT);
 		
 	return 0;
 }
@@ -764,50 +765,7 @@ get_facility(const char *arg)
 	}
 	return f;
 }
-
-static void
-process_event(struct inotify_event *ep)
-{
-	struct dirwatcher *dp;
-	struct handler *h;
-				
-	dp = dirwatcher_lookup_wd(ep->wd);
-	if (ep->mask & IN_IGNORED)
-		return;
-	else if (ep->mask & IN_Q_OVERFLOW) {
-		diag(LOG_NOTICE,
-		     "event queue overflow");
-		return;
-	} else if (ep->mask & IN_UNMOUNT) {
-		/* FIXME: not sure if there's
-		   anything to do. Perhaps we should
-		   deregister the watched dirs that
-		   were located under the mountpoint
-		*/
-		return;
-	} else if (!dp) {
-		if (ep->name)
-			diag(LOG_NOTICE, "unrecognized event %x"
-			     "for %s", ep->mask, ep->name);
-		else
-			diag(LOG_NOTICE,
-			     "unrecognized event %x", ep->mask);
-		return;
-	} else if (ep->mask & IN_CREATE) {
-		debug(1, ("%s/%s created", dp->dirname, ep->name));
-		check_new_watcher(dp->dirname, ep->name);
-	} else if (ep->mask & (IN_DELETE|IN_MOVED_FROM)) {
-		debug(1, ("%s/%s deleted", dp->dirname, ep->name));
-		remove_watcher(dp->dirname, ep->name);
-	}
 
-	ev_log(ep, dp);
-	
-	for (h = dp->handler_list; h; h = h->next) {
-		if (h->ev_mask & ep->mask)
-			run_handler(dp, h, ep->mask, ep->name);
-	}
-}	
 
 int signo = 0;
 
@@ -817,10 +775,6 @@ sigmain(int sig)
 	signo = sig;
 	signal(sig, sigmain);
 }
-
-char buffer[4096];
-
-int ifd;
 
 int
 main(int argc, char **argv)
@@ -836,12 +790,7 @@ main(int argc, char **argv)
 	set_program_name(argv[0]);
 	tag = (char*) program_name;
 
-	ifd = inotify_init();
-	if (ifd == -1) {
-		diag(LOG_CRIT, "inotify_init: %s", strerror(errno));
-		exit(1);
-	}
-
+	evsys_init();
 	while ((c = getopt(argc, argv, "dF:fhLP:tu:V")) != EOF) {
 		switch (c) {
 		case 'd':
@@ -911,7 +860,7 @@ main(int argc, char **argv)
 		user = opt_user;
 	
 	setup_watchers();
-	
+
 	/* Become a daemon */
 	if (!foreground) {
 		if (daemon(0, 0)) {
@@ -937,38 +886,9 @@ main(int argc, char **argv)
 
 	signal_setup(sigmain);
 	signal(SIGCHLD, sigmain);
-	
-	/* Main loop */
-	while (1) {
-		struct inotify_event *ep;
-		size_t size;
-		ssize_t rdbytes;
 
-		process_timeouts();
-		process_cleanup(0);
+	evsys_loop();
 
-		rdbytes = read(ifd, buffer, sizeof(buffer));
-		if (rdbytes == -1) {
-			if (errno == EINTR) {
-				if (signo == SIGCHLD || signo == SIGALRM)
-					continue;
-				diag(LOG_NOTICE, "got signal %d", signo);
-				break;
-			}
-			
-			diag(LOG_NOTICE, "read failed: %s", strerror(errno));
-			break;
-		}
-		
-		ep = (struct inotify_event *) buffer;
-		while (rdbytes) {
-			if (ep->wd >= 0)
-				process_event(ep);
-			size = sizeof(*ep) + ep->len;
-			ep = (struct inotify_event *) ((char*) ep + size);
-			rdbytes -= size;
-		}
-	}
 	diag(LOG_INFO, "stopped");
 
 	return 0;

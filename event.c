@@ -19,68 +19,7 @@
 #include <string.h>
 #include <syslog.h>
 #include <sys/types.h>
-#include <sys/inotify.h>
 #include "dircond.h"
-
-
-/* Event codes */
-struct event {
-	int evcode;
-	char *evname;
-};
-
-struct event events[] = {
-	{ IN_ACCESS,        "access" },
-	{ IN_ATTRIB,        "attrib" },       
-	{ IN_CLOSE_WRITE,   "close_write" },  
-	{ IN_CLOSE_NOWRITE, "close_nowrite" },
-	{ IN_CREATE,        "create" },       
-	{ IN_DELETE,        "delete" },      
-	{ IN_MODIFY,        "modify" },
-	{ IN_MOVED_FROM,    "moved_from" },    
-	{ IN_MOVED_TO,      "moved_to" },      
-	{ IN_OPEN,          "open" },
-	{ 0 }
-};
-
-void
-ev_log(struct inotify_event *ep, struct dirwatcher *dp)
-{
-	int i;
-
-	if (debug_level > 0) {
-		for (i = 0; events[i].evname; i++) {
-			if (events[i].evcode & ep->mask)
-				debug(1, ("%s/%s: %s", dp->dirname, ep->name,
-					  events[i].evname));
-		}
-	}
-}
-
-/* Convert event name to event code */
-int
-ev_name_to_code(const char *name)
-{
-	int i;
-
-	for (i = 0; events[i].evname; i++) {
-		if (strcmp(events[i].evname, name) == 0)
-			return events[i].evcode;
-	}
-	return 0;
-}
-
-const char *
-ev_code_to_name(int code)
-{
-	int i;
-
-	for (i = 0; events[i].evname; i++) {
-		if (events[i].evcode & code)
-			return events[i].evname;
-	}
-	return NULL;
-}
 
 
 struct symevt {
@@ -164,5 +103,5 @@ getevt(const char *name)
 		if (evp)
 			return evp->mask;
 	}
-	return ev_name_to_code(name);
+	return evsys_name_to_code(name);
 }

@@ -8,6 +8,14 @@ dircond_SOURCES=\
  watcher.c\
  pathdefn.c
 
+if DIRCOND_INOTIFY
+  dircond_SOURCES += ev_inotify.c
+endif
+
+if DIRCOND_KQUEUE
+  dircond_SOURCES += ev_kqueue.c
+endif
+
 dist_man_MANS=dircond.1
 
 .PHONY: ChangeLog

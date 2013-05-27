@@ -31,12 +31,41 @@ AC_PROG_MAKE_SET
 # Checks for libraries.
 
 # Checks for header files.
-AC_CHECK_HEADERS([sys/inotify.h])
+AC_CHECK_HEADERS([sys/inotify.h sys/event.h])
 
 # Checks for typedefs, structures, and compiler characteristics.
 
 # Checks for library functions.
-AC_CHECK_FUNCS([inotify_init])
+AC_CHECK_FUNCS([inotify_init kqueue])
+
+if test "$ac_cv_header_sys_inotify_h/$ac_cv_func_inotify_init" = yes/yes; then
+  iface=inotify
+elif test "$ac_cv_header_sys_event_h/$ac_cv_func_kqueue" = yes/yes; then
+  iface=kqueue
+else
+  AC_MSG_ERROR([no suitable interface found])
+fi
+
+AM_CONDITIONAL([DIRCOND_INOTIFY],[test $iface = inotify])
+AM_CONDITIONAL([DIRCOND_KQUEUE],[test $iface = kqueue])
+AC_SUBST(IFACE, $iface)
+AC_DEFINE_UNQUOTED(USE_IFACE,IFACE_`echo $iface|tr a-z A-Z`,
+                   [event notification interface to use])
+AH_TOP([
+/* Supported event notification types */
+#define IFACE_INOTIFY 0  /* inotify - Linux */
+#define IFACE_KQUEUE  1  /* kqueue  - BSD */
+])
+
+AC_CONFIG_COMMANDS([status],[
+cat <<EOT
+
+Selected interface: $iface
+
+EOT
+],[
+iface=$iface
+])
 
 AC_CONFIG_FILES([Makefile])
 AC_OUTPUT
