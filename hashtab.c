@@ -14,10 +14,6 @@
    You should have received a copy of the GNU General Public License
    along with Dircond.  If not, see <http://www.gnu.org/licenses/>. */
 
-#include "config.h"
-#include <stdlib.h>
-#include <errno.h>
-#include <string.h>
 #include "dircond.h"
 
 /* |hash_size| defines a sequence of symbol table sizes. These are prime

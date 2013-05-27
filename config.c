@@ -14,14 +14,9 @@
    You should have received a copy of the GNU General Public License along
    with dircond. If not, see <http://www.gnu.org/licenses/>. */
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <syslog.h>
-#include <errno.h>
+#include "dircond.h"
 #include <pwd.h>
 #include <grp.h>
-#include "dircond.h"
 
 unsigned opt_timeout = DEFAULT_TIMEOUT;
 unsigned opt_flags;

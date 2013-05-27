@@ -14,11 +14,8 @@
    You should have received a copy of the GNU General Public License along
    with dircond. If not, see <http://www.gnu.org/licenses/>. */
 
-#include "config.h"
 #include "dircond.h"
 #include <signal.h>
-#include <string.h>
-#include <errno.h>
 #include <sys/inotify.h>
 
 

@@ -14,23 +14,15 @@
    You should have received a copy of the GNU General Public License along
    with dircond. If not, see <http://www.gnu.org/licenses/>. */
 
-#include "config.h"
-#include <stdio.h>
-#include <stdlib.h>
+#include "dircond.h"
 #include <stdarg.h>
 #include <fcntl.h>
-#include <syslog.h>
-#include <unistd.h>
 #include <getopt.h>
-#include <string.h>
-#include <errno.h>
 #include <pwd.h>
 #include <grp.h>
 #include <signal.h>
 #include <time.h>
-#include <sys/types.h>
 #include <sys/wait.h>
-#include "dircond.h"
 
 #ifndef SYSCONFDIR
 # define SYSCONFDIR "/etc/"

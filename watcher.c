@@ -14,14 +14,9 @@
    You should have received a copy of the GNU General Public License along
    with dircond. If not, see <http://www.gnu.org/licenses/>. */
 
-#include "config.h"
-#include <stdlib.h>
-#include <string.h>
-#include <errno.h>
-#include <dirent.h>
-#include <syslog.h>
-#include <sys/stat.h>
 #include "dircond.h"
+#include <dirent.h>
+#include <sys/stat.h>
 
 void
 dirwatcher_unref(struct dirwatcher *dw)

@@ -14,11 +14,6 @@
    You should have received a copy of the GNU General Public License
    along with Dircond.  If not, see <http://www.gnu.org/licenses/>. */
 
-#include "config.h"
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <syslog.h>
 #include "dircond.h"
 
 unsigned

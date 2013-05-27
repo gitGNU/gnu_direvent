@@ -14,11 +14,13 @@
    You should have received a copy of the GNU General Public License along
    with dircond. If not, see <http://www.gnu.org/licenses/>. */
 
+#include "config.h"
 #include <sys/types.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <syslog.h>
 #include <errno.h>
+#include <string.h>
 #include <unistd.h>
 
 #ifndef DEFAULT_TIMEOUT
