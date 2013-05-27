@@ -63,6 +63,10 @@ struct dirwatcher {
 	char *dirname;                       /* Pathname being watched */
 	struct handler *handler_list;        /* Handlers */
 	int depth;
+#if USE_IFACE == IFACE_KQUEUE
+	int file_mode;
+	time_t file_ctime;
+#endif
 };
 
 extern int foreground;
@@ -150,7 +154,8 @@ void setup_watchers(void);
 struct dirwatcher *dirwatcher_lookup_wd(int wd);
 int check_new_watcher(const char *dir, const char *name);
 struct dirwatcher *dirwatcher_install(const char *path, int *pnew);
-void remove_watcher(const char *dir, const char *name);
+void dirwatcher_destroy(struct dirwatcher *dwp);
+void watch_pathname(struct dirwatcher *parent, const char *dirname, int isdir);
 
 int run_handler(struct dirwatcher *dp, struct handler *hp, int event,
 		const char *file);

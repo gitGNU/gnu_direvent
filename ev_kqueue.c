@@ -18,6 +18,7 @@
 #include <sys/event.h>
 #include <fcntl.h>
 #include <signal.h>
+#include <dirent.h>
 #include <sys/stat.h>
 
 struct event events[] = {
@@ -95,8 +96,15 @@ evsys_add_watch(struct dirwatcher *dwp, int mask)
 {
 	int wd = open(dwp->dirname, O_RDONLY);
 	if (wd >= 0) {
+		struct stat st;
+		if (fstat(wd, &st)) {
+			close(wd);
+			return -1;
+		}
+		dwp->file_mode = st.st_mode;
+		dwp->file_ctime = st.st_ctime;
 		EV_SET(chtab + chcnt, wd, EVFILT_VNODE,
-		       EV_ADD | EV_ENABLE | EV_ONESHOT, mask,
+		       EV_ADD | EV_ENABLE | EV_CLEAR, mask,
 		       0, dwp);
 		wd = chcnt++;
 	}
@@ -108,7 +116,7 @@ evsys_rm_watch(struct dirwatcher *dwp)
 {
 	close(chtab[dwp->wd].ident);
 	chtab[dwp->wd].ident = -1;
-	if (chclosed != -1 && chclosed > dwp->wd)
+	if (chclosed == -1 || chclosed > dwp->wd)
 		chclosed = dwp->wd;
 }
 
@@ -142,6 +150,47 @@ filename(struct dirwatcher *dp)
 }
 
 static void
+check_created(struct dirwatcher *dp)
+{
+	DIR *dir;
+	struct dirent *ent;
+
+	dir = opendir(dp->dirname);
+	if (!dir) {
+		diag(LOG_ERR, "cannot open directory %d: %s",
+		     dp->dirname, strerror(errno));
+		return;
+	}
+
+	while (ent = readdir(dir)) {
+		struct stat st;
+		char *pathname;
+		
+		if (ent->d_name[0] == '.' &&
+		    (ent->d_name[1] == 0 ||
+		     (ent->d_name[1] == '.' && ent->d_name[2] == 0)))
+			continue;
+		
+		pathname = mkfilename(dp->dirname, ent->d_name);
+		if (!pathname) {
+			diag(LOG_ERR, "cannot stat %s/%s: not enough memory",
+			     dp->dirname, ent->d_name);
+			continue;
+		}
+
+		if (stat(pathname, &st)) {
+			diag(LOG_ERR, "cannot stat %s: %s",
+			     pathname, strerror(errno));
+		} else if (st.st_ctime > dp->file_ctime) {
+			watch_pathname(dp, pathname, S_ISDIR(st.st_mode));
+			dp->file_ctime = st.st_ctime;
+		}
+		free(pathname);
+	}
+	closedir(dir);
+}
+
+static void
 process_event(struct kevent *ep)
 {
 	struct dirwatcher *dp = ep->udata;
@@ -154,9 +203,22 @@ process_event(struct kevent *ep)
 
 	ev_log(ep, dp);
 
+	if (S_ISDIR(dp->file_mode)) {
+		/* Check if new files have appeared. */
+		if (ep->fflags & NOTE_WRITE)
+			check_created(dp);
+		return;
+	}
+
 	for (h = dp->handler_list; h; h = h->next) {
 		if (h->ev_mask & ep->fflags)
 			run_handler(dp->parent, h, ep->fflags, filename(dp));
+	}
+
+	if (ep->fflags & NOTE_DELETE) {
+		debug(1, ("%s deleted", dp->dirname));
+		dirwatcher_destroy(dp);
+		return;
 	}
 }	
 

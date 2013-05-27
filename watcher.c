@@ -353,14 +353,19 @@ watch_subdirs(struct dirwatcher *parent)
 			diag(LOG_ERR, "cannot stat %s: %s",
 			     dirname, strerror(errno));
 		} else if (st.st_mode & filemask) {
-			struct dirwatcher *dwp =
-				subwatcher_create(parent, dirname);
-			if (dwp && S_ISDIR(st.st_mode))
-				watch_subdirs(dwp);
+			watch_pathname(parent, dirname, S_ISDIR(st.st_mode));
 		}
 		free(dirname);
 	}
 	closedir(dir);
+}
+
+void
+watch_pathname(struct dirwatcher *parent, const char *dirname, int isdir)
+{
+	struct dirwatcher *dwp = subwatcher_create(parent, dirname);
+	if (dwp && isdir)
+		watch_subdirs(dwp);
 }
 
 
@@ -399,19 +404,3 @@ dirwatcher_destroy(struct dirwatcher *dwp)
 	dirwatcher_remove(dwp->dirname);
 }
 
-/* Remove a watcher identified by its directory and file name */
-void
-remove_watcher(const char *dir, const char *name)
-{
-	struct dirwatcher *dwp;
-	char *fullname = mkfilename(dir, name);
-	if (!fullname) {
-		diag(LOG_EMERG, "not enough memory: "
-		     "cannot look up a watcher to delete");
-		return;
-	}
-	dwp = dirwatcher_lookup(fullname);
-	free(fullname);
-	if (dwp)
-		dirwatcher_destroy(dwp);
-}

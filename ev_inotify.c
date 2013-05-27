@@ -98,6 +98,23 @@ evsys_rm_watch(struct dirwatcher *dwp)
 	inotify_rm_watch(ifd, dwp->wd);
 }
 
+/* Remove a watcher identified by its directory and file name */
+void
+remove_watcher(const char *dir, const char *name)
+{
+	struct dirwatcher *dwp;
+	char *fullname = mkfilename(dir, name);
+	if (!fullname) {
+		diag(LOG_EMERG, "not enough memory: "
+		     "cannot look up a watcher to delete");
+		return;
+	}
+	dwp = dirwatcher_lookup(fullname);
+	free(fullname);
+	if (dwp)
+		dirwatcher_destroy(dwp);
+}
+
 static void
 process_event(struct inotify_event *ep)
 {
