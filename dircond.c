@@ -248,13 +248,28 @@ signal_setup(void (*sf) (int))
 	signal(SIGUSR2, sf);
 }
 
+typedef fd_set *bigfd_set;
+
+#define BIGFD_SET_COUNT \
+	((sysconf(_SC_OPEN_MAX) + FD_SETSIZE - 1) / FD_SETSIZE)
+
+#define BIGFD_SET_ALLOC() \
+	ecalloc(BIGFD_SET_COUNT, sizeof(fd_set))
+
+#define BIGFD_ZERO(fds) \
+	memset(fds, 0, sizeof(*bigfd_set) * BIGFD_SET_COUNT)
+#define BIGFD_SET(n, fds) \
+	FD_SET((n) % FD_SETSIZE, (fds) + (n) / FD_SETSIZE)
+#define BIGFD_ISSET(n, fds) \
+	FD_ISSET((n) % FD_SETSIZE, (fds) + (n) / FD_SETSIZE)
+
 static void
-close_fds(fd_set *fdset)
+close_fds(bigfd_set fdset)
 {
 	int i;
 
 	for (i = sysconf(_SC_OPEN_MAX) - 1; i >= 0; i--) {
-		if (fdset && FD_ISSET(i, fdset))
+		if (fdset && BIGFD_ISSET(i, fdset))
 			continue;
 		close(i);
 	}
@@ -511,7 +526,7 @@ open_redirector(const char *tag, int prio, pid_t *return_pid)
 	FILE *fp;
 	char buf[512];
 	pid_t pid;
-	fd_set fdset;
+	bigfd_set fdset;
 
 	if (pipe(p)) {
 		diag(LOG_ERR,
@@ -522,11 +537,11 @@ open_redirector(const char *tag, int prio, pid_t *return_pid)
 	switch (pid = fork()) {
 	case 0:
 		/* Redirector process */
-		FD_ZERO(&fdset);
-		FD_SET(p[0], &fdset);
+		fdset = BIGFD_SET_ALLOC();
+		BIGFD_SET(p[0], fdset);
 		if (facility <= 0)
-			FD_SET(2, &fdset);
-		close_fds(&fdset);
+			BIGFD_SET(2, fdset);
+		close_fds(fdset);
 		
 		alarm(0);
 		signal_setup(redir_exit);
@@ -554,7 +569,7 @@ open_redirector(const char *tag, int prio, pid_t *return_pid)
 	default:
 		debug(1, ("redirector for %s started, pid=%lu",
 			  tag, (unsigned long) pid));
-		close (p[0]);
+		close(p[0]);
 		*return_pid = pid;
 		return p[1];
 	}
@@ -625,7 +640,7 @@ run_handler(struct dirwatcher *dp, struct handler *hp, int event,
 	if (pid == 0) {		
 		/* child */
 		char *argv[2];
-		fd_set fdset;
+		bigfd_set fdset = BIGFD_SET_ALLOC();
 
 		if (switchpriv(hp))
 			_exit(127);
@@ -636,15 +651,13 @@ run_handler(struct dirwatcher *dp, struct handler *hp, int event,
 			_exit(127);
 		}
 
-		FD_ZERO(&fdset);
-
 		if (redir_fd[REDIR_OUT] != -1) {
 			if (redir_fd[REDIR_OUT] != 1 &&
 			    dup2(redir_fd[REDIR_OUT], 1) == -1) {
 				diag(LOG_ERR, "dup2: %s", strerror(errno));
 				_exit(127);
 			}
-			FD_SET(1, &fdset);
+			BIGFD_SET(1, fdset);
 		}
 		if (redir_fd[REDIR_ERR] != -1) {
 			if (redir_fd[REDIR_ERR] != 2 &&
@@ -652,9 +665,9 @@ run_handler(struct dirwatcher *dp, struct handler *hp, int event,
 				diag(LOG_ERR, "dup2: %s", strerror(errno));
 				_exit(127);
 			}
-			FD_SET(2, &fdset);
+			BIGFD_SET(2, fdset);
 		}
-		close_fds(&fdset);
+		close_fds(fdset);
 		alarm(0);
 		signal_setup(SIG_DFL);
 		signal(SIGCHLD, SIG_DFL);
