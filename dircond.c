@@ -710,11 +710,12 @@ help()
 	printf("OPTIONS are:\n\n");
 
 	printf("   -d            increase debug verbosity\n");
-        printf("   -f            run in the foreground\n");
 	printf("   -F FACILITY   log under this syslog facility (default: daemon);\n");
 	printf("                 use -F 0 to log to stderr instead\n");
+        printf("   -f            run in the foreground\n");
+        printf("   -L TAG        log with this syslog tag\n");
 	printf("   -P FILE       write PID to FILE\n");
-        printf("   -t TAG        log with this syslog tag\n");
+	printf("   -t            check configuration file for errors and exit\n");
 	printf("   -u USER       run as this USER\n\n");
 
 	printf("   -h            output this help summary\n");
@@ -845,6 +846,9 @@ main(int argc, char **argv)
 		case 'd':
 			opt_debug_level++;
 			break;
+		case 'F':			
+			opt_facility = get_facility(optarg);
+			break;
 		case 'f':
 			opt_foreground++;
 			break;
@@ -854,14 +858,11 @@ main(int argc, char **argv)
 		case 'L':
 			opt_tag = optarg;
 			break;
-		case 't':
-			lint_only = 1;
-			break;
-		case 'F':			
-			opt_facility = get_facility(optarg);
-			break;
 		case 'P':
 			opt_pidfile = optarg;
+			break;
+		case 't':
+			lint_only = 1;
 			break;
 		case 'u':
 			opt_user = optarg;
