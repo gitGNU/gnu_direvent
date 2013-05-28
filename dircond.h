@@ -183,8 +183,6 @@ int run_handler(struct dirwatcher *dp, struct handler *hp, event_mask *event,
 		const char *file);
 void ev_log(int flags, struct dirwatcher *dp);
 
-struct process *register_process(pid_t pid, time_t t, unsigned timeout);
-void deregister_process(pid_t pid, time_t t);
 struct process *process_lookup(pid_t pid);
 void process_cleanup(int expect_term);
 void process_timeouts(void);

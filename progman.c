@@ -26,14 +26,23 @@
 #define REDIR_OUT 0
 #define REDIR_ERR 1
 
+#define PROC_HANDLER 0
+#define PROC_REDIR   1
+
 /* A running process is described by this structure */
 struct process {
 	struct process *next, *prev;
+	int type;               /* Process type */
 	unsigned timeout;       /* Timeout in seconds */
 	pid_t pid;              /* PID */
 	time_t start;           /* Time when the process started */
-	pid_t redir[2];         /* PIDs of redirector processes (0 if no
-				   redirector) */
+	union {
+		struct process *redir[2];
+                /* Pointers to the redirector processes, if
+		   type == PROC_HANDLER (NULL if no redirector) */
+		struct process *master;
+                /* Master process, if type == PROC_REDIR */
+	} v;
 };
 
 /* List of running processes */
@@ -77,7 +86,7 @@ proc_push(struct process **pp, struct process *p)
 /* Process list handling (high-level) */
 
 struct process *
-register_process(pid_t pid, time_t t, unsigned timeout)
+register_process(int type, pid_t pid, time_t t, unsigned timeout)
 {
 	struct process *p;
 
@@ -86,10 +95,10 @@ register_process(pid_t pid, time_t t, unsigned timeout)
 	else
 		p = emalloc(sizeof(*p));
 	memset(p, 0, sizeof(*p));
+	p->type = type;
 	p->timeout = timeout;
 	p->pid = pid;
 	p->start = t;
-	
 	proc_push(&proc_list, p);
 	return p;
 }
@@ -175,15 +184,18 @@ process_cleanup(int expect_term)
 			sigaddset(&set, SIGKILL);
 		}
 		print_status(pid, status, &set);
-		if (p) {
-			if (p->redir[REDIR_OUT])
-				kill(p->redir[REDIR_OUT], SIGKILL);
-			if (p->redir[REDIR_ERR])
-				kill(p->redir[REDIR_ERR], SIGKILL);
-			p->pid = 0;
-			proc_unlink(&proc_list, p);
-			proc_push(&proc_avail, p);
+		if (!p)
+			continue;
+
+		if (p->type == PROC_HANDLER) {
+			if (p->v.redir[REDIR_OUT])
+				p->v.redir[REDIR_OUT]->v.master = NULL;
+			if (p->v.redir[REDIR_ERR])
+				p->v.redir[REDIR_ERR]->v.master = NULL;
 		}
+		p->pid = 0;
+		proc_unlink(&proc_list, p);
+		proc_push(&proc_avail, p);
 	}
 }
 
@@ -278,7 +290,7 @@ redir_exit(int sig)
 }
 
 int
-open_redirector(const char *tag, int prio, pid_t *return_pid)
+open_redirector(const char *tag, int prio, struct process **return_proc)
 {
 	int p[2];
 	FILE *fp;
@@ -328,7 +340,8 @@ open_redirector(const char *tag, int prio, pid_t *return_pid)
 		debug(1, ("redirector for %s started, pid=%lu",
 			  tag, (unsigned long) pid));
 		close(p[0]);
-		*return_pid = pid;
+		*return_proc = register_process(PROC_REDIR, pid, 
+						time(NULL), 0);
 		return p[1];
 	}
 }
@@ -372,7 +385,7 @@ run_handler(struct dirwatcher *dp, struct handler *hp, event_mask *event,
 {
 	pid_t pid;
 	int redir_fd[2] = { -1, -1 };
-	pid_t redir_pid[2];
+	struct process *redir_proc[2] = { NULL, NULL };
 	struct process *p;
 
 	if (!hp->prog)
@@ -386,16 +399,20 @@ run_handler(struct dirwatcher *dp, struct handler *hp, event_mask *event,
 	debug(1, ("starting %s, dir=%s, file=%s", hp->prog, dp->dirname, file));
 	if (hp->flags & HF_STDERR)
 		redir_fd[REDIR_ERR] = open_redirector(hp->prog, LOG_ERR,
-						      &redir_pid[REDIR_ERR]);
+						      &redir_proc[REDIR_ERR]);
 	if (hp->flags & HF_STDOUT)
 		redir_fd[REDIR_OUT] = open_redirector(hp->prog, LOG_INFO,
-						      &redir_pid[REDIR_OUT]);
+						      &redir_proc[REDIR_OUT]);
 	
 	pid = fork();
 	if (pid == -1) {
+		diag(LOG_ERR, "fork: %s", strerror(errno));
 		close(redir_fd[REDIR_OUT]);
 		close(redir_fd[REDIR_ERR]);
-		diag(LOG_ERR, "fork: %s", strerror(errno));
+		if (redir_proc[REDIR_OUT])
+			kill(redir_proc[REDIR_OUT]->pid, SIGKILL);
+		if (redir_proc[REDIR_ERR])
+			kill(redir_proc[REDIR_ERR]->pid, SIGKILL);
 		return -1;
 	}
 	
@@ -447,9 +464,17 @@ run_handler(struct dirwatcher *dp, struct handler *hp, event_mask *event,
 	debug(1, ("%s running; dir=%s, file=%s, pid=%lu",
 		  hp->prog, dp->dirname, file, (unsigned long)pid));
 
-	p = register_process(pid, time(NULL), hp->timeout);
-	
-	memcpy(p->redir, redir_pid, sizeof(p->redir));
+	p = register_process(PROC_HANDLER, pid, time(NULL), hp->timeout);
+
+	if (redir_proc[REDIR_OUT]) {
+		redir_proc[REDIR_OUT]->v.master = p;
+		redir_proc[REDIR_OUT]->timeout = hp->timeout;
+	}
+	if (redir_proc[REDIR_ERR]) {
+		redir_proc[REDIR_ERR]->v.master = p;
+		redir_proc[REDIR_ERR]->timeout = hp->timeout;
+	}
+	memcpy(p->v.redir, redir_proc, sizeof(p->v.redir));
 	
 	close(redir_fd[REDIR_OUT]);
 	close(redir_fd[REDIR_ERR]);
