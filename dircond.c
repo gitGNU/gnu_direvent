@@ -169,7 +169,7 @@ mkfilename(const char *dir, const char *file)
 }
 
 int
-trans_strtotok(struct transtab *tab, char *str, int *ret)
+trans_strtotok(struct transtab *tab, const char *str, int *ret)
 {
 	for (; tab->name; tab++)
 		if (strcmp(tab->name, str) == 0) {

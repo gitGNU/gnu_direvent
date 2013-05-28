@@ -119,7 +119,7 @@ extern event_mask sie_xlat[];
 extern struct transtab sie_trans[];
 extern struct transtab evsys_transtab[];
 
-int trans_strtotok(struct transtab *tab, char *str, int *ret);
+int trans_strtotok(struct transtab *tab, const char *str, int *ret);
 char *trans_toktostr(struct transtab *tab, int tok);
 char *trans_tokfirst(struct transtab *tab, int tok, int *next);
 char *trans_toknext(struct transtab *tab, int tok, int *next);
