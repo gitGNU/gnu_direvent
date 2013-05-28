@@ -172,7 +172,7 @@ check_created(struct dirwatcher *dp)
 
 			watch_pathname(dp, pathname, S_ISDIR(st.st_mode));
 			dp->file_ctime = st.st_ctime;
-			/* Deliver SIE_OPEN event */
+			/* Deliver SIE_CREATE event */
 			for (h = dp->handler_list; h; h = h->next) {
 				if (h->ev_mask.sie_mask & SIE_CREATE)
 					run_handler(dp, h, &m, ent->d_name);

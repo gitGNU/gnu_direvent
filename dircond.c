@@ -657,7 +657,7 @@ ev_log(int flags, struct dirwatcher *dp)
 	}
 }
 
-void
+static void
 event_to_env(event_mask *event)
 {
 	char *p,*q;
