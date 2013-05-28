@@ -20,61 +20,36 @@
 
 
 /* Event codes */
-struct event events[] = {
-	{ IN_ACCESS,        "access" },
-	{ IN_ATTRIB,        "attrib" },       
-	{ IN_CLOSE_WRITE,   "close_write" },  
-	{ IN_CLOSE_NOWRITE, "close_nowrite" },
-	{ IN_CREATE,        "create" },       
-	{ IN_DELETE,        "delete" },      
-	{ IN_MODIFY,        "modify" },
-	{ IN_MOVED_FROM,    "moved_from" },    
-	{ IN_MOVED_TO,      "moved_to" },      
-	{ IN_OPEN,          "open" },
+struct transtab evsys_transtab[] = {
+	{ "ACCESS",        IN_ACCESS         },
+	{ "ATTRIB",        IN_ATTRIB         },       
+	{ "CLOSE_WRITE",   IN_CLOSE_WRITE    },  
+	{ "CLOSE_NOWRITE", IN_CLOSE_NOWRITE  },
+	{ "CREATE",        IN_CREATE         },       
+	{ "DELETE",        IN_DELETE         },      
+	{ "MODIFY",        IN_MODIFY         },
+	{ "MOVED_FROM",    IN_MOVED_FROM     },    
+	{ "MOVED_TO",      IN_MOVED_TO       },      
+	{ "OPEN",          IN_OPEN           },
 	{ 0 }
 };
 
-void
-ev_log(struct inotify_event *ep, struct dirwatcher *dp)
-{
-	int i;
+event_mask sie_xlat[] = {
+	{ SIE_CREATE, IN_CREATE|IN_MOVED_TO },
+	{ SIE_WRITE,  IN_MODIFY },
+	{ SIE_ATTRIB, IN_ATTRIB },
+	{ SIE_DELETE, IN_DELETE|IN_MOVED_FROM },
+	{ 0 }
+};
 
-	if (debug_level > 0) {
-		for (i = 0; events[i].evname; i++) {
-			if (events[i].evcode & ep->mask)
-				debug(1, ("%s/%s: %s", dp->dirname, ep->name,
-					  events[i].evname));
-		}
-	}
-}
-
-/* Convert event name to event code */
-int
-evsys_name_to_code(const char *name)
-{
-	int i;
-
-	for (i = 0; events[i].evname; i++) {
-		if (strcmp(events[i].evname, name) == 0)
-			return events[i].evcode;
-	}
-	return 0;
-}
-
-const char *
-evsys_code_to_name(int code)
-{
-	int i;
-
-	for (i = 0; events[i].evname; i++) {
-		if (events[i].evcode & code)
-			return events[i].evname;
-	}
-	return NULL;
-}
 
 static int ifd;
-int evsys_filemask = 0;
+
+int
+evsys_filemask(struct dirwatcher *dp)
+{
+	return 0;
+}
 
 void
 evsys_init()
@@ -87,9 +62,9 @@ evsys_init()
 }
 
 int
-evsys_add_watch(struct dirwatcher *dwp, int mask)
+evsys_add_watch(struct dirwatcher *dwp, event_mask mask)
 {
-	return inotify_add_watch(ifd, dwp->dirname, mask);
+	return inotify_add_watch(ifd, dwp->dirname, mask.sys_mask);
 }
 
 void
@@ -120,6 +95,7 @@ process_event(struct inotify_event *ep)
 {
 	struct dirwatcher *dp;
 	struct handler *h;
+	event_mask m;
 				
 	dp = dirwatcher_lookup_wd(ep->wd);
 	if (ep->mask & IN_IGNORED)
@@ -151,11 +127,12 @@ process_event(struct inotify_event *ep)
 		remove_watcher(dp->dirname, ep->name);
 	}
 
-	ev_log(ep, dp);
+	ev_log(ep->mask, dp);
 	
 	for (h = dp->handler_list; h; h = h->next) {
-		if (h->ev_mask & ep->mask)
-			run_handler(dp, h, ep->mask, ep->name);
+		if (h->ev_mask.sys_mask & ep->mask)
+			run_handler(dp, h, event_mask_init(&m, ep->mask),
+				    ep->name);
 	}
 }	
 

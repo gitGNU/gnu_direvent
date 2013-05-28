@@ -20,7 +20,7 @@
 struct symevt {
 	int used;
 	char *name;
-	int mask;
+	event_mask mask;
 	int line;
 };
 
@@ -63,7 +63,7 @@ symevt_free(void *p)
 
 
 int
-defevt(const char *name, int mask, int line)
+defevt(const char *name, event_mask *mask, int line)
 {
 	struct symevt key, *evp;
 	int install = 1;
@@ -83,20 +83,56 @@ defevt(const char *name, int mask, int line)
 	evp = hashtab_lookup_or_install(evtab, &key, &install);
 	if (!install)
 		return evp->line;
-	evp->mask = mask;
+	evp->mask = *mask;
 	evp->line = line;
 	return 0;
 }
 
 int
-getevt(const char *name)
+getevt(const char *name, event_mask *mask)
 {
 	if (evtab) {
 		struct symevt key, *evp;
 		key.name = (char *) name;
 		evp = hashtab_lookup_or_install(evtab, &key, NULL);
-		if (evp)
-			return evp->mask;
+		if (evp) {
+			*mask = evp->mask;
+			return 0;
+		}
 	}
-	return evsys_name_to_code(name);
+	if (trans_strtotok(evsys_transtab, name, &mask->sys_mask))
+		return -1;
+	mask->sie_mask = 0;
+	return 0;
 }
+
+int
+evtnullp(event_mask *mask)
+{
+	return mask->sie_mask == 0 && mask->sys_mask == 0;
+}
+
+struct transtab sie_trans[] = {
+	{ "create", SIE_CREATE },
+	{ "write",  SIE_WRITE  },
+	{ "attrib", SIE_ATTRIB },
+	{ "delete", SIE_DELETE },
+	{ NULL }
+};
+
+event_mask *
+event_mask_init(event_mask *m, int fflags)
+{
+	int i;
+
+	m->sys_mask = fflags;
+	m->sie_mask = 0;
+	for (i = 0; i < sie_xlat[i].sie_mask; i++)
+		if (sie_xlat[i].sys_mask & fflags) {
+			m->sie_mask = sie_xlat[i].sie_mask;
+			break;
+		}
+	return m;
+}
+
+	

@@ -224,14 +224,16 @@ dirwatcher_remove_wd(int wd)
 int 
 dirwatcher_init(struct dirwatcher *dwp)
 {
-	int mask = 0;
+	event_mask mask = { 0, 0 };
 	struct handler *hp;
 	int wd;
 
 	debug(1, ("creating watcher %s", dwp->dirname));
 
-	for (hp = dwp->handler_list; hp; hp = hp->next)
-		mask |= hp->ev_mask;
+	for (hp = dwp->handler_list; hp; hp = hp->next) {
+		mask.sys_mask |= hp->ev_mask.sys_mask;
+		mask.sie_mask |= hp->ev_mask.sie_mask;
+	}
 	
 	wd = evsys_add_watch(dwp, mask);
 	if (wd == -1) {
@@ -320,11 +322,11 @@ watch_subdirs(struct dirwatcher *parent)
 {
 	DIR *dir;
 	struct dirent *ent;
-	int filemask = evsys_filemask;
+	int filemask = evsys_filemask(parent);
 	
 	if (parent->depth)
-		evsys_filemask |= S_IFDIR;
-	if (!evsys_filemask)
+		filemask |= S_IFDIR;
+	if (!filemask)
 		return;
 	
 	dir = opendir(parent->dirname);

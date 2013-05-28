@@ -388,31 +388,30 @@ static int
 parse_event()
 {
 	const char *evname;
-	int mask = 0, n;
+	event_mask mask = {0, 0}, n;
 	
 	if (!nextnetkn())
 		return 1;
 	evname = tknp;
 
 	while (*nextkn()) {
-		n = getevt(tknp);
-		if (n == 0) {
+		if (getevt(tknp, &n)) {
 			diag(LOG_ERR, "%s:%d: unrecognized event code: %s",
 			     filename, line, tknp);
 			errors++;
 			continue;
 		}
-		mask |= n;
+		mask.sie_mask |= n.sie_mask;
+		mask.sys_mask |= n.sys_mask;
 	}
 
-	if (mask == 0) {
+	if (evtnullp(&mask)) {
 		diag(LOG_ERR, "%s:%d: empty event set", filename, line);
 		errors++;
 		return 0;
 	}
 
-	n = defevt(evname, mask, line);
-	if (n) {
+	if (defevt(evname, &mask, line)) {
 		diag(LOG_ERR, "%s:%d: event redefined", filename, line);
 		diag(LOG_ERR,
 		     "%s:%d: this is the location of the prior definition",
@@ -469,7 +468,7 @@ get_user_groups(char *user, gid_t gid, size_t *pgidc, gid_t **pgidv)
 static int
 parse_onevent()
 {
-	int mask;
+	event_mask mask;
 	struct pathent *pathent;
 	struct handler *hp, *prev = NULL;
 	char *prog;
@@ -480,8 +479,7 @@ parse_onevent()
 	
 	if (!nextnetkn())
 		return 1;
-	mask = getevt(tknp);
-	if (mask == 0) {
+	if (getevt(tknp, &mask)) {
 		diag(LOG_ERR, "%s:%d: unknown event code: %s",
 		     filename, line, tknp);
 		return 1;

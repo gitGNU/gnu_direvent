@@ -23,9 +23,11 @@
 #include <string.h>
 #include <unistd.h>
 
-#ifndef DEFAULT_TIMEOUT
-# define DEFAULT_TIMEOUT 5
-#endif
+/* System-independent event codes */
+#define SIE_CREATE  0x01
+#define SIE_WRITE   0x02
+#define SIE_ATTRIB  0x04
+#define SIE_DELETE  0x08
 
 /* Handler flags. */
 #define HF_NOWAIT 0x01       /* Don't wait for termination */
@@ -36,20 +38,25 @@
 # define DEFAULT_TIMEOUT 5
 #endif
 
+typedef struct {
+	int sie_mask;
+	int sys_mask;
+} event_mask;
+
 /* Event description */
-struct event {
-	int evcode;
-	char *evname;
+struct transtab {
+	char *name;
+	int tok;
 };
 
 /* Handler structure */
 struct handler {
 	struct handler *next;
-	int ev_mask;         /* Event mask */
+	event_mask ev_mask;  /* Event mask */
 	int flags;           /* Handler flags */
 	const char *prog;    /* Handler program (no arguments allowed) */
 	uid_t uid;           /* Run as this user (unless 0) */
-	gid_t *gidv;          /* Run with these groups' privileges */
+	gid_t *gidv;         /* Run with these groups' privileges */
 	size_t gidc;         /* Number of elements in gidv */
 	unsigned timeout;    /* Handler timeout */
 };
@@ -79,6 +86,7 @@ extern unsigned opt_timeout;
 extern unsigned opt_flags;
 extern int opt_facility;
 extern int signo;
+
 
 void *emalloc(size_t size);
 void *ecalloc(size_t nmemb, size_t size);
@@ -92,16 +100,27 @@ void debugprt(const char *fmt, ...);
 
 #define debug(l, c) do { if (debug_level>=(l)) debugprt c; } while(0)
 
-extern int evsys_filemask;
+int evsys_filemask(struct dirwatcher *dp);
 void evsys_init(void);
-int evsys_add_watch(struct dirwatcher *dwp, int mask);
+int evsys_add_watch(struct dirwatcher *dwp, event_mask mask);
 void evsys_rm_watch(struct dirwatcher *dwp);
 int evsys_select(void);
 int evsys_name_to_code(const char *name);
 const char *evsys_code_to_name(int code);
 
-int defevt(const char *name, int mask, int line);
-int getevt(const char *name);
+int defevt(const char *name, event_mask *mask, int line);
+int getevt(const char *name, event_mask *mask);
+int evtnullp(event_mask *mask);
+event_mask *event_mask_init(event_mask *m, int fflags);
+
+extern event_mask sie_xlat[];
+extern struct transtab sie_trans[];
+extern struct transtab evsys_transtab[];
+
+int trans_strtotok(struct transtab *tab, char *str, int *ret);
+char *trans_toktostr(struct transtab *tab, int tok);
+char *trans_tokfirst(struct transtab *tab, int tok, int *next);
+char *trans_toknext(struct transtab *tab, int tok, int *next);
 
 
 struct hashtab;
@@ -158,5 +177,6 @@ struct dirwatcher *dirwatcher_install(const char *path, int *pnew);
 void dirwatcher_destroy(struct dirwatcher *dwp);
 void watch_pathname(struct dirwatcher *parent, const char *dirname, int isdir);
 
-int run_handler(struct dirwatcher *dp, struct handler *hp, int event,
+int run_handler(struct dirwatcher *dp, struct handler *hp, event_mask *event,
 		const char *file);
+void ev_log(int flags, struct dirwatcher *dp);

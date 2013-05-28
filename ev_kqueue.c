@@ -21,55 +21,17 @@
 #include <dirent.h>
 #include <sys/stat.h>
 
-struct event events[] = {
-	{ NOTE_DELETE, "delete" },
-	{ NOTE_WRITE,  "write" },
-	{ NOTE_EXTEND, "extend" },
-	{ NOTE_ATTRIB, "attrib" },
-	{ NOTE_LINK,   "link" },
-	{ NOTE_RENAME, "rename" },
-	{ NOTE_REVOKE, "revoke" },
-	{ 0, NULL }
+struct transtab evsys_transtab[] = {
+	{ "DELETE", NOTE_DELETE },
+	{ "WRITE",  NOTE_WRITE  },
+	{ "EXTEND", NOTE_EXTEND },
+	{ "ATTRIB", NOTE_ATTRIB },
+	{ "LINK",   NOTE_LINK   },
+	{ "RENAME", NOTE_RENAME },
+	{ "REVOKE", NOTE_REVOKE },
+	{ NULL }
 };
 
-int
-evsys_name_to_code(const char *name)
-{
-	int i;
-
-	for (i = 0; events[i].evname; i++) {
-		if (strcmp(events[i].evname, name) == 0)
-			return events[i].evcode;
-	}
-	return 0;
-}
-
-const char *
-evsys_code_to_name(int code)
-{
-	int i;
-
-	for (i = 0; events[i].evname; i++) {
-		if (events[i].evcode & code)
-			return events[i].evname;
-	}
-	return NULL;
-}
-
-static void
-ev_log(struct kevent *ep, struct dirwatcher *dp)
-{
-	int i;
-
-	if (debug_level > 0) {
-		for (i = 0; events[i].evname; i++) {
-			if (events[i].evcode & ep->fflags)
-				debug(1, ("%s: %s", dp->dirname,
-					  events[i].evname));
-		}
-	}
-}
-		
 
 static int kq;
 static struct kevent *evtab;
@@ -77,7 +39,13 @@ static struct kevent *chtab;
 static int chcnt;
 static int chclosed = -1;
 
-int evsys_filemask = S_IFMT;
+event_mask sie_xlat[] = {
+	{ SIE_CREATE, 0 },
+	{ SIE_WRITE,  NOTE_WRITE|NOTE_EXTEND },
+	{ SIE_ATTRIB, NOTE_ATTRIB|NOTE_LINK },
+	{ SIE_DELETE, NOTE_DELETE|NOTE_RENAME|NOTE_REVOKE },
+	{ 0 }
+};
 
 void
 evsys_init()
@@ -92,19 +60,36 @@ evsys_init()
 }
 
 int
-evsys_add_watch(struct dirwatcher *dwp, int mask)
+evsys_filemask(struct dirwatcher *dp)
+{
+	struct handler *h;
+
+	for (h = dp->handler_list; h; h = h->next) {
+		if (h->ev_mask.sys_mask)
+			return S_IFMT;
+	}
+	return 0;
+}
+
+int
+evsys_add_watch(struct dirwatcher *dwp, event_mask mask)
 {
 	int wd = open(dwp->dirname, O_RDONLY);
 	if (wd >= 0) {
 		struct stat st;
+		int sysmask;
+		
 		if (fstat(wd, &st)) {
 			close(wd);
 			return -1;
 		}
 		dwp->file_mode = st.st_mode;
 		dwp->file_ctime = st.st_ctime;
+		sysmask = mask.sys_mask;
+		if (S_ISDIR(st.st_mode) && mask.sie_mask & SIE_CREATE)
+			sysmask |= NOTE_WRITE;
 		EV_SET(chtab + chcnt, wd, EVFILT_VNODE,
-		       EV_ADD | EV_ENABLE | EV_CLEAR, mask,
+		       EV_ADD | EV_ENABLE | EV_CLEAR, sysmask,
 		       0, dwp);
 		wd = chcnt++;
 	}
@@ -154,6 +139,7 @@ check_created(struct dirwatcher *dp)
 {
 	DIR *dir;
 	struct dirent *ent;
+	struct handler *h;
 
 	dir = opendir(dp->dirname);
 	if (!dir) {
@@ -182,8 +168,15 @@ check_created(struct dirwatcher *dp)
 			diag(LOG_ERR, "cannot stat %s: %s",
 			     pathname, strerror(errno));
 		} else if (st.st_ctime > dp->file_ctime) {
+			event_mask m = { SIE_CREATE, 0 };
+
 			watch_pathname(dp, pathname, S_ISDIR(st.st_mode));
 			dp->file_ctime = st.st_ctime;
+			/* Deliver SIE_OPEN event */
+			for (h = dp->handler_list; h; h = h->next) {
+				if (h->ev_mask.sie_mask & SIE_CREATE)
+					run_handler(dp, h, &m, ent->d_name);
+			}
 		}
 		free(pathname);
 	}
@@ -195,13 +188,14 @@ process_event(struct kevent *ep)
 {
 	struct dirwatcher *dp = ep->udata;
 	struct handler *h;
-
+	event_mask m;
+	
 	if (!dp) {
 		diag(LOG_NOTICE, "unrecognized event %x", ep->fflags);
 		return;
 	}
 
-	ev_log(ep, dp);
+	ev_log(ep->fflags, dp);
 
 	if (S_ISDIR(dp->file_mode)) {
 		/* Check if new files have appeared. */
@@ -211,11 +205,14 @@ process_event(struct kevent *ep)
 	}
 
 	for (h = dp->handler_list; h; h = h->next) {
-		if (h->ev_mask & ep->fflags)
-			run_handler(dp->parent, h, ep->fflags, filename(dp));
+		if (h->ev_mask.sys_mask & ep->fflags) {
+			run_handler(dp->parent, h,
+				    event_mask_init(&m, ep->fflags),
+				    filename(dp));
+		}
 	}
 
-	if (ep->fflags & NOTE_DELETE) {
+	if (ep->fflags & (NOTE_DELETE|NOTE_RENAME)) {
 		debug(1, ("%s deleted", dp->dirname));
 		dirwatcher_destroy(dp);
 		return;

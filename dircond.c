@@ -170,6 +170,47 @@ mkfilename(const char *dir, const char *file)
 	return tmp;
 }
 
+int
+trans_strtotok(struct transtab *tab, char *str, int *ret)
+{
+	for (; tab->name; tab++)
+		if (strcmp(tab->name, str) == 0) {
+			*ret = tab->tok;
+			return 0;
+		}
+	return -1;
+}
+
+char *
+trans_toktostr(struct transtab *tab, int tok)
+{
+	for (; tab->name; tab++)
+		if (tab->tok == tok)
+			return tab->name;
+	return NULL;
+}
+
+char *
+trans_toknext(struct transtab *tab, int tok, int *next)
+{
+	int i;
+	
+	for (i = *next; tab[i].name; i++)
+		if (tab[i].tok & tok) {
+			*next = i + 1;
+			return tab[i].name;
+		}
+	*next = i;
+	return NULL;
+}
+
+char *
+trans_tokfirst(struct transtab *tab, int tok, int *next)
+{
+	*next = 0;
+	return trans_toknext(tab, tok, next);
+}
+
 /* Process list */
 
 /* Redirector codes */
@@ -603,12 +644,57 @@ switchpriv(struct handler *hp)
 	return 0;
 }		
 
+void
+ev_log(int flags, struct dirwatcher *dp)
+{
+	int i;
+	char *p;
+	
+	if (debug_level > 0) {
+		for (p = trans_tokfirst(evsys_transtab, flags, &i); p;
+		     p = trans_toknext(evsys_transtab, flags, &i))
+			debug(1, ("%s: %s", dp->dirname, p));
+	}
+}
+
+void
+event_to_env(event_mask *event)
+{
+	char *p,*q;
+	char buf[1024];
+	int i;
+
+	snprintf(buf, sizeof buf, "%d", event->sys_mask);
+	setenv("DIRCOND_SYS_EVENT_CODE", buf, 1);
+	q = buf;
+	for (p = trans_tokfirst(evsys_transtab, event->sys_mask, &i); p;
+	     p = trans_toknext(evsys_transtab, event->sys_mask, &i)) {
+		if (q > buf)
+			*q++ = ' ';
+		while (*p)
+			*q++ = *p++;
+	}
+	*q = 0;	
+	if (q > buf)
+		setenv("DIRCOND_SYS_EVENT", buf, 1);
+	else
+		unsetenv("DIRCOND_SYS_EVENT");
+	p = trans_toktostr(sie_trans, event->sie_mask);
+	if (p) {
+		snprintf(buf, sizeof buf, "%d", event->sie_mask);
+		setenv("DIRCOND_EVENT_CODE", buf, 1);
+		setenv("DIRCOND_EVENT", p, 1);
+	} else {
+		unsetenv("DIRCOND_EVENT_CODE");
+		unsetenv("DIRCOND_EVENT");
+	}
+}
+
 int
-run_handler(struct dirwatcher *dp, struct handler *hp, int event,
+run_handler(struct dirwatcher *dp, struct handler *hp, event_mask *event,
 	    const char *file)
 {
 	pid_t pid;
-	char buf[1024];
 	int redir_fd[2] = { -1, -1 };
 	pid_t redir_pid[2];
 	struct process *p;
@@ -641,7 +727,7 @@ run_handler(struct dirwatcher *dp, struct handler *hp, int event,
 		/* child */
 		char *argv[2];
 		bigfd_set fdset = BIGFD_SET_ALLOC();
-
+		
 		if (switchpriv(hp))
 			_exit(127);
 		
@@ -673,9 +759,7 @@ run_handler(struct dirwatcher *dp, struct handler *hp, int event,
 		signal(SIGCHLD, SIG_DFL);
 		argv[0] = (char*) hp->prog;
 		argv[1] = NULL;
-		snprintf(buf, sizeof buf, "%d", event);
-		setenv("DIRCOND_EVENT_CODE", buf, 1);
-		setenv("DIRCOND_EVENT", evsys_code_to_name(event), 1);
+		event_to_env(event);
 		if (file)
 			setenv("DIRCOND_FILE", file, 1);
 		execv(argv[0], argv);
@@ -772,6 +856,17 @@ get_facility(const char *arg)
 }
 
 
+void
+sie_init()
+{
+	int i;
+	
+	for (i = 0; i < sie_xlat[i].sie_mask; i++)
+		defevt(trans_toktostr(sie_trans, sie_xlat[i].sie_mask),
+		       &sie_xlat[i], 0);
+}
+	
+
 int signo = 0;
 
 void
@@ -796,6 +891,8 @@ main(int argc, char **argv)
 	tag = (char*) program_name;
 
 	evsys_init();
+	sie_init();
+	
 	while ((c = getopt(argc, argv, "dF:fhLP:tu:V")) != EOF) {
 		switch (c) {
 		case 'd':
