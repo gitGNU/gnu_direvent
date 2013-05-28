@@ -289,10 +289,10 @@ parse_option()
 	optname = tknp;
 
 	if (strcmp(optname, "nowait") == 0) {
-		opt_flags &= ~HF_NOWAIT;
+		opt_flags |= HF_NOWAIT;
 		return 0;
 	} else if (strcmp(optname, "wait") == 0) {
-		opt_flags |= HF_NOWAIT;
+		opt_flags &= ~HF_NOWAIT;
 		return 0;
 	}
 	
