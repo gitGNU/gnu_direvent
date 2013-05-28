@@ -99,6 +99,8 @@ void diag(int prio, const char *fmt, ...);
 void debugprt(const char *fmt, ...);
 
 #define debug(l, c) do { if (debug_level>=(l)) debugprt c; } while(0)
+
+void signal_setup(void (*sf) (int));
 
 int evsys_filemask(struct dirwatcher *dp);
 void evsys_init(void);
@@ -180,3 +182,9 @@ void watch_pathname(struct dirwatcher *parent, const char *dirname, int isdir);
 int run_handler(struct dirwatcher *dp, struct handler *hp, event_mask *event,
 		const char *file);
 void ev_log(int flags, struct dirwatcher *dp);
+
+struct process *register_process(pid_t pid, time_t t, unsigned timeout);
+void deregister_process(pid_t pid, time_t t);
+struct process *process_lookup(pid_t pid);
+void process_cleanup(int expect_term);
+void process_timeouts(void);
