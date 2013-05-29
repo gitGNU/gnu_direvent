@@ -23,12 +23,13 @@
 #include <signal.h>
 
 #ifndef SYSCONFDIR
-# define SYSCONFDIR "/etc/"
+# define SYSCONFDIR "/etc"
 #endif
+#define DEFAULT_CONFFILE SYSCONFDIR "/dircond.conf"
 
 /* Configuration settings */
 const char *program_name;         /* This program name */
-const char *conffile = SYSCONFDIR "/dircond.conf";
+const char *conffile = DEFAULT_CONFFILE;
 int foreground;                   /* Remain in the foreground */
 char *tag;                        /* Syslog tag */
 int facility = -1;                /* Use this syslog facility for logging.
@@ -346,11 +347,18 @@ ev_log(int flags, struct dirwatcher *dp)
 }
 
 
+#if USE_IFACE == IFACE_INOTIFY
+# define INTERFACE "inotify"
+#elif USE_IFACE == IFACE_KQUEUE
+# define INTERFACE "kqueue"
+#endif
+
 /* Output a help summary. Return a code suitable for exit(2). */
 int
 help()
 {
 	printf("Usage: %s [OPTIONS] [CONFIG]\n", program_name);
+	printf("%s monitors changes in directories\n", program_name);
 	printf("OPTIONS are:\n\n");
 
 	printf("   -d            increase debug verbosity\n");
@@ -365,6 +373,11 @@ help()
 	printf("   -h            output this help summary\n");
         printf("   -V            print program version and exit\n\n");
 
+	printf("Optional CONFIG argument supplies the configuration file\n"
+	       "to use instead of %s.\n\n", DEFAULT_CONFFILE); 
+
+	printf("This dircond uses %s interface.\n\n", INTERFACE);
+	
 	printf("Report bugs to <%s>.\n", PACKAGE_BUGREPORT);
 		
 	return 0;

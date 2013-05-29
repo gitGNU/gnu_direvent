@@ -15,7 +15,7 @@
 # along with Dircond.  If not, see <http://www.gnu.org/licenses/>.
 
 AC_PREREQ([2.69])
-AC_INIT([dircond], [3.99], [gray+dircond@gnu.org.ua],,
+AC_INIT([dircond], [3.99.90], [gray+dircond@gnu.org.ua],,
         [http://www.gnu.org.ua/software/dircond])
 AC_CONFIG_SRCDIR([dircond.c])
 AC_CONFIG_HEADERS([config.h])
