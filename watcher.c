@@ -329,7 +329,7 @@ watch_subdirs(struct dirwatcher *parent)
 		return;
 	dir = opendir(parent->dirname);
 	if (!dir) {
-		diag(LOG_ERR, "cannot open directory %d: %s",
+		diag(LOG_ERR, "cannot open directory %s: %s",
 		     parent->dirname, strerror(errno));
 		return;
 	}
