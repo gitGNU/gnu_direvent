@@ -209,6 +209,7 @@ trans_tokfirst(struct transtab *tab, int tok, int *next)
 	return trans_toknext(tab, tok, next);
 }
 
+
 /* Command line processing and auxiliary functions */
 
 static void

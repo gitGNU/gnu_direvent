@@ -126,14 +126,6 @@ chclosed_elim()
 	chclosed = -1;
 }
 
-static char const *
-filename(struct dirwatcher *dp)
-{
-	if (!dp->parent)
-		return dp->dirname;
-	return dp->dirname + strlen(dp->parent->dirname) + 1;
-}
-
 static void
 check_created(struct dirwatcher *dp)
 {
@@ -175,7 +167,8 @@ check_created(struct dirwatcher *dp)
 			/* Deliver SIE_CREATE event */
 			for (h = dp->handler_list; h; h = h->next) {
 				if (h->ev_mask.sie_mask & SIE_CREATE)
-					run_handler(dp, h, &m, ent->d_name);
+					run_handler(h, &m,
+						    dp->dirname, ent->d_name);
 			}
 		}
 		free(pathname);
@@ -189,6 +182,7 @@ process_event(struct kevent *ep)
 	struct dirwatcher *dp = ep->udata;
 	struct handler *h;
 	event_mask m;
+	char *filename, *dirname;
 	
 	if (!dp) {
 		diag(LOG_NOTICE, "unrecognized event %x", ep->fflags);
@@ -204,14 +198,16 @@ process_event(struct kevent *ep)
 		return;
 	}
 
+	filename = split_pathname(dp, &dirname);
 	for (h = dp->handler_list; h; h = h->next) {
 		if (h->ev_mask.sys_mask & ep->fflags) {
-			run_handler(dp->parent, h,
+			run_handler(h,
 				    event_mask_init(&m, ep->fflags),
-				    filename(dp));
+				    dirname, filename);
 		}
 	}
-
+	unsplit_pathname(dp);
+	
 	if (ep->fflags & (NOTE_DELETE|NOTE_RENAME)) {
 		debug(1, ("%s deleted", dp->dirname));
 		dirwatcher_destroy(dp);

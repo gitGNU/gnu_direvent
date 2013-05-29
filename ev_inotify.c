@@ -96,7 +96,8 @@ process_event(struct inotify_event *ep)
 	struct dirwatcher *dp;
 	struct handler *h;
 	event_mask m;
-				
+	char *dirname, *filename;
+	
 	dp = dirwatcher_lookup_wd(ep->wd);
 	if (ep->mask & IN_IGNORED)
 		return;
@@ -128,12 +129,19 @@ process_event(struct inotify_event *ep)
 	}
 
 	ev_log(ep->mask, dp);
-	
+
+	if (ep->len == 0)
+		filename = split_pathname(dp, &dirname);
+	else {
+		dirname = dp->dirname;
+		filename = ep->name;
+	}
 	for (h = dp->handler_list; h; h = h->next) {
 		if (h->ev_mask.sys_mask & ep->mask)
-			run_handler(dp, h, event_mask_init(&m, ep->mask),
-				    ep->name);
+			run_handler(h, event_mask_init(&m, ep->mask),
+				    dirname, filename);
 	}
+	unsplit_pathname(dp);
 }	
 
 int

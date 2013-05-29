@@ -70,8 +70,9 @@ struct dirwatcher {
 	char *dirname;                       /* Pathname being watched */
 	struct handler *handler_list;        /* Handlers */
 	int depth;
+	char *split_p;
 #if USE_IFACE == IFACE_KQUEUE
-	int file_mode;
+	mode_t file_mode;
 	time_t file_ctime;
 #endif
 };
@@ -179,10 +180,13 @@ struct dirwatcher *dirwatcher_install(const char *path, int *pnew);
 void dirwatcher_destroy(struct dirwatcher *dwp);
 void watch_pathname(struct dirwatcher *parent, const char *dirname, int isdir);
 
-int run_handler(struct dirwatcher *dp, struct handler *hp, event_mask *event,
-		const char *file);
+char *split_pathname(struct dirwatcher *dp, char **dirname);
+void unsplit_pathname(struct dirwatcher *dp);
+
 void ev_log(int flags, struct dirwatcher *dp);
 
 struct process *process_lookup(pid_t pid);
 void process_cleanup(int expect_term);
 void process_timeouts(void);
+int run_handler(struct handler *hp, event_mask *event,
+		const char *dir, const char *file);

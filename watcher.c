@@ -405,4 +405,29 @@ dirwatcher_destroy(struct dirwatcher *dwp)
 	dirwatcher_remove_wd(dwp->wd);
 	dirwatcher_remove(dwp->dirname);
 }
+
+char *
+split_pathname(struct dirwatcher *dp, char **dirname)
+{
+	char *p = strrchr(dp->dirname, '/');
+	if (p) {
+		dp->split_p = p;
+		*p++ = 0;
+		*dirname = dp->dirname;
+	} else {
+		p = dp->dirname;
+		*dirname = ".";
+	}
+	return p;
+}
+
+void
+unsplit_pathname(struct dirwatcher *dp)
+{
+	if (dp->split_p) {
+		*dp->split_p = '/';
+		dp->split_p = NULL;
+	}
+}
+
 

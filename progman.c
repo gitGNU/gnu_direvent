@@ -381,8 +381,8 @@ event_to_env(event_mask *event)
 }
 
 int
-run_handler(struct dirwatcher *dp, struct handler *hp, event_mask *event,
-	    const char *file)
+run_handler(struct handler *hp, event_mask *event,
+	    const char *dirname, const char *file)
 {
 	pid_t pid;
 	int redir_fd[2] = { -1, -1 };
@@ -393,11 +393,11 @@ run_handler(struct dirwatcher *dp, struct handler *hp, event_mask *event,
 		return 0;
 	if (access(hp->prog, X_OK)) {
 		diag(LOG_ERR, "watchpoint %s: cannot execute %s: %s",
-		     dp->dirname, hp->prog, strerror(errno));
+		     dirname, hp->prog, strerror(errno));
 		return 1;
 	}
 	
-	debug(1, ("starting %s, dir=%s, file=%s", hp->prog, dp->dirname, file));
+	debug(1, ("starting %s, dir=%s, file=%s", hp->prog, dirname, file));
 	if (hp->flags & HF_STDERR)
 		redir_fd[REDIR_ERR] = open_redirector(hp->prog, LOG_ERR,
 						      &redir_proc[REDIR_ERR]);
@@ -425,9 +425,9 @@ run_handler(struct dirwatcher *dp, struct handler *hp, event_mask *event,
 		if (switchpriv(hp))
 			_exit(127);
 		
-		if (chdir(dp->dirname)) {
+		if (chdir(dirname)) {
 			diag(LOG_CRIT, "cannot change to %s: %s",
-			     dp->dirname, strerror(errno));
+			     dirname, strerror(errno));
 			_exit(127);
 		}
 
@@ -463,7 +463,7 @@ run_handler(struct dirwatcher *dp, struct handler *hp, event_mask *event,
 
 	/* master */
 	debug(1, ("%s running; dir=%s, file=%s, pid=%lu",
-		  hp->prog, dp->dirname, file, (unsigned long)pid));
+		  hp->prog, dirname, file, (unsigned long)pid));
 
 	p = register_process(PROC_HANDLER, pid, time(NULL), hp->timeout);
 
