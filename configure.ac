@@ -17,7 +17,7 @@
 AC_PREREQ([2.69])
 AC_INIT([dircond], [3.99.90], [gray+dircond@gnu.org.ua],,
         [http://www.gnu.org.ua/software/dircond])
-AC_CONFIG_SRCDIR([dircond.c])
+AC_CONFIG_SRCDIR([src/dircond.c])
 AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_AUX_DIR([build-aux])
 AM_INIT_AUTOMAKE([1.11.5 gnu tar-ustar])
@@ -25,6 +25,7 @@ AM_INIT_AUTOMAKE([1.11.5 gnu tar-ustar])
 # Checks for programs.
 AC_PROG_AWK
 AC_PROG_CC
+AC_PROG_RANLIB
 AC_PROG_INSTALL
 AC_PROG_MAKE_SET
 
@@ -57,6 +58,10 @@ AH_TOP([
 #define IFACE_KQUEUE  1  /* kqueue  - BSD */
 ])
 
+# Grecs subsystem
+
+GRECS_SETUP([grecs],[git2chg no-preproc])
+
 AC_CONFIG_COMMANDS([status],[
 cat <<EOT
 
@@ -67,5 +72,7 @@ EOT
 iface=$iface
 ])
 
-AC_CONFIG_FILES([Makefile])
+AC_CONFIG_FILES([Makefile
+                 src/Makefile
+		 doc/Makefile])
 AC_OUTPUT
