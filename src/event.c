@@ -26,6 +26,18 @@ struct symevt {
 
 struct hashtab *evtab;
 
+unsigned
+hash_string(const char *name, unsigned long hashsize)
+{
+	unsigned i;
+	
+	for (i = 0; *name; name++) {
+		i <<= 1;
+		i ^= *(unsigned char*) name;
+	}
+	return i % hashsize;
+}		
+
 static unsigned
 symevt_hash(void *data, unsigned long hashsize)
 {

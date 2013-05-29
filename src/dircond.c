@@ -21,6 +21,7 @@
 #include <pwd.h>
 #include <grp.h>
 #include <signal.h>
+#include <grecs.h>
 
 #ifndef SYSCONFDIR
 # define SYSCONFDIR "/etc"
@@ -34,6 +35,7 @@ int foreground;                   /* Remain in the foreground */
 char *tag;                        /* Syslog tag */
 int facility = -1;                /* Use this syslog facility for logging.
 				     -1 means log to stderr */
+int syslog_include_prio;
 int debug_level;                  /* Debug verbosity level */
 char *pidfile = NULL;             /* Store PID to this file */
 char *user = NULL;                /* User to run as */
@@ -397,30 +399,6 @@ version()
 	return 0;
 }
 
-int
-get_facility(const char *arg)
-{
-	int f;
-	
-	if (read_facility(arg, &f)) {
-		switch (errno) {
-		case EINVAL:
-			diag(LOG_CRIT,
-			     "unknown syslog facility: %s", arg);
-			break;
-
-		case ERANGE:
-			diag(LOG_CRIT, "syslog facility out of range");
-			break;
-				
-		default:
-			abort();
-		}
-		exit(1);
-	}
-	return f;
-}
-
 
 void
 sie_init()
@@ -446,11 +424,13 @@ int
 main(int argc, char **argv)
 {
 	int c;
+	struct grecs_node *tree;
 	int opt_debug_level = 0;
 	int opt_foreground = 0;
 	char *opt_tag = NULL;
 	char *opt_pidfile = NULL;
 	char *opt_user = NULL;
+	int opt_facility = -1;
 	int lint_only = 0;
 	
 	set_program_name(argv[0]);
@@ -459,17 +439,20 @@ main(int argc, char **argv)
 	evsys_init();
 	sie_init();
 	
-	while ((c = getopt(argc, argv, "dF:fhLP:tu:V")) != EOF) {
+	while ((c = getopt(argc, argv, "dF:fHhLP:tu:V")) != EOF) {
 		switch (c) {
 		case 'd':
 			opt_debug_level++;
 			break;
-		case 'F':			
+		case 'F':
 			opt_facility = get_facility(optarg);
 			break;
 		case 'f':
 			opt_foreground++;
 			break;
+		case 'H':
+			config_help();
+			exit(0);
 		case 'h':
 			exit(help());
 			break;
@@ -510,10 +493,14 @@ main(int argc, char **argv)
 		break;
 	}
 
-	config_parse(conffile);
+	tree = grecs_parse(conffile);
+	if (!tree)
+		exit(1);
+
+	config_finish(tree);
 	if (lint_only)
 		return 0;
-	
+
 	if (opt_debug_level)
 		debug_level += opt_debug_level;
 	if (opt_foreground)

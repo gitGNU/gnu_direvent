@@ -1,0 +1,3 @@
+[submodule "grecs"]
+	path = grecs
+	url = git://git.gnu.org.ua/grecs.git

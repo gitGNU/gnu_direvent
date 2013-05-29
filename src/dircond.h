@@ -81,11 +81,11 @@ extern int foreground;
 extern int debug_level;
 extern int facility;
 extern char *tag;
+extern int syslog_include_prio;
 extern char *pidfile;
 extern char *user;
 extern unsigned opt_timeout;
 extern unsigned opt_flags;
-extern int opt_facility;
 extern int signo;
 
 
@@ -154,21 +154,11 @@ size_t hashtab_count(struct hashtab *st);
 unsigned hash_string(const char *name, unsigned long hashsize);
 
 struct pathent {
-	struct pathent *next;
 	long depth;
 	size_t len;
 	char path[1];
 };
 	
-struct pathdefn {
-	int used;
-	char *name;
-	struct pathent *pathlist;
-};
-
-int pathdefn_add(const char *name, const char *dir, long depth);
-struct pathent *pathdefn_get(const char *name);
-
 void config_parse(const char *file);
 int read_facility(const char *arg, int *pres);
 

@@ -6,7 +6,6 @@ dircond_SOURCES=\
  event.c\
  hashtab.c\
  watcher.c\
- pathdefn.c\
  progman.c
 
 if DIRCOND_INOTIFY

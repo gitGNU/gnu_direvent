@@ -15,414 +15,369 @@
    with dircond. If not, see <http://www.gnu.org/licenses/>. */
 
 #include "dircond.h"
+#include <grecs.h>
 #include <pwd.h>
 #include <grp.h>
 
-unsigned opt_timeout = DEFAULT_TIMEOUT;
-unsigned opt_flags;
-int opt_facility = -1;
+static struct transtab kwpri[] = {
+	{ "emerg", LOG_EMERG },
+	{ "alert", LOG_ALERT },
+	{ "crit", LOG_CRIT },
+	{ "err", LOG_ERR },
+	{ "warning", LOG_WARNING },
+	{ "notice", LOG_NOTICE },
+	{ "info", LOG_INFO },
+	{ "debug", LOG_DEBUG },
+	{ NULL }
+};
 
-static const char *filename;
-static int line;
-static FILE *fp;
-static char *buffer;
-static size_t bufsize;
-static char *curp;
-static char *tknp;
-static int errors;
-
-static char *
-skipws()
-{
-	while (*curp == ' ' || *curp == '\t') curp++;
-	return curp;
-}
-
-static char *
-skipword()
-{
-	while (*curp && !(*curp == ' ' || *curp == '\t')) curp++;
-	return curp;
-}
-
-int
-nextln()
-{
-	int off = 0;
-
-	if (!buffer) {
-		bufsize = 10;
-		buffer = emalloc(bufsize);
-	}
-
-	for (;;) {
-		char *p;
-		
-		while (p = fgets(buffer + off, bufsize - off, fp)) {
-			int len = strlen(buffer+off);
-			off += len;
-			if (buffer[off-1] == '\n') {
-				buffer[--off] = 0;
-				line++;
-				break;
-			}
-			bufsize *= 2;
-			buffer = erealloc(buffer, bufsize);
-		}
-		
-		if (!p && off == 0)
-			return -1;
-		
-		if (off > 0 && buffer[off-1] == '\\')
-			buffer[--off] = 0;
-		else
-			break;
-	}
-	curp = buffer;
-	return off;
-}
+static struct transtab kwfac[] = {
+	{ "user",    LOG_USER },
+	{ "daemon",  LOG_DAEMON },
+	{ "auth",    LOG_AUTH },
+	{ "authpriv",LOG_AUTHPRIV },
+	{ "mail",    LOG_MAIL },
+	{ "cron",    LOG_CRON },
+	{ "local0",  LOG_LOCAL0 },
+	{ "local1",  LOG_LOCAL1 },
+	{ "local2",  LOG_LOCAL2 },
+	{ "local3",  LOG_LOCAL3 },
+	{ "local4",  LOG_LOCAL4 },
+	{ "local5",  LOG_LOCAL5 },
+	{ "local6",  LOG_LOCAL6 },
+	{ "local7",  LOG_LOCAL7 },
+	{ NULL }
+};
 
 int
-nextneln()
+get_facility(const char *arg)
 {
-	int rc;
-	
-	do {
-		if ((rc = nextln()) < 0)
-			break;
-		skipws();
-	} while (*curp == 0 || *curp == '#');
-	return rc;
-}
-
-static char *
-nextkn()
-{
-	tknp = curp;
-	if (*tknp) {
-		skipword();
-		if (*curp)
-			*curp++ = 0;
-		if (*tknp == '#')
-			*tknp = 0;
-	}
-	return tknp;
-}
-
-static char *
-nextnetkn()
-{
-	if (!*nextkn()) {
-		diag(LOG_ERR, "%s:%d: unexpected end of line", filename, line);
-		return NULL;
-	}
-	return tknp;
-}
-
-static int
-parse_foreground()
-{
-	if (*nextkn() != 0) {
-		if (strcmp(tknp, "on") == 0)
-			foreground = 1;
-		else if (strcmp(tknp, "off") == 0)
-			foreground = 0;
-		else {
-			diag(LOG_ERR,
-			     "%s:%d: expected \"on\" or \"of\", "
-			     "but found \"%s\"",
-			     filename, line, tknp);
-			return 1;
-		}
-	} else
-		foreground = 1;
-	return 0;
-}
-
-static int
-parse_debug()
-{
+	int f;
 	char *p;
 
-	if (!nextnetkn())
-		return 1;
-		
-	debug_level = strtoul(tknp, &p, 10);
-	if (*p) {
-		diag(LOG_ERR, "%s:%d: invalid debug level",
-		     filename, line);
-		return 1;
+	errno = 0;
+	f = strtoul (arg, &p, 0);
+	if (*p == 0 && errno == 0)
+		return f;
+	if (trans_strtotok(kwfac, arg, &f)) {
+		diag(LOG_CRIT, "unknown syslog facility: %s", arg);
+		exit(1);
 	}
-	return 0;
+	return f;
 }
 
-static int
-parse_pidfile()
-{
-	if (!nextnetkn())
-		return 1;
-	pidfile = estrdup(tknp);
-	return 0;
-}
-
-static int
-parse_user()
-{
-	if (!nextnetkn())
-		return 1;
-	if (!getpwnam(tknp)) {
-		diag(LOG_ERR, "%s:%d: no such user: %s", filename, line, user);
-		return 1;
+#define ASSERT_SCALAR(cmd, locus)					\
+	if ((cmd) != grecs_callback_set_value) {			\
+	        grecs_error(locus, 0, "Unexpected block statement");	\
+		return 1;						\
 	}
-			
-	user = estrdup(tknp);
-	return 0;
-}
 
 int
-read_facility(const char *arg, int *pres)
+assert_grecs_value_type(grecs_locus_t *locus,
+			const grecs_value_t *value, int type)
 {
-	static struct transtab { int f; char *s; } ftab[] = {
-		{ LOG_AUTH, "auth" },
-		{ LOG_AUTHPRIV, "authpriv" },
-		{ LOG_CRON, "cron" },
-		{ LOG_DAEMON, "daemon" },
-		{ LOG_FTP, "ftp" },
-		{ LOG_LOCAL0, "local0" },
-		{ LOG_LOCAL1, "local1" },
-		{ LOG_LOCAL2, "local2" },
-		{ LOG_LOCAL3, "local3" },
-		{ LOG_LOCAL4, "local4" },
-		{ LOG_LOCAL5, "local5" },
-		{ LOG_LOCAL6, "local6" },
-		{ LOG_LOCAL7, "local7" },
-		{ LOG_LPR, "lpr" },
-		{ LOG_MAIL, "mail" },
-		{ LOG_NEWS, "news" },
-		{ LOG_USER, "user" },
-		{ LOG_UUCP, "uucp" },
-		{ 0, NULL }
-	};
-	struct transtab *p;
-	char *s;
-	unsigned long n;
-	
-	for (p = ftab; p->s; p++) {
-		if (strcmp(p->s, arg) == 0) {
-			*pres = p->f;
-			return 0;
-		}
+	if (GRECS_VALUE_EMPTY_P(value)) {
+		grecs_error(locus, 0, "expected %s",
+			    grecs_data_type_string(type));
+		return 1;
 	}
-	n = strtoul(arg, &s, 10);
-	if (*s) {
-		errno = EINVAL;
-		return -1;
+	if (value->type != type) {
+		grecs_error(locus, 0, "expected %s, but found %s",
+			    grecs_data_type_string(type),
+			    grecs_data_type_string(value->type));
+		return 1;
 	}
-	if (n > 256) {
-		errno = ERANGE;
-		return -1;
-	}
-	*pres = n;
 	return 0;
 }
 
 static int
-parse_syslog()
+cb_syslog_facility(enum grecs_callback_command cmd, grecs_node_t *node,
+		   void *varptr, void *cb_data)
 {
-	char *kw;
-	
-	if (!nextnetkn())
-		return 1;
-	kw = tknp;
-	if (strcmp(kw, "off") == 0) {
-		facility = -1;
-		return 0;
-	}
-	
-	if (!nextnetkn())
-		return 1;
-	if (strcmp(kw, "tag") == 0) 
-		tag = estrdup(tknp);
-	else if (strcmp(kw, "facility") == 0) {
-		int n;
-		
-		if (read_facility(tknp, &n)) {
-			switch (errno) {
-			case EINVAL:
-				diag(LOG_ERR,
-				     "%s:%d: unknown syslog facility: %s",
-				     filename, line, tknp);
-				break;
+	grecs_locus_t *locus = &node->locus;
+	grecs_value_t *value = node->v.value;
+	int fac;
 
-			case ERANGE:
-				diag(LOG_ERR,
-				     "%s:%d: syslog facility out of range",
-				     filename, line);
-				break;
-				
-			default:
-				abort();
+	ASSERT_SCALAR(cmd, locus);
+	if (assert_grecs_value_type(&value->locus, value, GRECS_TYPE_STRING))
+		return 1;
+
+	if (trans_strtotok(kwfac, value->v.string, &fac))
+		grecs_error(&value->locus, 0,
+			    "Unknown syslog facility `%s'",
+			    value->v.string);
+	else
+		*(int*)varptr = fac;
+	return 0;
+}
+
+static struct grecs_keyword syslog_kw[] = {
+	{ "facility",
+	  "name",
+	  "Set syslog facility. Arg is one of the following: user, daemon, "
+	  "auth, authpriv, mail, cron, local0 through local7 "
+	  "(case-insensitive), or a facility number.",
+	  grecs_type_string, GRECS_DFLT,
+	  &facility, 0, cb_syslog_facility },
+	{ "tag", "string", "Tag syslog messages with this string",
+	  grecs_type_string, GRECS_DFLT,
+	  &tag },
+	{ "print-priority", "arg",
+	  "Prefix each message with its priority",
+	  grecs_type_bool, GRECS_DFLT,
+	  &syslog_include_prio },
+	{ NULL },
+};
+
+struct eventconf {
+	struct grecs_list *pathlist;
+        event_mask eventmask;
+	char *command;
+	uid_t uid;           /* Run as this user (unless 0) */
+	gid_t *gidv;         /* Run with these groups' privileges */
+	size_t gidc;         /* Number of elements in gidv */
+	unsigned timeout;
+	int flags;
+	char **env;
+};
+
+static struct eventconf eventconf;
+
+static void
+envfree(char **env)
+{
+	int i;
+
+	if (!env)
+		return;
+	for (i = 0; env[i]; i++)
+		free(env[i]);
+	free(env);
+}
+
+static void
+eventconf_init()
+{
+	memset(&eventconf, 0, sizeof eventconf);
+	eventconf.timeout = DEFAULT_TIMEOUT;
+}
+
+static void
+eventconf_free()
+{
+	grecs_list_free(eventconf.pathlist);
+	free(eventconf.command);
+	free(eventconf.gidv);
+	envfree(eventconf.env);
+}
+
+void
+eventconf_flush(grecs_locus_t *loc)
+{
+	struct grecs_list_entry *ep;
+	
+	for (ep = eventconf.pathlist->head; ep; ep = ep->next) {
+		struct pathent *pe = ep->data;
+		struct dirwatcher *dwp;
+		struct handler *hp, *prev = NULL;
+		
+		dwp = dirwatcher_install(pe->path, NULL);
+		if (!dwp)
+			abort();
+		dwp->depth = pe->depth;
+		for (hp = dwp->handler_list; hp; prev = hp, hp = hp->next) {
+			if (strcmp(dwp->dirname, pe->path) == 0) {
+				grecs_error(loc, 0,
+					    "ignoring duplicate definition");
+				return;
 			}
-			return 1;
 		}
-		if (opt_facility == -1)
-			opt_facility = n;
-	} else {
-		diag(LOG_ERR, "%s:%d: unrecognized keyword: %s",
-		     filename, line, tknp);
+
+		hp = emalloc(sizeof(*hp));
+		hp->next = NULL;
+		hp->ev_mask = eventconf.eventmask;
+		hp->flags = eventconf.flags;
+		hp->timeout = eventconf.timeout;
+		hp->prog = eventconf.command;
+		hp->uid = eventconf.uid;
+		hp->gidc = eventconf.gidc;
+		hp->gidv = eventconf.gidv;
+		
+		if (prev)
+			prev->next = hp;
+		else
+			dwp->handler_list = hp;
+	}
+	eventconf_init();
+}
+
+static int
+cb_event(enum grecs_callback_command cmd, grecs_node_t *node,
+	 void *varptr, void *cb_data)
+{
+	int err = 0;
+	
+	switch (cmd) {
+	case grecs_callback_section_begin:
+		eventconf_init(&node->locus);
+		break;
+	case grecs_callback_section_end:
+		if (!eventconf.pathlist) {
+			grecs_error(&node->locus, 0, "no paths configured");
+			++err;
+		}
+		if (!eventconf.command) {
+			grecs_error(&node->locus, 0, "no command configured");
+			++err;
+		}
+		if (evtnullp(&eventconf.eventmask)) {
+			grecs_error(&node->locus, 0, "no events configured");
+			++err;
+		}
+		if (err == 0)
+			eventconf_flush(&node->locus);
+		else
+			eventconf_free();
+		break;
+	case grecs_callback_set_value:
+		grecs_error(&node->locus, 0, "invalid use of block statement");
 	}
 	return 0;
 }
 
-static int
-parse_option()
+static struct pathent *
+pathent_alloc(char *s, long depth)
 {
-	char *optname, *arg;
+	size_t len = strlen(s);
+	struct pathent *p = emalloc(sizeof(*p) + len);
+	p->len = len;
+	strcpy(p->path, s);
+	p->depth = depth;
+	return p;
+}
 	
-	if (!nextnetkn())
-		return 1;
-	optname = tknp;
-
-	if (strcmp(optname, "nowait") == 0) {
-		opt_flags |= HF_NOWAIT;
-		return 0;
-	} else if (strcmp(optname, "wait") == 0) {
-		opt_flags &= ~HF_NOWAIT;
-		return 0;
-	}
-	
-	if (!nextnetkn())
-		return 1;
-	arg = tknp;
-	
-	if (strcmp(optname, "timeout") == 0) {
-		char *p;
+static int
+cb_path(enum grecs_callback_command cmd, grecs_node_t *node,
+	void *varptr, void *cb_data)
+{
+        grecs_locus_t *locus = &node->locus;
+	grecs_value_t *val = node->v.value;
+	struct grecs_list **lpp = varptr, *lp;
+	struct pathent *pe;
+	char *s;
+	long depth = 0;
 		
-		opt_timeout = strtoul(arg, &p, 10);
-		if (*p) {
-			diag(LOG_ERR, "%s:%d: invalid timeout",
-			     filename, line);
+	ASSERT_SCALAR(cmd, locus);
+
+	switch (val->type) {
+	case GRECS_TYPE_STRING:
+		s = val->v.string;
+		break;
+
+	case GRECS_TYPE_ARRAY:
+		if (assert_grecs_value_type(&val->v.arg.v[0]->locus,
+					    val->v.arg.v[0],
+					    GRECS_TYPE_STRING))
+			return 1;
+		if (assert_grecs_value_type(&val->v.arg.v[1]->locus,
+					    val->v.arg.v[1],
+					    GRECS_TYPE_STRING))
+			return 1;
+		if (strcmp(val->v.arg.v[1]->v.string, "recursive")) {
+			grecs_error(&val->v.arg.v[1]->locus, 0,
+				    "expected \"recursive\" or end of statement");
 			return 1;
 		}
-		return 0;
-	} else if (strcmp(optname, "capture") == 0) {
-		int flag;
-		
-		if (strcmp(arg, "stdout") == 0)
-			flag = HF_STDOUT;
-		else if (strcmp(arg, "stderr") == 0)
-			flag = HF_STDERR;
-		else if (strcmp(arg, "both") == 0)
-			flag = HF_STDOUT|HF_STDERR;
-		else {
-			diag(LOG_ERR,
-			     "%s:%d: expected \"stdout\", \"stderr\", "
-			     "or \"both\", "
-			     "but found \"%s\"",
-			     filename, line, arg);
+		switch (val->v.arg.c) {
+		case 2:
+			depth = -1;
+			break;
+		case 3:
+			if (grecs_string_convert(&depth, grecs_type_long,
+						 val->v.arg.v[2]->v.string,
+						 &val->v.arg.v[2]->locus))
+				return 1;
+			break;
+		default:
+			grecs_error(&val->v.arg.v[3]->locus, 0,
+				    "surplus argument");
+			return 1;
 		}
+		s = val->v.arg.v[0]->v.string;
+		break;
+	case GRECS_TYPE_LIST:
+		grecs_error(locus, 0, "unexpected list");
+		return 1;
+	}
+	pe = pathent_alloc(s, depth);
+        if (*lpp)
+		lp = *lpp;
+	else {
+		lp = _grecs_simple_list_create(1);
+		*lpp = lp;
+	}
+	grecs_list_append(lp, pe);
+	return 0;
+}
 
-		if (*nextkn() != 0) {
-			if (strcmp(tknp, "on") == 0)
-				opt_flags |= flag;
-			else if (strcmp(tknp, "off") == 0)
-				opt_flags &= ~flag;
-			else {
-				diag(LOG_ERR,
-				     "%s:%d: expected \"on\" or \"of\", "
-				     "but found \"%s\"",
-				     filename, line, tknp);
+static int
+cb_eventlist(enum grecs_callback_command cmd, grecs_node_t *node,
+	     void *varptr, void *cb_data)
+{
+        grecs_locus_t *locus = &node->locus;
+	grecs_value_t *val = node->v.value;
+	event_mask *mask = varptr;
+	event_mask m;
+	struct grecs_list_entry *ep;
+	int i;
+	
+	ASSERT_SCALAR(cmd, locus);
+
+	switch (val->type) {
+	case GRECS_TYPE_STRING:
+		if (getevt(val->v.string, &m)) {
+			grecs_error(&val->locus, 0,
+				    "unrecognized event code");
+			return 1;
+		}
+		mask->sie_mask |= m.sie_mask;
+		mask->sys_mask |= m.sys_mask;
+		break;
+
+	case GRECS_TYPE_ARRAY:
+		for (i = 0; i < val->v.arg.c; i++) {
+			if (assert_grecs_value_type(&val->v.arg.v[i]->locus,
+						    val->v.arg.v[i],
+						    GRECS_TYPE_STRING))
+				return 1;
+			if (getevt(val->v.arg.v[i]->v.string, &m)) {
+				grecs_error(&val->v.arg.v[i]->locus, 0,
+					    "unrecognized event code");
 				return 1;
 			}
-		} else
-			opt_flags |= flag;
-		
-		return 0;
-	}
-
-	diag(LOG_ERR, "%s:%d: unknown option", filename, line);
-	return 1;
-}
-
-static int
-parse_path()
-{
-	const char *id, *path;
-	long depth = 0;
-	
-	if (!nextnetkn())
-		return 1;
-	id = tknp;
-
-	if (!nextnetkn())
-		return 1;
-	path = tknp;
-	
-	if (*nextkn()) {
-		if (strcmp(tknp, "recursive") == 0) {
-			if (*nextkn()) {
-				char *p;
-
-				depth = strtol(tknp, &p, 10);
-				if (*p) {
-					diag(LOG_ERR, "%s:%d: invalid depth",
-					     filename, line);
-					return 1;
-				}
-			} else
-				depth = -1;
-		} else {
-			diag(LOG_ERR, "%s:%d: expected \"recursive\", "
-			     "but found \"%s\"",
-			     filename, line, tknp);
-			return 1;
+			mask->sie_mask |= m.sie_mask;
+			mask->sys_mask |= m.sys_mask;
 		}
+		break;
+	case GRECS_TYPE_LIST:
+		for (ep = val->v.list->head; ep; ep = ep->next)	{
+			grecs_value_t *vp = ep->data;
+			if (assert_grecs_value_type(&vp->locus, vp,
+						    GRECS_TYPE_STRING))
+				return 1;
+			if (getevt(vp->v.string, &m)) {
+				grecs_error(&vp->locus, 0,
+					    "unrecognized event code");
+				return 1;
+			}
+			mask->sie_mask |= m.sie_mask;
+			mask->sys_mask |= m.sys_mask;
+		}
+		break;
 	}
-		
-	pathdefn_add(id, path, depth);
-
 	return 0;
 }
-
-static int
-parse_event()
-{
-	const char *evname;
-	event_mask mask = {0, 0}, n;
-	
-	if (!nextnetkn())
-		return 1;
-	evname = tknp;
-
-	while (*nextkn()) {
-		if (getevt(tknp, &n)) {
-			diag(LOG_ERR, "%s:%d: unrecognized event code: %s",
-			     filename, line, tknp);
-			errors++;
-			continue;
-		}
-		mask.sie_mask |= n.sie_mask;
-		mask.sys_mask |= n.sys_mask;
-	}
-
-	if (evtnullp(&mask)) {
-		diag(LOG_ERR, "%s:%d: empty event set", filename, line);
-		errors++;
-		return 0;
-	}
-
-	if (defevt(evname, &mask, line)) {
-		diag(LOG_ERR, "%s:%d: event redefined", filename, line);
-		diag(LOG_ERR,
-		     "%s:%d: this is the location of the prior definition",
-		     filename, n);
-		errors++;
-		return 0;
-	}
-	
-	return 0;
-}
-
+
 static int
 membergid(gid_t gid, size_t gc, gid_t *gv)
 {
@@ -464,185 +419,157 @@ get_user_groups(char *user, gid_t gid, size_t *pgidc, gid_t **pgidv)
 	*pgidv = gidv;
 }
 
-/* on EVTID PATHID call PROGRAM */
 static int
-parse_onevent()
+cb_user(enum grecs_callback_command cmd, grecs_node_t *node,
+	void *varptr, void *cb_data)
 {
-	event_mask mask;
-	struct pathent *pathent;
-	struct handler *hp, *prev = NULL;
-	char *prog;
-	uid_t uid = 0;
+        grecs_locus_t *locus = &node->locus;
+	grecs_value_t *val = node->v.value;
+	struct passwd *pw;
+	struct group *gr;
+	grecs_value_t *uv, *gv = NULL;
 	gid_t gid;
-	gid_t *gidv = NULL;
-	size_t gidc = 0;
 	
-	if (!nextnetkn())
-		return 1;
-	if (getevt(tknp, &mask)) {
-		diag(LOG_ERR, "%s:%d: unknown event code: %s",
-		     filename, line, tknp);
-		return 1;
-	}
-
-	if (!nextnetkn())
-		return 1;
-	if (strcmp(tknp, "in")) {
-		diag(LOG_ERR, "%s:%d: expected \"in\", but found \"%s\"",
-		     filename, line, tknp);
-		return 1;
-	}
-
-	if (!nextnetkn())
-		return 1;
-	
-	pathent = pathdefn_get(tknp);
-	if (!pathent) {
-		diag(LOG_ERR, "%s:%d: unknown pathset name: %s",
-		     filename, line, tknp);
-		return 1;
-	}
-
-	if (!nextnetkn())
-		return 1;
-	if (strcmp(tknp, "run") && strcmp(tknp, "call")) {
-		diag(LOG_ERR, "%s:%d: expected \"run\", but found \"%s\"",
-		     filename, line, tknp);
-		return 1;
-	}
-	if (!nextnetkn())
-		return 1;
-	prog = estrdup(tknp);
-	if (*nextkn()) {
-		char *p;
-		struct passwd *pw;
+	ASSERT_SCALAR(cmd, locus);
+	switch (val->type) {
+	case GRECS_TYPE_STRING:
+		uv = val;
+		break;
 		
-		if (strcmp(tknp, "as")) {
-			diag(LOG_ERR, "%s:%d: expected \"as\", "
-			     "but found \"%s\"",
-			     filename, line, tknp);
+	case GRECS_TYPE_ARRAY:
+		if (assert_grecs_value_type(&val->v.arg.v[0]->locus,
+					    val->v.arg.v[0],
+					    GRECS_TYPE_STRING))
+			return 1;
+		if (assert_grecs_value_type(&val->v.arg.v[1]->locus,
+					    val->v.arg.v[1],
+					    GRECS_TYPE_STRING))
+			return 1;
+		if (val->v.arg.c > 2) {
+			grecs_locus_t loc;
+			loc.beg = val->v.arg.v[2]->locus.beg;
+			loc.end = val->v.arg.v[val->v.arg.c - 1]->locus.end;
+			grecs_error(&loc, 0, "surplus arguments");
 			return 1;
 		}
-		if (!nextnetkn())
-			return 1;
-		pw = getpwnam(tknp);
-		if (pw) {
-			uid = pw->pw_uid;
-			gid = pw->pw_gid;
-		} else {
-			uid = strtoul(tknp, &p, 10);
-			if (*p || !(pw = getpwuid(uid))) {
-				diag(LOG_ERR, "%s:%d: no such user",
-				     filename, line);
-				return 1;
-			}
-			gid = pw->pw_gid;
-		}
-		get_user_groups(pw->pw_name, gid, &gidc, &gidv);
+		uv = val->v.arg.v[0];
+		gv = val->v.arg.v[1];
+		break;
+
+	case GRECS_TYPE_LIST:
+		grecs_error(locus, 0, "unexpected list");
+		return 1;
 	}
-	
-	for (; pathent; pathent = pathent->next) {
-		struct dirwatcher *dwp = dirwatcher_install(pathent->path,
-							    NULL);
-		
-		if (!dwp)
-			abort();
-		dwp->depth = pathent->depth;
 
-		for (hp = dwp->handler_list; hp; prev = hp, hp = hp->next) {
-			if (strcmp(dwp->dirname, pathent->path) == 0) {
-				diag(LOG_ERR,
-				     "%s:%d: ignoring duplicate definition",
-				     filename, line);
-				//FIXME: check mask?
-				return 0;
-			}
+	pw = getpwnam(uv->v.string);
+	if (!pw) {
+		grecs_error(&uv->locus, 0, "no such user");
+		return 1;
+	}
+
+	if (gv) {
+		gr = getgrnam(gv->v.string);
+		if (!gr) {
+			grecs_error(&gv->locus, 0, "no such group");
+			return 1;
 		}
+		gid = gr->gr_gid;
+	} else
+		gid = pw->pw_gid;
 
-		hp = emalloc(sizeof(*hp));
-		hp->next = NULL;
-		hp->ev_mask = mask;
-		hp->flags = opt_flags;
-		hp->timeout = opt_timeout;
-		hp->prog = prog;
-		hp->uid = uid;
-		hp->gidc = gidc;
-		hp->gidv = gidv;
-		
-		if (prev)
-			prev->next = hp;
-		else
-			dwp->handler_list = hp;
+	eventconf.uid = pw->pw_uid;
+	get_user_groups(uv->v.string, gid, &eventconf.gidc, &eventconf.gidv);
+	
+	return 0;
+}
+
+static int
+cb_option(enum grecs_callback_command cmd, grecs_node_t *node,
+	  void *varptr, void *cb_data)
+{
+        grecs_locus_t *locus = &node->locus;
+	grecs_value_t *val = node->v.value;
+	struct grecs_list_entry *ep;
+	
+	ASSERT_SCALAR(cmd, locus);
+	if (assert_grecs_value_type(&val->locus, val, GRECS_TYPE_LIST))
+		return 1;
+
+	for (ep = val->v.list->head; ep; ep = ep->next)	{
+		grecs_value_t *vp = ep->data;
+		if (assert_grecs_value_type(&vp->locus, vp,
+					    GRECS_TYPE_STRING))
+			return 1;
+		if (strcmp(vp->v.string, "nowait") == 0)
+			eventconf.flags |= HF_NOWAIT;
+		else if (strcmp(vp->v.string, "wait") == 0)
+			eventconf.flags &= ~HF_NOWAIT;
+		else if (strcmp(vp->v.string, "stdout") == 0)
+			eventconf.flags |= HF_STDOUT;
+		else if (strcmp(vp->v.string, "stderr") == 0)
+			eventconf.flags |= HF_STDERR;
+		else 
+			grecs_error(&vp->locus, 0, "unrecognized flag");
 	}
 	return 0;
 }
-
-struct stmt_handler {
-	const char *tok;
-	int (*parser)();
-};
-
-struct stmt_handler stmtab[] = {
-	{ "foreground", parse_foreground },
-	{ "debug", parse_debug },
-	{ "pidfile", parse_pidfile },
-	{ "syslog", parse_syslog },
-	{ "user", parse_user },
-	{ "option", parse_option },
-	{ "event", parse_event },
-	{ "path", parse_path },
-	{ "onevent", parse_onevent },
+	
+static struct grecs_keyword event_kw[] = {
+	{ "path", NULL, "Pathname to watch",
+	  grecs_type_string, GRECS_DFLT, &eventconf.pathlist, 0,
+	  cb_path },
+	{ "event", NULL, "Events to watch for",
+	  grecs_type_string, GRECS_LIST, &eventconf.eventmask, 0,
+	  cb_eventlist },
+	{ "command", NULL, "Command to execute on event",
+	  grecs_type_string, GRECS_DFLT, &eventconf.command },
+	{ "user", NULL, "Run command as this user",
+	  grecs_type_string, GRECS_DFLT, NULL, 0,
+	  cb_user },
+	{ "timeout", NULL, "Timeout for the command",
+	  grecs_type_uint, GRECS_DFLT, &eventconf.timeout },
+	{ "option", NULL, "List of additional options",
+	  grecs_type_string, GRECS_LIST, NULL, 0,
+	  cb_option },
 	{ NULL }
 };
-
-struct stmt_handler *
-find_stmt(const char *s)
+
+static struct grecs_keyword dircond_kw[] = {
+	{ "foreground", NULL, "Run in foreground",
+	  grecs_type_bool, GRECS_DFLT, &foreground },
+	{ "pidfile", "file", "Set pid file name",
+	  grecs_type_string, GRECS_DFLT, &pidfile },
+	{ "syslog", NULL, "Configure syslog logging",
+	  grecs_type_section, GRECS_DFLT, NULL, 0, NULL, NULL, syslog_kw },
+	{ "debug", "level", "Set debug level",
+	  grecs_type_int, GRECS_DFLT, &debug_level },
+	{ "event", NULL, "Configure event handling",
+	  grecs_type_section, GRECS_DFLT, NULL, 0, cb_event, NULL, event_kw },
+	{ NULL }
+};
+	
+
+void
+config_help()
 {
-	struct stmt_handler *p;
-
-	for (p = stmtab; p->tok; p++)
-		if (strcmp(p->tok, s) == 0)
-			return p;
-	return NULL;
+	static char docstring[] =
+		"Configuration file structure for wydawca.\n"
+		"For more information, use `info dircond configuration'.";
+	grecs_print_docstring(docstring, 0, stdout);
+	grecs_print_statement_array(dircond_kw, 1, 0, stdout);
 }
 
 void
-config_parse(const char *file)
+config_init()
 {
-	filename = file;
-	line = 0;
-	errors = 0;
-	fp = fopen(file, "r");
-	if (!fp) {
-		diag(LOG_CRIT, "cannot open file %s for reading: %s",
-		     file, strerror(errno));
-		exit(1);
-	}
+	grecs_log_to_stderr = 1;
+}
 
-	while (nextneln() >= 0) {
-		struct stmt_handler *hp = find_stmt(nextkn());
-		
-		if (hp) {
-			if (hp->parser()) {
-				tknp = NULL;
-				errors++;
-			} else if (*nextkn()) {
-				diag(LOG_ERR,
-				     "%s:%d: garbage at the end of line",
-				     filename, line);
-				tknp = NULL;
-				errors++;
-			}
-		} else {
-			diag(LOG_ERR, "%s:%d: unrecognized statement",
-			     filename, line);
-			tknp = NULL;
-			errors++;
-		}
-	}
-	
-	fclose(fp);
+void
+config_finish(struct grecs_node *tree)
+{	
+	struct grecs_node *p;
 
-	if (errors)
+	if (grecs_tree_process(tree, dircond_kw))
 		exit(1);
 }
