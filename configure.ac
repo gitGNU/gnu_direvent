@@ -60,7 +60,7 @@ AH_TOP([
 
 # Grecs subsystem
 
-GRECS_SETUP([grecs],[tree-api git2chg no-preproc])
+GRECS_SETUP([grecs],[tree-api git2chg no-preproc getopt])
 
 AC_CONFIG_COMMANDS([status],[
 cat <<EOT

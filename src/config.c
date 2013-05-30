@@ -580,6 +580,8 @@ static struct grecs_keyword watcher_kw[] = {
 };
 
 static struct grecs_keyword dircond_kw[] = {
+	{ "user", NULL, "Run as this user",
+	  grecs_type_string, GRECS_DFLT, &user },
 	{ "foreground", NULL, "Run in foreground",
 	  grecs_type_bool, GRECS_DFLT, &foreground },
 	{ "pidfile", "file", "Set pid file name",

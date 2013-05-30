@@ -369,57 +369,6 @@ ev_log(int flags, struct dirwatcher *dp)
 }
 
 
-#if USE_IFACE == IFACE_INOTIFY
-# define INTERFACE "inotify"
-#elif USE_IFACE == IFACE_KQUEUE
-# define INTERFACE "kqueue"
-#endif
-
-/* Output a help summary. Return a code suitable for exit(2). */
-int
-help()
-{
-	printf("Usage: %s [OPTIONS] [CONFIG]\n", program_name);
-	printf("%s monitors changes in directories\n", program_name);
-	printf("OPTIONS are:\n\n");
-
-	printf("   -d            increase debug verbosity\n");
-	printf("   -F FACILITY   log under this syslog facility (default: daemon);\n");
-	printf("                 use -F 0 to log to stderr instead\n");
-        printf("   -f            run in the foreground\n");
-        printf("   -L TAG        log with this syslog tag\n");
-	printf("   -P FILE       write PID to FILE\n");
-	printf("   -t            check configuration file for errors and exit\n");
-	printf("   -u USER       run as this USER\n\n");
-
-	printf("   -h            output this help summary\n");
-        printf("   -V            print program version and exit\n\n");
-
-	printf("Optional CONFIG argument supplies the configuration file\n"
-	       "to use instead of %s.\n\n", DEFAULT_CONFFILE); 
-
-	printf("This dircond uses %s interface.\n\n", INTERFACE);
-	
-	printf("Report bugs to <%s>.\n", PACKAGE_BUGREPORT);
-		
-	return 0;
-}
-
-static char license[] = "\
-License GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>\n\
-This is free software: you are free to change and redistribute it.\n\
-There is NO WARRANTY, to the extent permitted by law.\n";
-
-int
-version()
-{
-	printf("dircond %s\n", VERSION);
-	printf("Copyright (C) 2012, 2013 Sergey Poznyakoff\n");
-	printf("%s\n", license);
-	return 0;
-}
-
-
 void
 sie_init()
 {
@@ -439,68 +388,38 @@ sigmain(int sig)
 	signo = sig;
 	signal(sig, sigmain);
 }
+
+#if USE_IFACE == IFACE_INOTIFY
+# define INTERFACE "inotify"
+#elif USE_IFACE == IFACE_KQUEUE
+# define INTERFACE "kqueue"
+#endif
+
+static int opt_debug_level = 0;
+static int opt_foreground = 0;
+static char *opt_pidfile = NULL;
+static char *opt_user = NULL;
+static int opt_facility = -1;
+static int lint_only = 0;
+
+#include "cmdline.h"
 
 int
 main(int argc, char **argv)
 {
-	int c;
+	int i;
 	struct grecs_node *tree;
-	int opt_debug_level = 0;
-	int opt_foreground = 0;
-	char *opt_tag = NULL;
-	char *opt_pidfile = NULL;
-	char *opt_user = NULL;
-	int opt_facility = -1;
-	int lint_only = 0;
 	
 	set_program_name(argv[0]);
 	tag = (char*) program_name;
 
 	evsys_init();
 	sie_init();
-	
-	while ((c = getopt(argc, argv, "dF:fHhLP:tu:V")) != EOF) {
-		switch (c) {
-		case 'd':
-			opt_debug_level++;
-			break;
-		case 'F':
-			opt_facility = get_facility(optarg);
-			break;
-		case 'f':
-			opt_foreground++;
-			break;
-		case 'H':
-			config_help();
-			exit(0);
-		case 'h':
-			exit(help());
-			break;
-		case 'L':
-			opt_tag = optarg;
-			break;
-		case 'P':
-			opt_pidfile = optarg;
-			break;
-		case 't':
-			lint_only = 1;
-			break;
-		case 'u':
-			opt_user = optarg;
-			if (!getpwnam(opt_user)) {
-				diag(LOG_CRIT, "no such user: %s", opt_user);
-				exit(1);
-			}
-			break;
-		case 'V':
-			exit(version());
-		default:
-			exit(1);
-		}
-	}
 
-	argc -= optind;
-	argv += optind;
+	parse_options(argc, argv, &i);
+
+	argc -= i;
+	argv += i;
 
 	switch (argc) {
 	default:
@@ -525,8 +444,6 @@ main(int argc, char **argv)
 		debug_level += opt_debug_level;
 	if (opt_foreground)
 		foreground = opt_foreground;
-	if (opt_tag)
-		tag = opt_tag;
 	if (opt_pidfile)
 		pidfile = opt_pidfile;
 	if (opt_facility != -1)

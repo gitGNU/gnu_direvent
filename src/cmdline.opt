@@ -1,0 +1,77 @@
+#define EX_USAGE 1
+
+OPTIONS_BEGIN("dircond",
+              [<dircond monitors changes in directories>],
+              [<[CONFIG]>],
+              [<gnu>],
+              [<copyright_year=2012,2013>],
+              [<copyright_holder=Sergey Poznyakoff>])
+
+OPTION(debug,d,,
+       [<increase debug level>])
+BEGIN       
+	opt_debug_level++;
+END
+
+OPTION(facility,F,NAME,
+       [<set syslog facility>])
+BEGIN       
+	opt_facility = get_facility(optarg);
+END
+
+OPTION(foreground,f,,
+       [<remain in foreground>])
+BEGIN       
+	opt_foreground++;
+END
+
+OPTION(pidfile,P,FILE,
+       [<set PID file>])
+BEGIN       
+	opt_pidfile = optarg;
+END	
+
+OPTION(lint,t,,,
+       [<check configuration file and exit>])
+BEGIN       
+	lint_only = 1;
+END
+
+OPTION(user,u,USER,,
+       [<run as this user>])
+BEGIN
+	opt_user = optarg;
+	if (!getpwnam(opt_user)) {
+		diag(LOG_CRIT, "no such user: %s", opt_user);
+		exit(1);
+	}
+END
+	      
+OPTION(config-help,H,,
+       [<show configuration file summary>])
+BEGIN
+	config_help();
+	exit(0);
+END
+	   
+
+OPTIONS_END
+
+static void
+help_hook(FILE *fp)
+{
+	fprintf(fp,
+		"Optional CONFIG argument supplies the configuration file "
+	        "to use instead\n"
+		"of %s.\n\n", DEFAULT_CONFFILE); 
+
+	fprintf(fp, "This dircond uses %s interface.\n\n", INTERFACE);
+}
+
+void
+parse_options(int argc, char *argv[], int *index)
+{
+	proginfo.print_help_hook = help_hook;
+	GETOPT(argc, argv, *index)
+}
+  
