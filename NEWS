@@ -2,7 +2,7 @@ dircond -- history of user-visible changes. 2013-02-14
 Copyright (C) 2012, 2013 Sergey Poznyakoff
 See the end of file for copying conditions.
 
-Please send radius bug reports to <gray+dircond@gnu.org.ua>
+Please send dircond bug reports to <gray+dircond@gnu.org.ua>
 
 Version 3.0 (Git)
 
