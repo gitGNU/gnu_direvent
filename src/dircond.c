@@ -79,7 +79,27 @@ vdiag(int prio, const char *fmt, va_list ap)
 		vfprintf(stderr, fmt, ap);
 		fputc('\n', stderr);
 	} else {
-		vsyslog(prio, fmt, ap);
+		if (syslog_include_prio && (s = severity(prio)) != NULL) {
+			static char *fmtbuf;
+			static size_t fmtsize;
+			size_t len = strlen(fmt) + strlen(s) + 3;
+			char *p;
+			
+			if (len > fmtsize) {
+				fmtbuf = erealloc(fmtbuf, len);
+				fmtsize = len;
+			}
+
+			p = fmtbuf;
+			*p++ = '[';
+			while (*s)
+				*p++ = *s++;
+			*p++ = ']';
+			*p++ = ' ';
+			while (*p++ = *fmt++);
+			vsyslog(prio, fmtbuf, ap);
+		} else			
+			vsyslog(prio, fmt, ap);
 	}
 }
 
@@ -529,7 +549,7 @@ main(int argc, char **argv)
 	if (facility > 0)
 		openlog(tag, LOG_PID, facility);
 
-	diag(LOG_INFO, "started");
+	diag(LOG_INFO, "%s %s started", program_name, VERSION);
 
 	/* Write pidfile */
 	if (pidfile)
@@ -548,7 +568,7 @@ main(int argc, char **argv)
 		process_cleanup(0);
 	} while (evsys_select () == 0);
 
-	diag(LOG_INFO, "stopped");
+	diag(LOG_INFO, "%s %s stopped", program_name, VERSION);
 
 	return 0;
 }
