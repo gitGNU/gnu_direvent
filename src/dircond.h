@@ -59,6 +59,7 @@ struct handler {
 	gid_t *gidv;         /* Run with these groups' privileges */
 	size_t gidc;         /* Number of elements in gidv */
 	unsigned timeout;    /* Handler timeout */
+	char **env;          /* Environment */
 };
 
 /* A directory watcher is described by the following structure */
@@ -180,3 +181,4 @@ void process_cleanup(int expect_term);
 void process_timeouts(void);
 int run_handler(struct handler *hp, event_mask *event,
 		const char *dir, const char *file);
+char **environ_setup(char **hint, char **kve);

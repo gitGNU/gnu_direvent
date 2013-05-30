@@ -20,6 +20,7 @@
 #include <grp.h>
 #include <signal.h>
 #include <sys/wait.h>
+#include "wordsplit.h"
 
 /* Process list */
 
@@ -348,36 +349,56 @@ open_redirector(const char *tag, int prio, struct process **return_proc)
 }
 
 static void
-event_to_env(event_mask *event)
+runcmd(const char *cmd, char **envhint, event_mask *event, const char *file)
 {
+	char *kve[11];
 	char *p,*q;
 	char buf[1024];
-	int i;
+	int i = 0, j;
+	struct wordsplit ws;
 
+	kve[i++] = "file";
+	kve[i++] = (char*) file;
+	
 	snprintf(buf, sizeof buf, "%d", event->sys_mask);
-	setenv("DIRCOND_SYS_EVENT_CODE", buf, 1);
+	kve[i++] = "sys_event_code";
+	kve[i++] = estrdup(buf);
+	
 	q = buf;
-	for (p = trans_tokfirst(evsys_transtab, event->sys_mask, &i); p;
-	     p = trans_toknext(evsys_transtab, event->sys_mask, &i)) {
+	for (p = trans_tokfirst(evsys_transtab, event->sys_mask, &j); p;
+	     p = trans_toknext(evsys_transtab, event->sys_mask, &j)) {
 		if (q > buf)
 			*q++ = ' ';
 		while (*p)
 			*q++ = *p++;
 	}
 	*q = 0;	
-	if (q > buf)
-		setenv("DIRCOND_SYS_EVENT", buf, 1);
-	else
-		unsetenv("DIRCOND_SYS_EVENT");
+	if (q > buf) {
+		kve[i++] = "sys_event_id";
+		kve[i++] = estrdup(buf);
+	}
 	p = trans_toktostr(sie_trans, event->sie_mask);
 	if (p) {
 		snprintf(buf, sizeof buf, "%d", event->sie_mask);
-		setenv("DIRCOND_EVENT_CODE", buf, 1);
-		setenv("DIRCOND_EVENT", p, 1);
-	} else {
-		unsetenv("DIRCOND_EVENT_CODE");
-		unsetenv("DIRCOND_EVENT");
+		kve[i++] = "sie_event_code";
+		kve[i++] = estrdup(buf);
+		kve[i++] = "sie_event_id";
+		kve[i++] = p;
 	}
+	kve[i++] = 0;
+
+	ws.ws_env = (const char **) kve;
+	if (wordsplit(cmd, &ws,
+		      WRDSF_NOCMD | WRDSF_QUOTE | WRDSF_SQUEEZE_DELIMS |
+		      WRDSF_CESCAPES | WRDSF_ENV | WRDSF_ENV_KV)) {
+		diag(LOG_CRIT, "wordsplit: %s", wordsplit_strerror (&ws));
+		_exit(127);
+	}
+
+	execve(ws.ws_wordv[0], ws.ws_wordv, environ_setup(envhint, kve));
+
+	diag(LOG_ERR, "execv: %s: %s", ws.ws_wordv[0], strerror(errno));
+	_exit(127);
 }
 
 int
@@ -391,11 +412,6 @@ run_handler(struct handler *hp, event_mask *event,
 
 	if (!hp->prog)
 		return 0;
-	if (access(hp->prog, X_OK)) {
-		diag(LOG_ERR, "watchpoint %s: cannot execute %s: %s",
-		     dirname, hp->prog, strerror(errno));
-		return 1;
-	}
 	
 	debug(1, ("starting %s, dir=%s, file=%s", hp->prog, dirname, file));
 	if (hp->flags & HF_STDERR)
@@ -419,8 +435,8 @@ run_handler(struct handler *hp, event_mask *event,
 	
 	if (pid == 0) {		
 		/* child */
-		char *argv[2];
 		bigfd_set fdset = BIGFD_SET_ALLOC();
+		struct wordsplit ws;
 		
 		if (switchpriv(hp))
 			_exit(127);
@@ -451,14 +467,7 @@ run_handler(struct handler *hp, event_mask *event,
 		alarm(0);
 		signal_setup(SIG_DFL);
 		signal(SIGCHLD, SIG_DFL);
-		argv[0] = (char*) hp->prog;
-		argv[1] = NULL;
-		event_to_env(event);
-		if (file)
-			setenv("DIRCOND_FILE", file, 1);
-		execv(argv[0], argv);
-		diag(LOG_ERR, "execv: %s: %s", argv[0], strerror(errno));
-		_exit(127);
+		runcmd(hp->prog, hp->env, event, file);
 	}
 
 	/* master */

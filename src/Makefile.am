@@ -3,6 +3,7 @@ dircond_SOURCES=\
  dircond.c\
  dircond.h\
  config.c\
+ environ.c\
  event.c\
  hashtab.c\
  watcher.c\

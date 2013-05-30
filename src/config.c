@@ -202,18 +202,20 @@ eventconf_flush(grecs_locus_t *loc)
 		hp->uid = eventconf.uid;
 		hp->gidc = eventconf.gidc;
 		hp->gidv = eventconf.gidv;
+		hp->env = eventconf.env;
 		
 		if (prev)
 			prev->next = hp;
 		else
 			dwp->handler_list = hp;
 	}
+	grecs_list_free(eventconf.pathlist);
 	eventconf_init();
 }
 
 static int
-cb_event(enum grecs_callback_command cmd, grecs_node_t *node,
-	 void *varptr, void *cb_data)
+cb_watcher(enum grecs_callback_command cmd, grecs_node_t *node,
+	   void *varptr, void *cb_data)
 {
 	int err = 0;
 	
@@ -514,7 +516,47 @@ cb_option(enum grecs_callback_command cmd, grecs_node_t *node,
 	return 0;
 }
 	
-static struct grecs_keyword event_kw[] = {
+static int
+cb_environ(enum grecs_callback_command cmd, grecs_node_t *node,
+	   void *varptr, void *cb_data)
+{
+        grecs_locus_t *locus = &node->locus;
+	grecs_value_t *val = node->v.value;
+	struct grecs_list_entry *ep;
+	int i;
+	
+	ASSERT_SCALAR(cmd, locus);
+	switch (val->type) {
+	case GRECS_TYPE_STRING:
+		if (assert_grecs_value_type(&val->locus, val,
+					    GRECS_TYPE_STRING))
+			return 1;
+		eventconf.env = ecalloc(2, sizeof(eventconf.env[0]));
+		eventconf.env[0] = estrdup(val->v.string);
+		eventconf.env[1] = NULL;
+		break;
+		
+	case GRECS_TYPE_ARRAY:
+		eventconf.env = ecalloc(val->v.arg.c + 1,
+					sizeof(eventconf.env[0]));
+		for (i = 0; i < val->v.arg.c; i++) {
+			if (assert_grecs_value_type(&val->v.arg.v[i]->locus,
+						    val->v.arg.v[i],
+						    GRECS_TYPE_STRING))
+				return 1;
+			eventconf.env[i] = estrdup(val->v.arg.v[i]->v.string);
+		}
+		eventconf.env[i] = NULL;
+		break;
+
+	case GRECS_TYPE_LIST:
+		grecs_error(locus, 0, "unexpected list");
+		return 1;
+	}
+}		
+		
+	
+static struct grecs_keyword watcher_kw[] = {
 	{ "path", NULL, "Pathname to watch",
 	  grecs_type_string, GRECS_DFLT, &eventconf.pathlist, 0,
 	  cb_path },
@@ -523,14 +565,17 @@ static struct grecs_keyword event_kw[] = {
 	  cb_eventlist },
 	{ "command", NULL, "Command to execute on event",
 	  grecs_type_string, GRECS_DFLT, &eventconf.command },
-	{ "user", NULL, "Run command as this user",
+	{ "user", "name", "Run command as this user",
 	  grecs_type_string, GRECS_DFLT, NULL, 0,
 	  cb_user },
-	{ "timeout", NULL, "Timeout for the command",
+	{ "timeout", "seconds", "Timeout for the command",
 	  grecs_type_uint, GRECS_DFLT, &eventconf.timeout },
 	{ "option", NULL, "List of additional options",
 	  grecs_type_string, GRECS_LIST, NULL, 0,
 	  cb_option },
+	{ "environ", "<arg: string> <arg: string>...", "Modify environment",
+	  grecs_type_string, GRECS_DFLT, NULL, 0,
+	  cb_environ },
 	{ NULL }
 };
 
@@ -543,8 +588,9 @@ static struct grecs_keyword dircond_kw[] = {
 	  grecs_type_section, GRECS_DFLT, NULL, 0, NULL, NULL, syslog_kw },
 	{ "debug", "level", "Set debug level",
 	  grecs_type_int, GRECS_DFLT, &debug_level },
-	{ "event", NULL, "Configure event handling",
-	  grecs_type_section, GRECS_DFLT, NULL, 0, cb_event, NULL, event_kw },
+	{ "watcher", NULL, "Configure event watcher",
+	  grecs_type_section, GRECS_DFLT, NULL, 0,
+	  cb_watcher, NULL, watcher_kw },
 	{ NULL }
 };
 	
