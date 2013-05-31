@@ -256,6 +256,7 @@ signal_setup(void (*sf) (int))
 	signal(SIGALRM, sf);
 	signal(SIGUSR1, sf);
 	signal(SIGUSR2, sf);
+	signal(SIGCHLD, sf);
 }
 
 void
@@ -463,9 +464,11 @@ main(int argc, char **argv)
 			facility = LOG_DAEMON;
 	}
 	
-	if (facility > 0)
+	if (facility > 0) {
 		openlog(tag, LOG_PID, facility);
-
+		grecs_log_to_stderr = 0;
+	}
+	
 	diag(LOG_INFO, "%s %s started", program_name, VERSION);
 
 	/* Write pidfile */
@@ -477,7 +480,6 @@ main(int argc, char **argv)
 		setuser(user);
 
 	signal_setup(sigmain);
-	signal(SIGCHLD, sigmain);
 
 	/* Main loop */
 	do {

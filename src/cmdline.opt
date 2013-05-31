@@ -61,9 +61,9 @@ static void
 help_hook(FILE *fp)
 {
 	fprintf(fp,
-		"Optional CONFIG argument supplies the configuration file "
-	        "to use instead\n"
-		"of %s.\n\n", DEFAULT_CONFFILE); 
+		"The optional CONFIG argument supplies the name of the "
+		"configuration file\n"
+	        "to use instead of %s.\n\n", DEFAULT_CONFFILE); 
 
 	fprintf(fp, "This dircond uses %s interface.\n\n", INTERFACE);
 }

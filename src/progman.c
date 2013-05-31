@@ -466,7 +466,6 @@ run_handler(struct handler *hp, event_mask *event,
 		close_fds(fdset);
 		alarm(0);
 		signal_setup(SIG_DFL);
-		signal(SIGCHLD, SIG_DFL);
 		runcmd(hp->prog, hp->env, event, file);
 	}
 

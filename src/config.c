@@ -601,7 +601,7 @@ void
 config_help()
 {
 	static char docstring[] =
-		"Configuration file structure for wydawca.\n"
+		"Configuration file structure for dircond.\n"
 		"For more information, use `info dircond configuration'.";
 	grecs_print_docstring(docstring, 0, stdout);
 	grecs_print_statement_array(dircond_kw, 1, 0, stdout);
