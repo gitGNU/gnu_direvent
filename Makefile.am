@@ -1,6 +1,6 @@
 ACLOCAL_AMFLAGS = -I grecs/am
 
-SUBDIRS=grecs src doc
+SUBDIRS=grecs src tests doc
 
 .PHONY: ChangeLog
 ChangeLog:
