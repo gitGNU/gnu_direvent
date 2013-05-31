@@ -193,7 +193,7 @@ main(int argc, char **argv)
 			mode = "a";
 			break;
 		case 'h':
-			printf("usage: %s [-ahs] [-i INCLUDELIST] [-k PID[:SIG]] [FILE]\n",
+			printf("usage: %s [-ahs] [-i INCLUDELIST] [-k [@]PID[:SIG]] [FILE]\n",
 			       progname);
 			return 0;
 		case 's':

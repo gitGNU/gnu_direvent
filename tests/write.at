@@ -1,3 +1,19 @@
+# This file is part of Dircond testsuite. -*- Autotest -*-
+# Copyright (C) 2013 Sergey Poznyakoff
+#
+# Dircond is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 3, or (at your option)
+# any later version.
+#
+# Dircond is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Dircond.  If not, see <http://www.gnu.org/licenses/>.
+
 AT_SETUP([Write])
 AT_KEYWORDS([write])
 
@@ -29,11 +45,7 @@ EOT
 
 dircond -lnotice test.conf || exit 1
 
-ed dir/file >/dev/null 2>&1 <<EOT
-2d
-w
-q
-EOT
+echo "to come to" >> dir/file
 
 waitfile $outfile 6 || exit 2
 kill `cat $pidfile`
