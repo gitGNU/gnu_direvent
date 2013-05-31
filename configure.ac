@@ -60,7 +60,12 @@ AH_TOP([
 
 # Grecs subsystem
 
-GRECS_SETUP([grecs],[tree-api git2chg no-preproc getopt])
+GRECS_SETUP([grecs],[tree-api git2chg no-preproc getopt tests])
+
+# Initialize the test suite.
+AC_CONFIG_TESTDIR(tests)
+AC_CONFIG_FILES([tests/Makefile tests/atlocal])
+AM_MISSING_PROG([AUTOM4TE], [autom4te])
 
 AC_CONFIG_COMMANDS([status],[
 cat <<EOT
@@ -74,6 +79,5 @@ iface=$iface
 
 AC_CONFIG_FILES([Makefile
                  src/Makefile
-		 doc/Makefile
-		 tests/Makefile])
+		 doc/Makefile])
 AC_OUTPUT

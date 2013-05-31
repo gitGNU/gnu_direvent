@@ -66,6 +66,23 @@ get_facility(const char *arg)
 	return f;
 }
 
+int
+get_priority(const char *arg)
+{
+	int f;
+	char *p;
+
+	errno = 0;
+	f = strtoul (arg, &p, 0);
+	if (*p == 0 && errno == 0)
+		return f;
+	if (trans_strtotok(kwpri, arg, &f)) {
+		diag(LOG_CRIT, "unknown syslog priority: %s", arg);
+		exit(1);
+	}
+	return f;
+}
+
 #define ASSERT_SCALAR(cmd, locus)					\
 	if ((cmd) != grecs_callback_set_value) {			\
 	        grecs_error(locus, 0, "Unexpected block statement");	\

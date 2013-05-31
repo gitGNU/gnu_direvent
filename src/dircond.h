@@ -161,7 +161,9 @@ struct pathent {
 };
 	
 void config_parse(const char *file);
-int read_facility(const char *arg, int *pres);
+
+int get_facility(const char *arg);
+int get_priority(const char *arg);
 
 void setup_watchers(void);
 struct dirwatcher *dirwatcher_lookup(const char *dirname);

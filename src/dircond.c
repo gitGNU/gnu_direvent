@@ -40,6 +40,8 @@ int debug_level;                  /* Debug verbosity level */
 char *pidfile = NULL;             /* Store PID to this file */
 char *user = NULL;                /* User to run as */
 
+int log_to_stderr = LOG_DEBUG;
+
 
 /* Diagnostic functions */
 const char *
@@ -70,15 +72,20 @@ void
 vdiag(int prio, const char *fmt, va_list ap)
 {
 	const char *s;
+	va_list tmp;
 	
-	if (facility <= 0) {
+	if (log_to_stderr >= prio) {
 		fprintf(stderr, "%s: ", program_name);
 		s = severity(prio);
 		if (s)
 			fprintf(stderr, "[%s] ", s);
-		vfprintf(stderr, fmt, ap);
+		va_copy(tmp, ap);
+		vfprintf(stderr, fmt, tmp);
 		fputc('\n', stderr);
-	} else {
+		va_end(tmp);
+	}
+
+	if (facility > 0) {
 		if (syslog_include_prio && (s = severity(prio)) != NULL) {
 			static char *fmtbuf;
 			static size_t fmtsize;
@@ -382,13 +389,22 @@ sie_init()
 	
 
 int signo = 0;
+int stop = 0;
 
 void
 sigmain(int sig)
 {
 	signo = sig;
+	switch (signo) {
+	case SIGCHLD:
+	case SIGALRM:
+		break;
+	default:
+		stop = 1;
+	}
 	signal(sig, sigmain);
 }
+
 
 #if USE_IFACE == IFACE_INOTIFY
 # define INTERFACE "inotify"
@@ -449,9 +465,16 @@ main(int argc, char **argv)
 		pidfile = opt_pidfile;
 	if (opt_facility != -1)
 		facility = opt_facility;
+	if (!foreground && facility <= 0)
+		facility = LOG_DAEMON;
 	if (opt_user)
 		user = opt_user;
 	
+	if (facility > 0) {
+		openlog(tag, LOG_PID, facility);
+		grecs_log_to_stderr = 0;
+	}
+
 	setup_watchers();
 
 	/* Become a daemon */
@@ -460,15 +483,10 @@ main(int argc, char **argv)
 			diag(LOG_CRIT, "daemon: %s", strerror(errno));
 			exit(1);
 		}
-		if (facility <= 0)
-			facility = LOG_DAEMON;
+		log_to_stderr = -1;
 	}
 	
-	if (facility > 0) {
-		openlog(tag, LOG_PID, facility);
-		grecs_log_to_stderr = 0;
-	}
-	
+
 	diag(LOG_INFO, "%s %s started", program_name, VERSION);
 
 	/* Write pidfile */
@@ -485,9 +503,12 @@ main(int argc, char **argv)
 	do {
 		process_timeouts();
 		process_cleanup(0);
-	} while (evsys_select () == 0);
+	} while (evsys_select () == 0 && !stop);
 
 	diag(LOG_INFO, "%s %s stopped", program_name, VERSION);
 
+	if (pidfile)
+		unlink(pidfile);
+	
 	return 0;
 }

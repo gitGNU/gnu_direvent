@@ -13,6 +13,15 @@ BEGIN
 	opt_debug_level++;
 END
 
+OPTION(,l,PRIO,
+       [<log everything with priority PRIO and higher to the stderr, as well as to the syslog>])
+BEGIN
+	if (strcmp(optarg, "none") == 0)
+		log_to_stderr = -1;
+	else
+		log_to_stderr = get_priority(optarg);
+END
+       
 OPTION(facility,F,NAME,
        [<set syslog facility>])
 BEGIN       

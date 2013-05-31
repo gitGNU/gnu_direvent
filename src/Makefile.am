@@ -15,7 +15,7 @@ if DIRCOND_INOTIFY
 endif
 
 if DIRCOND_KQUEUE
-  dircond_SOURCES += ev_kqueue.c
+  dircond_SOURCES += ev_kqueue.c rdaemon.c
 endif
 
 LDADD=@GRECS_LDADD@

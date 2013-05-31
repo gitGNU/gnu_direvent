@@ -224,9 +224,12 @@ evsys_select()
 	chclosed_elim();
 	n = kevent(kq, chtab, chcnt, evtab, chcnt, NULL);
 	if (n == -1) {
-		if (signo == SIGCHLD || signo == SIGALRM)
-			return 0;
-		diag(LOG_NOTICE, "got signal %d", signo);
+		if (errno == EINTR) {
+			if (signo == SIGCHLD || signo == SIGALRM)
+				return 0;
+			diag(LOG_NOTICE, "got signal %d", signo);
+		}
+		diag(LOG_ERR, "kevent: %s", strerror(errno));
 		return 1;
 	} 
 
