@@ -44,7 +44,7 @@ men
 EOT
 
 dircond -lnotice test.conf || exit 1
-
+sleep 1
 echo "to come to" >> dir/file
 
 waitfile $outfile 6 || exit 2

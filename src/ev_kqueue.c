@@ -135,7 +135,7 @@ check_created(struct dirwatcher *dp)
 
 	dir = opendir(dp->dirname);
 	if (!dir) {
-		diag(LOG_ERR, "cannot open directory %d: %s",
+		diag(LOG_ERR, "cannot open directory %s: %s",
 		     dp->dirname, strerror(errno));
 		return;
 	}

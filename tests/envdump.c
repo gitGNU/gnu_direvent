@@ -32,8 +32,6 @@ agetcwd()
 	size_t bufsize = 128;
 	
 	for (;;) {
-		char *cwd;
-		
 		errno = 0;
 		buf = malloc(bufsize);
 		if (!buf) {
@@ -138,7 +136,8 @@ void
 read_pid_and_sig(char *arg, pid_t *pid, int *sig)
 {
 	char *p, *end;
-	
+	unsigned long n;
+
 	p = strchr(arg, ':');
 	if (p)
 		*p++ = 0;
@@ -150,12 +149,13 @@ read_pid_and_sig(char *arg, pid_t *pid, int *sig)
 			perror(arg);
 			exit(1);
 		}
-		if (fscanf(fp, "%lu", pid) != 1) {
+		if (fscanf(fp, "%lu", &n) != 1) {
 			fprintf(stderr, "%s: no PID found in %s\n", progname,
 				arg);
 			exit(1);
 		}
 		fclose(fp);
+		*pid = n;
 	} else {
 		*pid = strtoul(arg, &end, 10);
 		if (*end) {
