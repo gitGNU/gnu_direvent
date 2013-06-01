@@ -25,5 +25,5 @@ m4_include([create.at])
 m4_include([delete.at])
 m4_include([write.at])
 m4_include([attrib.at])
-
+m4_include([cmdexp.at])
 

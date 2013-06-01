@@ -32,7 +32,7 @@ syslog {
 watcher {
 	path $cwd/dir;
 	event create;
-	command "$TESTDIR/envdump -s -i DIRCOND_FILE=:DIRCOND_EVENT $outfile";
+	command "$TESTDIR/envdump -s -i DIRCOND_FILE=:DIRCOND_EVENT -f $outfile";
 	option (stdout,stderr);
 }
 EOT
@@ -52,7 +52,8 @@ argv[[0]]=(TESTDIR)/envdump
 argv[[1]]=-s
 argv[[2]]=-i
 argv[[3]]=DIRCOND_FILE=:DIRCOND_EVENT
-argv[[4]]=(CWD)/dump
+argv[[4]]=-f
+argv[[5]]=(CWD)/dump
 # Environment
 DIRCOND_EVENT=create
 DIRCOND_EVENT_CODE=1

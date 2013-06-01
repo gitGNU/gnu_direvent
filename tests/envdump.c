@@ -174,7 +174,7 @@ main(int argc, char **argv)
 {
 	int i;
 	char *p;
-	FILE *fp;
+	FILE *fp = NULL;
 	char *mode = "w";
 	int sortenv = 0;
 	char *include = NULL;
@@ -187,13 +187,21 @@ main(int argc, char **argv)
 		progname++;
 	else
 		progname = argv[0];
-	while ((i = getopt(argc, argv, "ahi:k:s")) != EOF)
+	while ((i = getopt(argc, argv, "af:hi:k:s")) != EOF)
 		switch (i) {
 		case 'a':
 			mode = "a";
 			break;
+		case 'f':
+			fp = fopen(optarg, mode);
+			if (!fp) {
+				fprintf(stderr, "%s: ", progname);
+				perror(optarg);
+				return 1;
+			}
+			break;
 		case 'h':
-			printf("usage: %s [-ahs] [-i INCLUDELIST] [-k [@]PID[:SIG]] [FILE]\n",
+			printf("usage: %s [-ahsx] [-f FILE] [-i INCLUDELIST] [-k [@]PID[:SIG]] [ARGS...]\n",
 			       progname);
 			return 0;
 		case 's':
@@ -205,27 +213,12 @@ main(int argc, char **argv)
 		case 'k':
 			read_pid_and_sig(optarg, &pid, &sig);
 			break;
-						
 		default:
 			return 1;
 		}
 
-	switch (argc - optind) {
-	case 0:
+	if (!fp)
 		fp = stderr;
-		break;
-	case 1:
-		fp = fopen(argv[optind], mode);
-		if (!fp) {
-			fprintf(stderr, "%s: ", progname);
-			perror(argv[optind]);
-			return 1;
-		}
-		break;
-	default:
-		fprintf(stderr, "%s: too many arguments", progname);
-		return 1;
-	}
 	
 	fprintf(fp, "# Dump of execution environment\n");
 	p = agetcwd();
