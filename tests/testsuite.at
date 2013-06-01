@@ -27,3 +27,10 @@ m4_include([write.at])
 m4_include([attrib.at])
 m4_include([cmdexp.at])
 
+AT_BANNER([Environment modifications])
+m4_include([env00.at])
+m4_include([env01.at])
+m4_include([env02.at])
+m4_include([env03.at])
+
+

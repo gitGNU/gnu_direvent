@@ -567,9 +567,18 @@ cb_environ(enum grecs_callback_command cmd, grecs_node_t *node,
 		break;
 
 	case GRECS_TYPE_LIST:
-		grecs_error(locus, 0, "unexpected list");
-		return 1;
+		eventconf.env = ecalloc(val->v.list->count + 1,
+					sizeof(eventconf.env[0]));
+		for (i = 0, ep = val->v.list->head; ep; ep = ep->next, i++) {
+			grecs_value_t *vp = ep->data;
+			if (assert_grecs_value_type(&vp->locus, vp,
+						    GRECS_TYPE_STRING))
+				return 1;
+			eventconf.env[i] = estrdup(vp->v.string);
+		}
+		eventconf.env[i] = NULL;
 	}
+	return 0;
 }		
 		
 	
@@ -633,8 +642,6 @@ config_init()
 void
 config_finish(struct grecs_node *tree)
 {	
-	struct grecs_node *p;
-
 	if (grecs_tree_process(tree, dircond_kw))
 		exit(1);
 }

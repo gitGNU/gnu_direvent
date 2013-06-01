@@ -1,0 +1,77 @@
+# This file is part of Dircond testsuite. -*- Autotest -*-
+# Copyright (C) 2013 Sergey Poznyakoff
+#
+# Dircond is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 3, or (at your option)
+# any later version.
+#
+# Dircond is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Dircond.  If not, see <http://www.gnu.org/licenses/>.
+
+AT_SETUP([clear and modify])
+AT_KEYWORDS([environ env03])
+
+AT_CHECK([
+cwd=`pwd`
+pidfile=$cwd/dircond.pid
+outfile=$cwd/dump
+mkdir dir
+cat > test.conf <<EOT
+pidfile $pidfile;
+debug 10;
+syslog {
+	facility ${TESTSUITE_FACILITY:-local0};
+	tag dircond-test:write;
+}
+watcher {
+	path $cwd/dir;
+	event write;
+	command "$TESTDIR/envdump -s -f $outfile";
+	option (stdout,stderr);
+	environ (--, VAR1, "VAR2=baz", "FILE=\$file", "EVENT=\$sie_event_id");
+}
+EOT
+
+cat > dir/testfile <<EOT
+now is the
+time for all
+men
+EOT
+
+VAR1=foo
+VAR2=bar
+export VAR1 VAR2
+
+dircond -lnotice test.conf || exit 1
+waitfile $pidfile 2
+echo "to come to" >> dir/testfile
+
+waitfile $outfile 6
+res=$?
+kill `cat $pidfile`
+test $? -ne 0 && exit 1
+sed "s^$cwd^(CWD)^;s^$TESTDIR^(TESTDIR)^;s^\(DIRCOND_SYS.*\)=.*^\1=X^" $outfile
+],
+[0],
+[# Dump of execution environment
+cwd is (CWD)/dir
+# Arguments
+argv[[0]]=(TESTDIR)/envdump
+argv[[1]]=-s
+argv[[2]]=-f
+argv[[3]]=(CWD)/dump
+# Environment
+EVENT=write
+FILE=testfile
+VAR1=foo
+VAR2=baz
+# End
+])
+
+AT_CLEANUP
