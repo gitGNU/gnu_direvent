@@ -44,11 +44,13 @@ men
 EOT
 
 dircond -lnotice test.conf || exit 1
-sleep 1
+waitfile $pidfile 2
 echo "to come to" >> dir/file
 
-waitfile $outfile 6 || exit 2
+waitfile $outfile 6
+res=$?
 kill `cat $pidfile`
+test $? -ne 0 && exit 1
 sed "s^$cwd^(CWD)^;s^$TESTDIR^(TESTDIR)^" $outfile
 ],
 [0],

@@ -38,9 +38,7 @@ watcher {
 EOT
 
 dircond -lnotice test.conf || exit 1
-# Need to wait a second because on BSD the create event is detected with
-# a 1-second resolution. This needs to be fixed in ev_kqueue.c
-sleep 1
+waitfile $pidfile 2
 > dir/file
 waitfile $outfile 6 
 kill `cat $pidfile`

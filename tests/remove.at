@@ -38,6 +38,7 @@ watcher {
 EOT
 
 dircond -lnotice test.conf || exit 1
+waitfile $pidfile 2
 > dir/file
 waitfile $outfile 6 || exit 2
 kill `cat $pidfile`

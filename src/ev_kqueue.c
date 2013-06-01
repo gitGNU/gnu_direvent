@@ -159,7 +159,15 @@ check_created(struct dirwatcher *dp)
 		if (stat(pathname, &st)) {
 			diag(LOG_ERR, "cannot stat %s: %s",
 			     pathname, strerror(errno));
-		} else if (st.st_ctime > dp->file_ctime) {
+		/* If ok, first see if the file is newer than the last
+		   directory scan.  If not, there is still a chance
+		   the file is new (the timestamp precision leaves a
+		   time window long enough for a file to be created)
+		   so try the more expensive hash lookup to see if we
+		   know about that file.  If the file is new, register
+		   a watcher for it. */
+		} else if (st.st_ctime > dp->file_ctime ||
+			   !dirwatcher_lookup(pathname)) {
 			event_mask m = { SIE_CREATE, 0 };
 
 			watch_pathname(dp, pathname, S_ISDIR(st.st_mode));
