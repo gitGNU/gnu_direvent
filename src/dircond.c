@@ -89,7 +89,7 @@ vdiag(int prio, const char *fmt, va_list ap)
 		if (syslog_include_prio && (s = severity(prio)) != NULL) {
 			static char *fmtbuf;
 			static size_t fmtsize;
-			size_t len = strlen(fmt) + strlen(s) + 3;
+			size_t len = strlen(fmt) + strlen(s) + 4;
 			char *p;
 			
 			if (len > fmtsize) {
