@@ -138,7 +138,7 @@ process_event(struct inotify_event *ep)
 	}
 	for (h = dp->handler_list; h; h = h->next) {
 		if (h->ev_mask.sys_mask & ep->mask)
-			run_handler(h, event_mask_init(&m, ep->mask),
+			run_handler(h, event_mask_init(&m, ep->mask, &h->ev_mask),
 				    dirname, filename);
 	}
 	unsplit_pathname(dp);

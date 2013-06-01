@@ -210,7 +210,7 @@ process_event(struct kevent *ep)
 	for (h = dp->handler_list; h; h = h->next) {
 		if (h->ev_mask.sys_mask & ep->fflags) {
 			run_handler(h,
-				    event_mask_init(&m, ep->fflags),
+				    event_mask_init(&m, ep->fflags, &h->ev_mask),
 				    dirname, filename);
 		}
 	}

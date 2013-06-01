@@ -115,7 +115,7 @@ const char *evsys_code_to_name(int code);
 int defevt(const char *name, event_mask *mask, int line);
 int getevt(const char *name, event_mask *mask);
 int evtnullp(event_mask *mask);
-event_mask *event_mask_init(event_mask *m, int fflags);
+event_mask *event_mask_init(event_mask *m, int fflags, event_mask const *);
 
 extern event_mask sie_xlat[];
 extern struct transtab sie_trans[];

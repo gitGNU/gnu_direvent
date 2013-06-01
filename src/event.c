@@ -133,17 +133,17 @@ struct transtab sie_trans[] = {
 };
 
 event_mask *
-event_mask_init(event_mask *m, int fflags)
+event_mask_init(event_mask *m, int fflags, event_mask const *req)
 {
 	int i;
 
-	m->sys_mask = fflags;
+	m->sys_mask = fflags & req->sys_mask;
 	m->sie_mask = 0;
 	for (i = 0; i < sie_xlat[i].sie_mask; i++)
-		if (sie_xlat[i].sys_mask & fflags) {
-			m->sie_mask = sie_xlat[i].sie_mask;
-			break;
-		}
+		if (sie_xlat[i].sys_mask & m->sys_mask)
+			m->sie_mask |= sie_xlat[i].sie_mask;
+	if (req->sie_mask)
+		m->sie_mask &= req->sie_mask;
 	return m;
 }
 

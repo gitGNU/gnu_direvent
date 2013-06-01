@@ -37,7 +37,7 @@ AC_CHECK_HEADERS([sys/inotify.h sys/event.h])
 # Checks for typedefs, structures, and compiler characteristics.
 
 # Checks for library functions.
-AC_CHECK_FUNCS([inotify_init kqueue])
+AC_CHECK_FUNCS([inotify_init kqueue rfork])
 
 if test "$ac_cv_header_sys_inotify_h/$ac_cv_func_inotify_init" = yes/yes; then
   iface=inotify
@@ -52,6 +52,7 @@ AM_CONDITIONAL([DIRCOND_KQUEUE],[test $iface = kqueue])
 AC_SUBST(IFACE, $iface)
 AC_DEFINE_UNQUOTED(USE_IFACE,IFACE_`echo $iface|tr a-z A-Z`,
                    [event notification interface to use])
+AM_CONDITIONAL([DIRCOND_RFORK], [test "$ac_cv_func_rfork" = yes])
 AH_TOP([
 /* Supported event notification types */
 #define IFACE_INOTIFY 0  /* inotify - Linux */

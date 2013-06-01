@@ -408,8 +408,12 @@ sigmain(int sig)
 
 #if USE_IFACE == IFACE_INOTIFY
 # define INTERFACE "inotify"
+# define INIT_EARLY 1
 #elif USE_IFACE == IFACE_KQUEUE
 # define INTERFACE "kqueue"
+# ifdef HAVE_RFORK
+#  define INIT_EARLY 1
+# endif
 #endif
 
 static int opt_debug_level = 0;
@@ -430,7 +434,6 @@ main(int argc, char **argv)
 	set_program_name(argv[0]);
 	tag = (char*) program_name;
 
-	evsys_init();
 	sie_init();
 
 	parse_options(argc, argv, &i);
@@ -475,7 +478,9 @@ main(int argc, char **argv)
 		grecs_log_to_stderr = 0;
 	}
 
+#ifdef INIT_EARLY
 	setup_watchers();
+#endif
 
 	/* Become a daemon */
 	if (!foreground) {
@@ -487,6 +492,9 @@ main(int argc, char **argv)
 	}
 	
 
+#ifndef INIT_EARLY
+	setup_watchers();
+#endif
 	diag(LOG_INFO, "%s %s started", program_name, VERSION);
 
 	/* Write pidfile */
@@ -500,10 +508,10 @@ main(int argc, char **argv)
 	signal_setup(sigmain);
 
 	/* Main loop */
-	do {
+	while (evsys_select () == 0 && !stop) {
 		process_timeouts();
 		process_cleanup(0);
-	} while (evsys_select () == 0 && !stop);
+	}
 
 	diag(LOG_INFO, "%s %s stopped", program_name, VERSION);
 

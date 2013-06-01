@@ -385,6 +385,7 @@ setwatcher(struct hashent *ent, void *null)
 void
 setup_watchers()
 {
+	evsys_init();
 	if (hashtab_count(texttab) == 0) {
 		diag(LOG_CRIT, "no event handlers configured");
 		exit(1);
