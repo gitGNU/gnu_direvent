@@ -98,10 +98,10 @@ env_concat(const char *name, size_t namelen, const char *a, const char *b)
 }
 
 static char *defenv[] = {
-	"DIRCOND_SYS_EVENT_CODE=${sys_event_code}",
-	"DIRCOND_SYS_EVENT=${sys_event_id}",
-	"DIRCOND_EVENT_CODE=${sie_event_code}",
-	"DIRCOND_EVENT=${sie_event_id}",
+	"DIRCOND_SYSEV_CODE=${sysev_code}",
+	"DIRCOND_SYSEV_NAME=${sysev_name}",
+	"DIRCOND_GENEV_CODE=${genev_code}",
+	"DIRCOND_GENEV_NAME=${genev_name}",
 	"DIRCOND_FILE=${file}",
 	NULL
 };

@@ -4,5 +4,5 @@ package.m4
 testsuite
 testsuite.dir
 testsuite.log
-tests/envdump
-tests/waitfile
+envdump
+waitfile

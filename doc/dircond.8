@@ -1,0 +1,453 @@
+.\" dircond - directory content watcher daemon -*- nroff -*-
+.\" Copyright (C) 2012, 2013 Sergey Poznyakoff
+.\"
+.\" Dircond is free software; you can redistribute it and/or modify it
+.\" under the terms of the GNU General Public License as published by the
+.\" Free Software Foundation; either version 3 of the License, or (at your
+.\" option) any later version.
+.\"
+.\" Dircond is distributed in the hope that it will be useful,
+.\" but WITHOUT ANY WARRANTY; without even the implied warranty of
+.\" MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+.\" GNU General Public License for more details.
+.\"
+.\" You should have received a copy of the GNU General Public License along
+.\" with dircond. If not, see <http://www.gnu.org/licenses/>.
+.TH DIRCOND 1 "June 2, 2013" "DIRCOND" "Dircond User Reference"
+.SH NAME
+dircond \- directory content watcher
+.SH SYNOPSIS
+\fBdircond\fR [\fB\-HVdfh\fR] [\fB\-F\fR \fINAME\fR]\
+ [\fB\-P\fR \fIFILE\fR]\
+ [\fB-l\fR \fIPRIO\fR]\
+ [\fB\-\-debug\fR]
+        [\fB\-\-facility\fR=\fINAME\fR]\
+ [\fB\-\-foreground\fB]\
+ [\fB\-\-pidfile\fR=\fIFILE\fR] [\fBCONFIG\fR]
+
+.B dircond \-h
+.br
+.B dircond \-\-help
+
+.B dircond \-H
+.br
+.B dircond \-\-config\-help
+
+.B dircond \-\-usage
+
+.B dircond \-V
+.br
+.B dircond \-\-version
+
+.SH DESCRIPTION
+.B Dircond
+monitors a set of directories on the file system and reacts when
+a file system event occurs in any of them.  Directories and events
+to monitor are specified in the configuration file.  When an event
+occurs the utility reacts by invoking an external command configured
+for that event.			      
+.PP
+The following
+.B generic
+events can be monitored by the program:
+.TP
+.B create
+A file was created;
+.TP
+.B delete
+A file was deleted;
+.TP
+.B write
+A file was written to;
+.TP
+.B attrib
+File attributes have changed.  This includes changes in the file
+ownership, mode, link count, etc.
+.PP
+Depending on the interface provided by the underlying operating system
+.B dircond
+can trace various
+.B system-dependent
+events, which may offer a better resolution.  These events are
+described in the section
+.B SYSTEM DEPENDENCIES
+below.
+.PP
+A
+.B watcher
+is a configuration entity within
+.B dircond
+which associates a set of directories with a set of events and
+instructs the program to run a specified external command when
+any of these events occur in any of these directories.  This
+external command (called a \fBhandler\fR) can obtain information
+about the event that triggered its execution from the environment
+variables, or from its command line (see the \fBHANDLER ENVIRONMENT\fR
+section below).
+.PP
+Watchers are declared in the program configuration file
+.BR dircond.conf ,
+located in the system configuration directory (normally \fB/etc\fR).
+.PP
+An alternative configuration file can be used, by supplying its pathname
+as the command line argument (\fICONFIG\fR parameter in the \fBSYNOPSIS\fR
+section above).
+.SH OPTIONS
+.TP
+.BR \-\-debug ", " \-d
+Increase debug verbosity level.
+.TP
+.BR \-\-foreground ", " \-f
+Run in the foreground.
+.TP
+\fB\-\-facility\fR, \fB\-F\fR \fIFACILITY\fR
+Log under this syslog facility.  Allowed values for \fIFACILITY\fR are
+a decimal number or any of the following symbolic names:
+.BR auth ,
+.BR authpriv ,
+.BR cron ,
+.BR daemon ,
+.BR ftp ,
+.BR local0 " through " local7 ,
+.BR lpr ,
+.BR mail ,
+.BR news ,
+.BR user ,
+and
+.BR uucp .
+
+The option \fB\-F 0\fR directs logging to the standard error.
+.TP
+\fB\-\-pidfile\fR, \fB\-P\fR \fIFILE\fR
+Write PID to \fIFILE\fR.
+.TP
+.BR \-\-lint ", " \-t
+Check configuration file for errors and exit.
+.TP
+\fB\-l\fR \fIPRIO\fR
+While connected to a terminal \fBdircond\fR outputs its diagnostics
+messages to stderr and, if configured, to \fBsyslog\fR.  This option
+limits the amount of information output to the standard error.
+\fIPRIO\fR is one of the following priorities (in order of increasing
+severity):
+.BR debug ,
+.BR info ,
+.BR notice ,
+.BR warning ,
+.BR err ,
+.BR crit ,
+.BR alert ,
+.BR emerg .
+When this option is given, only messages with the priority level equal
+to or greater than \fIPRIO\fR will be duplicated on the standard error.
+.TP
+\fB\-\-user\fR, \fB\-u\fR \fIUSER\fR
+Run as this \fIUSER\fR.
+.TP
+.BR \-\-help ", " \-h
+Output a terse help summary and exit.
+.TP
+.BR \-\-config\-help ", " \-H
+Describe configuration file syntax.
+.TP
+.B \-\-usage
+Show available command line options.
+.TP
+.BR \-\-version ", " \-V
+Print program version and copyright information.
+.SH CONFIGURATION
+The default configuration file is
+.BR /etc/dircond.conf .
+If a file name is supplied as an argument to the program, that file
+will be read instead.
+.PP
+The configuration file syntax is discussed in detail in
+.BR dircond.conf (5).
+This section provides only a short description of it.
+.PP
+Three types of comments are allowed: inline comments, that begin with
+a \fB#\fR or \fB//\fR and extend to the end of line, and multi-line
+comments, which comprise everything enclosed between \fB/*\fR and
+\fB*/\fR.  Comments and empty lines are ignored.  Whitespace
+characters are ignored as well, except as they serve to separate
+tokens.
+.PP
+A token is a string of consecutive characters from the following
+classes: alphanumeric characters, underscores, dots, asteriscs,
+slashes, semicolons, commercial at's, and dashes.
+.PP
+Any other sequence of characters must be enclosed in double quotation
+marks in order to represent a single token.
+.PP
+Adjacent quoted strings are concatenated.
+.PP
+Configuration statements consist of a keyword and value separated by
+any amount of whitespace and is terminated with a semicolon.  A block
+statement is a collection of statements enclosed in curly braces.
+.PP
+The most important configuration statement is
+.BR watcher .
+It is defined as follows:
+.sp
+.nf
+.in +2
+.B watcher {
+.in +4
+\fBpath\fR \fIPATHNAME\fR [\fBrecursive\fR [\fILEVEL\fR]];
+.BI "event " EVENT\-LIST ;
+.BI "command " COMMAND\-LINE ;
+.BI "user " NAME ;
+.BI "timeout " NUMBER ;
+.BI "environ " ENV\-SPEC ;
+.BI "option " STRING\-LIST ;
+.in -4
+.B }
+.in
+.fi
+.PP
+Each \fBwatcher\fR statement instructs \fBdircond\fR to monitor
+the events listed in \fIEVENT\-LIST\fR occurring in the directories
+specified by \fIPATHNAME\fRs in \fBpath\fR statements (any number of
+\fBpath\fR statements can be given).  When any such event is detected,
+the \fICOMMAND\-LINE\fR will be executed.
+.PP
+Each directory defined with the \fBrecursive\fR keyword will be
+watched recursively.  This means that for each subdirectory created in
+it, \fBdircond\fR will install a watcher similar to that of its parent
+directory.  The optional \fILEVEL\fR can be used to set-up a cut-off
+nesting level, beyond which the recursive operation is disabled.
+.PP
+The rest of statements are optional.  The \fBuser\fR statement can be
+used to execute the \fICOMMAND\-LINE\fR as a user \fINAME\fR
+(provided, of course, that \fBdircond\fR is started with root
+privileges).  The \fBtimeout\fR specifies the maximum amount of time
+(in seconds) the command is allowed to run.  It defaults to 5.  The
+\fBenviron\fR statements modifies the command environment (see the
+following section).  Finally, the \fBoption\fR statement supplies
+additional options.  It can be used, for example, to divert the
+command's output to \fBsyslog\fR.
+.PP
+The program's logging is controlled by the \fBdebug\fR and
+\fBsyslog\fR statements.
+.TP
+.BI "debug " NUMBER ;
+Sets the debugging level to \fINUMBER\fR -- an integer value between 0
+and 3.  Zero is the default and means the debugging is disabled.  The
+bigger the \fINUMBER\fR the more detailed debugging information will
+be output.
+.PP
+The \fBsyslog\fR statement controls the syslog logging:
+.sp
+.nf
+.in +2
+.B syslog {
+.in +4
+.BI "facility " STRING ;
+.BI "tag " STRING ;
+.BI "print\-priority " BOOL ;
+.in -4
+.B }
+.PP
+The \fBpidfile\fR statement instructs the program to write its PID to
+the named file after disconnecting from the controlling terminal.
+.SH "HANDLER ENVIRONMENT"
+The handler to be executed on an event is defined by the \fBcommand\fR
+statement in the \fBwatcher\fR configuration block (see
+.BR dircond.conf (5)).
+Before executing, the following operations are performed:
+.nr step 1 1
+.IP \n[step].
+The current working directory is set to the directory where the event
+occurred.
+.IP \n+[step].
+If the \fBenviron\fR statement is present in the watcher, the
+environment is modified according to its rules.  See the description
+of the \fBenviron\fR statement in
+.BR dircond.conf (5).
+.IP \n+[step].
+The standard input is closed.
+.IP
+If the \fBstdout\fR option is supplied,
+the standard output is captured and redirected to the \fBsyslog\fR.
+Otherwise it is closed.
+.IP
+If the \fBstderr\fR option is supplied,
+the standard error is captured and redirected to the \fBsyslog\fR.
+Otherwise it is closed.
+.IP
+All file descriptors above 2 are closed.
+.IP \n+[step].
+\fBMacro variables\fR are expanded.  See the section
+.B MACRO EXPANSION
+in
+.BR dircond.conf (5).
+For example, if the handler is about to be executed for the
+\fBwrite\fR event on the file \fBsomefile\fR, and the \fBcommand\fR
+definition was:
+.RS
+.sp
+.nf
+.in +4
+command "/libexec/handler -e '$genev_name' -f '$file'";
+.in
+.fi
+.RE
+.IP
+then the resulting command line will be:
+.RS
+.sp
+.nf
+.in +4
+/libexec/handler -e 'open' -f 'somefile'
+.in
+.fi
+.RE
+.IP \n+[step].
+Word splitting is performed on the resulting command line.  The first
+word is treated as the pathname of the program to be executed.
+.IP \n+[step].
+The program is invoked.
+.SH "SYSTEM DEPENDENCIES"
+\fBDircond\fR relies on the event monitoring API provided by the
+kernel.
+.SH Linux
+On \fBLinux\fR the program uses
+.BR inotify (8).
+.PP
+The maximum number of watches a user process can have is controlled by
+the
+.B fs.inotify.max_user_watches
+system variable.  Normally it is set to 8192, which is quite enough
+for most purposes.  However, if you monitor a big number or
+directories and/or are using recursive watchers, you may need more
+watches.  In that case, use
+.BR sysctl (8)
+to raise the limit, e.g.:
+.sp
+.nf
+.in +4
+sysctl -w fs.inotify.max_user_watches=16384
+.in
+.fi
+.PP
+Most GNU/Linux distributions provide the file
+.B /etc/sysctl.conf
+which can be used to set this variable on startup.
+.PP
+The following system-dependent events are defined on systems that use
+.BR inotify (8):
+.TP
+.B ACCESS
+A file was accessed.
+.TP
+.B ATTRIB
+A file's metadata changed.
+.TP
+.B CLOSE_WRITE
+A writable file was closed.
+.TP
+.B CLOSE_NOWRITE
+An unwritable file closed.
+.TP
+.B CREATE
+A file was created.
+.TP
+.B DELETE
+A file was deleted.
+.TP
+.B MODIFY
+A file was modified.
+.TP
+.B MOVED_FROM
+A file was moved into a monitored directory.
+.TP
+.B MOVED_TO
+A file was moved out from a monitored directory.
+.TP
+.B OPEN
+A file was opened.
+.SH BSD
+When compiled on \fBBSD\fR systems (including \fBDarwin\fR),
+\fBdircond\fR uses
+.BR kqueue (2).
+This interface needs an open file handle for each file in a monitored
+directory, which means that the number of watchers is limited by the
+maximum number of open files.  Use
+.BI "ulimit -n " NUM
+to raise it to a higher number.
+.PP
+Since it operates on files, \fBkqueue\fR does not provide direct
+support for the \fBcreate\fR generic event.  \fBDircond\fR works
+over this disadvantage by keeping track of the contents of each
+monitored directory and rescanning it each time a \fBWRITE\fR system
+event is reported for it.  It then generates the
+\fBopen\fR event for each file that appeared after the last scan.
+Such a rescan can consume considerable time if a directory has a very
+large number of files in it.
+.PP
+The following system-dependent events are available:
+.TP
+.B DELETE
+The \fBunlink()\fR system call was called on the monitored file.
+.TP
+.B WRITE
+A write occurred on the file.
+.TP
+.B EXTEND
+The file was extended.
+.TP
+.B ATTRIB
+The file attributes have changed.
+.TP
+.B LINK
+The link count on the file changed.
+.TP
+.B RENAME
+The file was renamed.
+.TP
+.B REVOKE
+Access to the file was revoked via
+.BR revoke (2)
+or the underlying file system was unmounted.
+.SH Darwin
+Essentially the same as
+.BR BSD .
+The main difference compared to \fBLinux\fR and \fBBSD\fR is that on
+\fBDarwin\fR the watchers are set after disconnecting from the
+controlling terminal, which means that any errors which may happen
+during this process are directed to the syslog instead of the standard
+error.  This is because \fBDarwin\fR lacks the
+.BR rfork (2)
+call and the event queue cannot be inherited by the child process.
+.SH "EXIT CODE"
+.IP 0
+Successful termination.
+.IP 1
+Command line usage error.
+.IP 2
+Another error occurred.
+.SH "SEE ALSO"
+.BR dircond.conf (5),
+.BR inotify (8),
+.BR kqueue (2).
+.SH AUTHORS
+Sergey Poznyakoff
+.SH "BUG REPORTS"
+Report bugs to <gray+dircond@gnu.org.ua>.
+.SH COPYRIGHT
+Copyright \(co 2012, 2013 Sergey Poznyakoff
+.br
+.na
+License GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>
+.br
+.ad
+This is free software: you are free to change and redistribute it.
+There is NO WARRANTY, to the extent permitted by law.
+.\" Local variables:
+.\" eval: (add-hook 'write-file-hooks 'time-stamp)
+.\" time-stamp-start: ".TH [A-Z_][A-Z0-9_.\\-]* [0-9] \""
+.\" time-stamp-format: "%:B %:d, %:y"
+.\" time-stamp-end: "\""
+.\" time-stamp-line-limit: 20
+.\" end:
+

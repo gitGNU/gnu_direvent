@@ -508,7 +508,7 @@ main(int argc, char **argv)
 	signal_setup(sigmain);
 
 	/* Main loop */
-	while (evsys_select () == 0 && !stop) {
+	while (evsys_select() == 0 && !stop) {
 		process_timeouts();
 		process_cleanup(0);
 	}

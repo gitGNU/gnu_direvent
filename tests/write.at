@@ -32,7 +32,7 @@ syslog {
 watcher {
 	path $cwd/dir;
 	event write;
-	command "$TESTDIR/envdump -s -i DIRCOND_FILE=:DIRCOND_EVENT -f $outfile";
+	command "$TESTDIR/envdump -s -i DIRCOND_FILE=:DIRCOND_GENEV_ -f $outfile";
 	option (stdout,stderr);
 }
 EOT
@@ -60,13 +60,13 @@ cwd is (CWD)/dir
 argv[[0]]=(TESTDIR)/envdump
 argv[[1]]=-s
 argv[[2]]=-i
-argv[[3]]=DIRCOND_FILE=:DIRCOND_EVENT
+argv[[3]]=DIRCOND_FILE=:DIRCOND_GENEV_
 argv[[4]]=-f
 argv[[5]]=(CWD)/dump
 # Environment
-DIRCOND_EVENT=write
-DIRCOND_EVENT_CODE=2
 DIRCOND_FILE=file
+DIRCOND_GENEV_CODE=2
+DIRCOND_GENEV_NAME=write
 # End
 ])
 

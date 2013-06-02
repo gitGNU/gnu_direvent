@@ -361,7 +361,7 @@ runcmd(const char *cmd, char **envhint, event_mask *event, const char *file)
 	kve[i++] = (char*) file;
 	
 	snprintf(buf, sizeof buf, "%d", event->sys_mask);
-	kve[i++] = "sys_event_code";
+	kve[i++] = "sysev_code";
 	kve[i++] = estrdup(buf);
 	
 	q = buf;
@@ -374,15 +374,15 @@ runcmd(const char *cmd, char **envhint, event_mask *event, const char *file)
 	}
 	*q = 0;	
 	if (q > buf) {
-		kve[i++] = "sys_event_id";
+		kve[i++] = "sysev_name";
 		kve[i++] = estrdup(buf);
 	}
 	p = trans_toktostr(sie_trans, event->sie_mask);
 	if (p) {
 		snprintf(buf, sizeof buf, "%d", event->sie_mask);
-		kve[i++] = "sie_event_code";
+		kve[i++] = "genev_code";
 		kve[i++] = estrdup(buf);
-		kve[i++] = "sie_event_id";
+		kve[i++] = "genev_name";
 		kve[i++] = p;
 	}
 	kve[i++] = 0;

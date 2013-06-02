@@ -1,0 +1,575 @@
+.\" dircond - directory content watcher daemon -*- nroff -*-
+.\" Copyright (C) 2012, 2013 Sergey Poznyakoff
+.\"
+.\" Dircond is free software; you can redistribute it and/or modify it
+.\" under the terms of the GNU General Public License as published by the
+.\" Free Software Foundation; either version 3 of the License, or (at your
+.\" option) any later version.
+.\"
+.\" Dircond is distributed in the hope that it will be useful,
+.\" but WITHOUT ANY WARRANTY; without even the implied warranty of
+.\" MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+.\" GNU General Public License for more details.
+.\"
+.\" You should have received a copy of the GNU General Public License along
+.\" with dircond. If not, see <http://www.gnu.org/licenses/>.
+.TH DIRCOND.CONF 5 "June 2, 2013" "DIRCOND" "Dircond User Reference"
+dircond.conf \- configuration file for
+.BR dircond (8).
+.SH DESCRIPTION
+The configuration file consists of statements and comments.
+.PP
+There are three classes of lexical tokens: keywords, values, and
+separators. Blanks, tabs, newlines and comments, collectively called
+\fIwhite space\fR are ignored except as they serve to separate
+tokens. Some white space is required to separate otherwise adjacent 
+keywords and values.
+.SH COMMENTS
+Comments may appear anywhere where white space may appear in the
+configuration file.  There are two kinds of comments:
+single-line and multi-line comments.  Single-line comments start
+with
+.B #
+or
+.B //
+and continue to the end of the line:
+.sp
+.RS 4
+.nf
+# This is a comment
+// This too is a comment
+.fi
+.RE
+.PP
+\fIMulti-line\fB or \fIC-style\fR comments start with the two
+characters
+.B /*
+(slash, star) and continue until the first occurrence of
+.B */
+(star, slash).
+.PP
+Multi-line comments cannot be nested.  However, single-line comments
+may well appear within multi-line ones.
+.SS "Pragmatic Comments"
+Pragmatic comments are similar to usual single-line comments,
+except that they cause some changes in the way the configuration is
+parsed.  Pragmatic comments begin with a
+.B #
+sign and end with the next physical newline character.
+.TP
+.BR "#include <" "file" >
+.PD 0
+.TP
+.BR "#include " "file"
+.PD
+Include the contents of the file \fIfile\fR.  If it is an
+absolute file name, both forms are equivalent.  Otherwise, the form
+with angle brackets searches for the file in the \fIinclude 
+search path\fR, while the second one looks for it in the current working
+directory first, and, if not found there, in the include search
+path.
+.sp
+The default include search path is:  \fBFIXME\fR.
+.TP
+.BR "#include_once <" "file" >
+.PD 0
+.TP
+.BR "#include_once " "file"
+.PD
+Same as \fB#include\fR, except that, if the \fIfile\fR has already
+been included, it will not be included again.
+.TP
+.BR "#line " "num"
+.PD 0
+.TP
+.BR "#line " "num" " \(dq" "file" "\(dq"
+.PD
+This line causes the parser to believe, for purposes of error
+diagnostics, that the line number of the next source line
+is given by \fInum\fR and the current input file is named by
+\fIfile\fR. If the latter is absent, the remembered file name
+does not change.
+.TP
+.BR "# " "num" " \(dq" "file" "\(dq"
+This is a special form of the \fB#line\fR statement, understood for
+compatibility with the C preprocessor.
+.SH STATEMENTS
+.SS "Simple statement"
+A \fIsimple statement\fR consists of a keyword and value
+separated by any amount of whitespace.  Simple statement is terminated
+with a semicolon (\fB;\fR).
+.PP
+The following is a simple statement:
+.sp
+.RS 4
+.nf
+pidfile /var/run/dircond.pid;
+.RE
+.fi
+.PP
+See below for a list of valid simple statements.
+.PP
+A \fIvalue\fR can be one of the following:
+.TP
+.I number
+A number is a sequence of decimal digits.
+.TP
+.I boolean
+A boolean value is one of the following: \fByes\fR, \fBtrue\fR,
+\fBt\fR or \fB1\fR, meaning \fItrue\fR, and \fBno\fR,
+\fBfalse\fR, \fBnil\fR, \fB0\fR meaning \fIfalse\fR.
+.TP
+.I unquoted string
+An unquoted string may contain letters, digits, and any of the
+following characters: \fB_\fR, \fB\-\fR, \fB.\fR, \fB/\fR,
+\fB@\fR, \fB*\fR, \fB:\fR.
+.TP
+.I quoted string
+A quoted string is any sequence of characters enclosed in
+double-quotes (\fB\(dq\fR).  A backslash appearing within a quoted
+string introduces an \fIescape sequence\fR, which is replaced
+with a single character according to the following rules:
+.sp
+.nf
+.ta 8n 18n 42n
+.ul
+	Sequence	Expansion	ASCII
+	\fB\\\\\fR	\fB\\\fR	134
+	\fB\\"\fR	\fB"\fR	042
+	\fB\\a\fR	audible bell	007	
+	\fB\\b\fR	backspace	010
+	\fB\\f\fR	form-feed	014
+	\fB\\n\fR	new line	012
+	\fB\\r\fR	charriage return	015
+	\fB\\t\fR	horizontal tabulation	011
+	\fB\\v\fR	vertical tabulation	013
+.fi
+
+In addition, the sequence \fB\\\fInewline\fR is removed from
+the string.  This allows to split long strings over several
+physical lines, e.g.:
+.sp
+.nf
+.in +4
+"a long string may be\\
+ split over several lines"
+.in
+.fi
+.sp
+If the character following a backslash is not one of those specified
+above, the backslash is ignored and a warning is issued.
+
+Two or more adjacent quoted strings are concatenated, which gives
+another way to split long strings over several lines to improve
+readability.  The following fragment produces the same result as the
+example above:
+.sp
+.nf
+.in +4
+"a long string may be"
+" split over several lines"
+.in
+.fi
+.TP
+.I Here-document
+A \fIhere-document\fR is a special construct that allows to introduce
+strings of text containing embedded newlines.  
+
+The
+.BI "<<" "word"
+construct instructs the parser to read all the following lines up to
+the line containing only \fIword\fR, with possible trailing blanks.
+Any lines thus read are concatenated together into a single string.
+For example: 
+.sp
+.nf
+.in +4
+<<EOT
+A multiline
+string
+EOT
+.in
+.fi
+.sp
+The body of a here-document is interpreted the same way as a
+double\-quoted string, unless \fIword\fR is preceded by a backslash
+(e.g.  \fB<<\\EOT\fR) or enclosed in double\-quotes, in which case
+the text is read as is, without interpretation of escape sequences.
+
+If \fIword\fR is prefixed with \fB\-\fR (a dash), then all leading
+tab characters are stripped from input lines and the line containing
+\fIword\fR.  Furthermore, \fB\-\fR is followed by a single space,
+all leading whitespace is stripped from them.  This allows to indent
+here-documents in a natural fashion.  For example:
+.sp
+.nf
+.in +4
+<<\- TEXT
+    The leading whitespace will be
+    ignored when reading these lines.
+TEXT
+.in
+.fi
+.sp
+It is important that the terminating delimiter be the only token on
+its line.  The only exception to this rule is allowed if a
+here-document appears as the last element of a statement.  In this
+case a semicolon can be placed on the same line with its terminating 
+delimiter, as in: 
+.sp
+.nf
+.in +5
+help\-text <<\-EOT
+    A sample help text.
+EOT;
+.in
+.fi
+.TP
+.I list
+A comma-separated list of values, enclosed in parentheses.  The
+following example shows a statement whose value is a list of strings:
+.sp
+.nf
+.in +4
+option (wait, stderr);
+.in
+.fi
+.sp
+In any context where a list is appropriate, a single value is allowed
+without being a member of a list: it is equivalent to a list with a
+single member.  This means that, e.g.
+.sp
+.nf
+.in +4
+option wait;
+.in
+.fi
+.sp
+is equivalent to
+.sp
+.nf
+.in +4
+option (wait);
+.in
+.fi
+.SS "Block Statement"
+A block statement introduces a logical group of 
+statements.  It consists of a keyword, followed by an optional value,
+called a \fBtag\fR, and a sequence of statements enclosed in curly
+braces, as shown in the example below:
+.sp
+.nf
+.in +4
+watcher {
+    path /etc;
+    event create;
+}
+.in
+.fi
+.sp
+The closing curly brace may be followed by a semicolon, although
+this is not required.
+.SH MACRO EXPANSION
+Arguments of some statements undergo macro expansion before use.
+During the macro expansion any occurrence of \fB${NAME}\fR is replaced
+by the value of macro \fBNAME\fR.  Macro names follow the usual
+convention: they begin with a letter and contain letters digits and
+underscores.  The curly braces around the \fBNAME\fR are optional.
+They are required only if the macro reference is followed by a
+character that is not to be interpreted as part of its name, as in
+\fB${command}string\fR.
+.PP
+The following macros are defined:
+.TP
+.B file
+Name of the file covered by the event.
+.TP
+.B sysev_code
+System-dependent event code.  It is a bitwise \fBOR\fR of the event codes
+represented as a decimal number.  
+.TP
+.B sysev_name
+System-dependent event name.  If several events are reported, the
+value of this variable is a list of event names separated by space
+characters.  Each name corresponds to a bit in \fBsysev_code\fR.  See
+the section  
+.B SYSTEM DEPENDENCIES
+in
+.BR dircond (8),
+for a list of system-dependent event names.
+.TP
+.B genev_code
+Generic (system-independent) event code.  It is a bitwise \fBOR\fR of
+the event codes represented as a decimal number.
+.TP
+.B sysev_name
+Generic event name.  If several generic events are reported simultaneously, the
+value of this variable is a list of event names separated by space
+characters.  Each name corresponds to a bit in \fBgenev_code\fR. 
+.SH GENERAL SETTINGS
+.TP
+\fBuser\fR \fINAME\fR;
+Sets the user to run as.  \fINAME\fR must be a name of an existing user.
+.TP
+\fBforeground\fR \fIBOOL\fR;
+Run in foreground.
+.TP
+\fBpidfile\fR \fIFILE\fR;
+Upon successful startup store the PID of the daemon process in \fIFILE\fR.
+.TP
+\fBdebug\fR \fINUMBER\fR;
+Set debug level.  Valid \fINUMBER\fR values are \fB0\fR (no debug) to \fB3\fR
+(maximum verbosity).
+.SH LOGGING
+While connected to the terminal \fBdircond\fR outputs its diagnostics and
+debugging messages to the standard error.  After disconnecting from the
+controlling terminal it closes the first three file descriptors and directs
+all its output to the \fBsyslog\fR.  When running in foreground mode, its
+messages are sent both to the standard error and to the \fBsyslog\fR.
+.PP
+The following configuration statement controls the \fBsyslog\fR output:
+.sp
+.nf
+.in +2
+.B syslog {
+.in +4
+.BI "facility " STRING ;
+.BI "tag " STRING ;
+.BI "print\-priority " BOOL ;
+.in -4
+.B }
+.in
+.fi
+.PP
+The statements are:
+.TP
+\fBfacility\fR \fISTRING\fR;
+Set \fBsyslog\fR facility.  \fISTRING\fR is one of the following:
+.BR user ,
+.BR daemon ,
+.BR auth " or " authpriv ,
+.BR mail ,
+.BR cron ,
+.BR local0 " through " local7 " (case-insensitive),"
+or a facility number.
+.TP
+\fBtag\fR \fISTRING\fR;
+Tag syslog messages with \fISTRING\fR.  Normally the messages are tagged with
+the program name.
+.TP
+\fBprint\-priority\fR \fIBOOL\fR;
+Prefix each message with its priority.
+.PP
+An example \fBsyslog\fR statement:
+.sp
+.nf
+.in +4
+syslog {
+    facility local0;
+    print-priority yes;
+}
+.in
+.fi
+.SH WATCHER
+The \fBwatcher\fR statements configures a single event watcher.  A watcher can
+control several events in multiple pathnames.  Any number of \fBwatcher\fR
+statements is allowed in the configuration file, each one of them declaring
+a separate watcher.
+.sp
+.nf
+.in +2
+.B watcher {
+.in +4
+\fBpath\fR \fIPATHNAME\fR [\fBrecursive\fR [\fINUMBER\fR]];
+.BI "event " STRING\-LIST ;
+.BI "command " STRING ;
+.BI "user " NAME ;
+.BI "timeout " NUMBER ;
+.BI "option " STRING\-LIST ;
+.BI "environ " ENV\-SPEC ;
+.in -4
+.B }
+.in
+.fi
+.PP
+The statements within a \fBwatcher\fR block are:
+.TP
+\fBpath\fR \fIPATHNAME\fR [\fBrecursive\fR [\fINUMBER\fR]];
+Defines a pathname to watch.  \fIPATHNAME\fR must be the name of an
+existing directory in the file system.  The watcher will watch events
+occurring for all files within that directory.  If the optional
+.B recursive
+clause is specified, this directory will be watched recursively, i.e.
+when any subdirectory is created in it, \fBdircond\fR will set up
+a watcher for files in this subdirectory.  This new watcher will be
+an exact copy of the parent watcher, excepting for the pathnames.
+Optional \fINUMBER\fR parameter defines a cut-off nesting level for
+recursive watching.  If supplied, the recursive behaviour will apply
+only to the directories that are nested below that level.
+.sp
+Any number of \fBpath\fR statements can appear in a \fBwatcher\fR block.
+At least one \fBpath\fR must be defined.
+.TP
+\fBevent\fR \fISTRING\-LIST\fR;
+Configures the filesystem events to watch for in the directories declared by
+the \fBpath\fR statements.  The argument is a list of event names.  Both
+generic and system-dependent event namess are allowed.  Multiple
+\fBevent\fR statements accumulate.
+.
+For example:
+.RS
+.sp
+.nf
+.in +4
+event (open,delete);
+.in
+.fi
+.RE
+.TP
+\fBcommand\fR \fISTRING\fR;
+Defines a command to execute on event.  \fISTRING\fR is a command line
+just as you would type it in
+.BR sh (1).
+.
+It may contain \fBmacro variables\fR, which will be expanded prior to
+execution.
+.
+For example:
+.RS
+.sp
+.nf
+.in +4
+command "/bin/prog -event $genev_name -file $file";
+.in
+.fi
+.RE
+.IP
+See the section \fBHANDLER ENVIRONMENT\fR in
+.BR dircond (8),
+for a detailed discussion of how the command is executed.
+.TP
+\fBuser\fR \fISTRING\fR;
+Run command as this user.
+.TP
+\fBtimeout\fR \fINUMBER\fR;
+Terminate the command if it runs longer than \fINUMBER\fR seconds.  The
+default is 5 seconds.
+.TP
+\fBoption\fR \fISTRING\-LIST\fR;
+A list of additional options.  The following options are defined:
+.RS +16
+.TP
+.B wait
+Wait for the program to terminate before handling next event from
+the event queue.  Normally the program runs asynchronously.
+.TP
+.B stdout
+Capture the standard output of the command and redirect it to the
+\fBsyslog\fR with the \fBLOG_INFO\fR priority.
+.TP
+.B stderr
+Capture the standard error of the command and redirect it to the
+\fBsyslog\fR with the \fBLOG_ERR\fR priority.
+.RE
+.TP
+\fBenviron\fR \fIENV\-SPEC\fR;
+Modify command environment.  By default the command inherits the environment
+of \fBdircond\fR augmented with the following variables:
+.RS +10
+.TP
+.B DIRCOND_SYSEV_CODE
+The system-dependent event code (see the \fB${sysev_code}\fR variable).
+.TP
+.B DIRCOND_SYSEV_NAME
+The system-dependent event name or names (see the \fB${sysev_name}\fR variable).
+.TP
+.B DIRCOND_GENEV_CODE
+The generic event code (see the \fB${genev_code}\fR variable).
+.TP
+.B DIRCOND_GENEV_NAME
+The generic event name or names (see the \fB${genev_name}\fR variable).
+.TP
+.B DIRCOND_FILE
+The name of the affected file relative to the current working directory
+(see the \fB${file}\fR variable).
+.RE
+.IP
+The \fBenviron\fR statement allows for trimming the environment.  Its
+argument is a list of one or more of the folloeing environment modification
+directives:
+.RS +10
+.TP
+.BR \- " (a single dash)"
+Clear the inherited environment, but retain the variables added by
+\fBdircond\fR.  The removed environment variables can be selectively
+restored by the directives that follow.  This must be the first directive
+in the list.
+.TP
+.BR \-\- " (double-dash)"
+Clear the entire environment, including the variables added by
+\fBdircond\fR.  This must be the first directive in the list.
+.TP
+.BI \- NAME
+Unset the variable \fINAME\fR.
+.TP
+.BI \- NAME = VAL
+Unset the environment variable \fINAME\fR only if its value is \fIVAL\fR.
+.TP
+.I NAME
+Restore the environment variable \fINAME\fR.  This directive is useful
+after \fB\-\fR or \fB\-\-\fR to retain some variables from the environment.
+.TP
+.BI "" NAME = VALUE
+Define environment variable \fINAME\fR to the \fIVALUE\fR.  \fIVALUE\fR can
+contain macro variables, which will be expanded prior to the assignment.
+.TP
+.BI "" NAME += VALUE
+Retain the variable \fINAME\fR and append \fIVALUE\fR to its existing value.
+If no such variable is present in the environment, it will be created and
+assigned the \fBVALUE\fR.  If \fBVALUE\fR begins with a punctuation
+character, this character is removed from it before the assignment.  This
+is convenient  for using this construct with environment variables like
+\fBPATH\fR, e.g.:
+.RS
+.sp
+.nf
+.in +4
+PATH+=:/sbin
+.in
+.fi
+.RE
+.IP
+In this example, if \fBPATH\fR exists, \fB:/sbin\fR will be appended
+to it.  Otherwise, it will be created and assigned the value \fB/sbin\fR.
+.IP
+The \fIVALUE\fR can contain macro variables, which will be expanded prior
+to the assignment. 
+.TP
+.BI ""  NAME =+ VALUE
+Retain the variable \fINAME\fR and prepend \fIVALUE\fR to its existing value.
+If no such variable is present in the environment, it will be created and
+assigned the \fIVALUE\fR.  In this case, if \fIVALUE\fR ends with a
+punctuation character, this character will be removed from it before
+the assignment.
+.IP
+The \fIVALUE\fR can contain macro variables, which will be expanded prior
+to the assignment. 
+.SH "SEE ALSO"
+.BR dircond (8).
+.SH COPYRIGHT
+Copyright \(co 2012, 2013 Sergey Poznyakoff
+.br
+.na
+License GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>
+.br
+.ad
+This is free software: you are free to change and redistribute it.
+There is NO WARRANTY, to the extent permitted by law.
+.\" Local variables:
+.\" eval: (add-hook 'write-file-hooks 'time-stamp)
+.\" time-stamp-start: ".TH [A-Z_][A-Z0-9_.\\-]* [0-9] \""
+.\" time-stamp-format: "%:B %:d, %:y"
+.\" time-stamp-end: "\""
+.\" time-stamp-line-limit: 20
+.\" end:
+

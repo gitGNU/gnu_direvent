@@ -34,7 +34,7 @@ watcher {
 	event write;
 	command "$TESTDIR/envdump -s -f $outfile";
 	option (stdout,stderr);
-	environ (--, VAR1, "VAR2=baz", "FILE=\$file", "EVENT=\$sie_event_id");
+	environ (--, VAR1, "VAR2=baz", "FILE=\$file", "EVENT=\$genev_name");
 }
 EOT
 
