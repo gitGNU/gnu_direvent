@@ -4,7 +4,7 @@
 <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
 
 <head>
- <title>Mailfromd - General-Purpose Mail Filter</title>
+ <title>Dircond - Filesystem event monitoring</title>
  <link rev="made" href="mailto:gray@gnu.org.ua" />
  <link rel="stylesheet" type="text/css" href="gray.css" />
  <link rel="icon" type="image/png" href="/graphics/gnu-head-icon.png" />
@@ -12,7 +12,7 @@
 <body>
 <!--#include virtual="inc/header.html" -->
 <ul class='tabs'>
-  <li><a href="mailfromd.html">Main</a></li>
+  <li><a href="dircond.html">Main</a></li>
   <li><a href="download.html">Downloads</a></li>
   <li><a class="active" href="manual.html">Documentation</a></li>
 </ul>
