@@ -13,7 +13,7 @@
 .\"
 .\" You should have received a copy of the GNU General Public License along
 .\" with dircond. If not, see <http://www.gnu.org/licenses/>.
-.TH DIRCOND.CONF 5 "June 2, 2013" "DIRCOND" "Dircond User Reference"
+.TH DIRCOND.CONF 5 "June 3, 2013" "DIRCOND" "Dircond User Reference"
 dircond.conf \- configuration file for
 .BR dircond (8).
 .SH DESCRIPTION
@@ -51,46 +51,48 @@ characters
 Multi-line comments cannot be nested.  However, single-line comments
 may well appear within multi-line ones.
 .SS "Pragmatic Comments"
-Pragmatic comments are similar to usual single-line comments,
+Pragmatic comments are similar to the usual single-line comments,
 except that they cause some changes in the way the configuration is
 parsed.  Pragmatic comments begin with a
 .B #
 sign and end with the next physical newline character.
 .TP
-.BR "#include <" "file" >
+.BI "#include <" "FILE" >
 .PD 0
 .TP
-.BR "#include " "file"
+.BI "#include " "FILE"
 .PD
-Include the contents of the file \fIfile\fR.  If it is an
-absolute file name, both forms are equivalent.  Otherwise, the form
-with angle brackets searches for the file in the \fIinclude 
-search path\fR, while the second one looks for it in the current working
-directory first, and, if not found there, in the include search
-path.
-.sp
-The default include search path is:  \fBFIXME\fR.
+Include the contents of the file \fIfile\fR.  Both forms are
+equivalent.  The \fIFILE\fR must be an absolute file name.
+.\" If it is an
+.\" absolute file name, both forms are equivalent.  Otherwise, the form
+.\" with angle brackets searches for the file in the \fIinclude 
+.\" search path\fR, while the second one looks for it in the current working
+.\" directory first, and, if not found there, in the include search
+.\" path.
+.\" .sp
+.\" The default include search path is:  \fBFIXME\fR.
 .TP
-.BR "#include_once <" "file" >
+.BI "#include_once <" "FILE" >
 .PD 0
 .TP
-.BR "#include_once " "file"
+.BR "#include_once " "FILE"
 .PD
-Same as \fB#include\fR, except that, if the \fIfile\fR has already
+Same as \fB#include\fR, except that, if the \fIFILE\fR has already
 been included, it will not be included again.
 .TP
-.BR "#line " "num"
+.BI "#line " "num"
 .PD 0
 .TP
-.BR "#line " "num" " \(dq" "file" "\(dq"
+.BI "#line " "num" " \(dq" "FILE" "\(dq"
 .PD
 This line causes the parser to believe, for purposes of error
 diagnostics, that the line number of the next source line
 is given by \fInum\fR and the current input file is named by
-\fIfile\fR. If the latter is absent, the remembered file name
+\fIFILE\fR. If the latter is absent, the remembered file name
 does not change.
 .TP
-.BR "# " "num" " \(dq" "file" "\(dq"
+.BI "# " "num" " \(dq" "FILE" "\(dq"
 This is a special form of the \fB#line\fR statement, understood for
 compatibility with the C preprocessor.
 .SH STATEMENTS
@@ -371,7 +373,7 @@ syslog {
 .in
 .fi
 .SH WATCHER
-The \fBwatcher\fR statements configures a single event watcher.  A watcher can
+The \fBwatcher\fR statement configures a single event watcher.  A watcher can
 control several events in multiple pathnames.  Any number of \fBwatcher\fR
 statements is allowed in the configuration file, each one of them declaring
 a separate watcher.
@@ -403,7 +405,7 @@ clause is specified, this directory will be watched recursively, i.e.
 when any subdirectory is created in it, \fBdircond\fR will set up
 a watcher for files in this subdirectory.  This new watcher will be
 an exact copy of the parent watcher, excepting for the pathnames.
-Optional \fINUMBER\fR parameter defines a cut-off nesting level for
+The optional \fINUMBER\fR parameter defines a cut-off nesting level for
 recursive watching.  If supplied, the recursive behaviour will apply
 only to the directories that are nested below that level.
 .sp

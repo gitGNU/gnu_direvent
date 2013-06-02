@@ -13,7 +13,7 @@
 .\"
 .\" You should have received a copy of the GNU General Public License along
 .\" with dircond. If not, see <http://www.gnu.org/licenses/>.
-.TH DIRCOND 1 "June 2, 2013" "DIRCOND" "Dircond User Reference"
+.TH DIRCOND 1 "June 3, 2013" "DIRCOND" "Dircond User Reference"
 .SH NAME
 dircond \- directory content watcher
 .SH SYNOPSIS
@@ -214,15 +214,15 @@ the \fICOMMAND\-LINE\fR will be executed.
 Each directory defined with the \fBrecursive\fR keyword will be
 watched recursively.  This means that for each subdirectory created in
 it, \fBdircond\fR will install a watcher similar to that of its parent
-directory.  The optional \fILEVEL\fR can be used to set-up a cut-off
+directory.  The optional \fILEVEL\fR can be used to set up a cut-off
 nesting level, beyond which the recursive operation is disabled.
 .PP
 The rest of statements are optional.  The \fBuser\fR statement can be
-used to execute the \fICOMMAND\-LINE\fR as a user \fINAME\fR
+used to execute the \fICOMMAND\-LINE\fR as the user \fINAME\fR
 (provided, of course, that \fBdircond\fR is started with root
 privileges).  The \fBtimeout\fR specifies the maximum amount of time
 (in seconds) the command is allowed to run.  It defaults to 5.  The
-\fBenviron\fR statements modifies the command environment (see the
+\fBenviron\fR statement modifies the command environment (see the
 following section).  Finally, the \fBoption\fR statement supplies
 additional options.  It can be used, for example, to divert the
 command's output to \fBsyslog\fR.

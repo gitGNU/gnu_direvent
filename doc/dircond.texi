@@ -68,6 +68,11 @@ documents Dircond Version @value{VERSION}.
 @menu
 
 * Intro::                   Introduction.
+* Overview::
+* Quick start::
+* Invocation::
+* Configuration::
+* System dependencies::
 * Reporting Bugs::          How to Report a Bug.
 
 Appendices
@@ -81,9 +86,890 @@ Appendices
 
 @node Intro
 @chapter Introduction
+@code{Dircond} monitors events in the file system directories.  For
+each event that occurs in a set of pre-configured directories, the
+program calls an external program associated with it, supplying it
+with the information about the event and the location within the file
+system where it occured.
 
-@c @node Overview
-@c @chapter Overview of this Manual
+@code{Dircond} provides an easy way to configure your system to react
+immediately if certain files undergo changes.  This may be helpful,
+for example, to track changes in the important configuration files.
+
+Interfaces for tracking changes to file systems are highly
+system-specific.  @command{Dircond} aims to provide a uniform
+and system-independent command-level interface.  As of version
+@value{VERSION} @command{dircond} works with modern Linux kernels
+(since v. 2.6.13) and BSD systems (FreeBSD, NetBSD, OpenBSD, Darwin).
+
+@node Overview
+@chapter Overview
+@command{Dircond} monitors a set of directories on the file system and
+reacts when a file system event occurs in any of them.  Directories
+and events to monitor are specified in the configuration file.  When
+an event occurs the utility reacts by invoking an external command
+configured for that event.			      
+
+There are two kinds of events: @dfn{system-dependent events}, which are
+specific for each particular kernel interface, and @dfn{generic
+events}, which don't depend on the underlying system.  Generic events
+provide a higher level of abstraction and make it possible to port
+dircond configurations between various systems and architectures
+without the need to rewrite them.
+
+The generic events are:
+
+@table @asis
+@item create
+A file was created.
+@item delete
+A file was deleted;
+@item write
+A file was written to;
+@item attrib
+File attributes have changed.  This includes changes in the file
+ownership, mode, link count, etc.
+@end table
+
+A @dfn{watcher} is a configuration entity which associates a set of
+directories with a set of events and instructs @command{dircond} to
+run a specified external command when any of these events occur in any
+of these directories.  This external command (called a @dfn{handler})
+can obtain information about the event that triggered its execution
+from the environment variables, or from its command line.
+
+Watchers are defined in the configuration file, which
+@command{dircond} reads at startup.  This file has a simple and easy
+to use syntax.
+
+Three types of comments are allowed: inline comments, that begin with
+a @samp{#} or @samp{//} and extend to the end of line, and multi-line
+comments, which comprise everything enclosed between @samp{/*} and
+@samp{*/}.  Comments and empty lines are ignored.  Whitespace
+characters are ignored as well, except as they serve to separate
+tokens.
+
+A token is a string of consecutive characters from the following
+classes: alphanumeric characters, underscores, dots, asteriscs,
+slashes, semicolons, commercial at's, and dashes.
+
+Any other sequence of characters must be enclosed in double quotation
+marks in order to represent a single token.
+
+Adjacent quoted strings are concatenated.
+
+Configuration statements consist of a keyword and value separated by
+any amount of whitespace and is terminated with a semicolon.  A block
+statement is a collection of statements enclosed in curly braces.
+
+@example
+watcher @{
+    path @var{pathname} [recursive [@var{level}]];
+    event  @var{event-list};
+    command @var{command-line};
+    user @var{name};
+    timeout @var{number};
+    environ @var{env-spec};
+    option @var{string-list};
+@}
+@end example
+
+Each @code{watcher} statement instructs @command{dircond} to monitor
+the events listed in @var{event-list} occurring in the directories
+specified by @var{pathname}s in @code{path} statements (any number of
+@code{path} statements can be given).  When any such event is detected,
+the @var{command-line} will be executed.
+
+Each directory defined with the @code{recursive} keyword will be
+watched recursively.  This means that for each subdirectory created in
+it, @command{dircond} will install a watcher similar to that of its parent
+directory.  The optional @var{level} can be used to set up a cut-off
+nesting level, beyond which the recursive operation is disabled.
+
+The rest of statements are optional.  The @code{user} statement can be
+used to execute the @var{command-line} as the user @var{name}
+(provided, of course, that @command{dircond} is started with root
+privileges).  The @code{timeout} specifies the maximum amount of time
+(in seconds) the command is allowed to run.  It defaults to 5.  The
+@code{environ} statement modifies the command environment.  Finally,
+the @code{option} statement supplies additional options.  It can be
+used, for example, to divert the command's output to syslog.
+
+@node Quick start
+@chapter Quick Start
+Let's suppose you have a directory where users can upload their files
+and you want these files to be processed right after upload, in real
+time.  Let this directory be @file{/home/ftp/incoming} and the program
+to process the upload be @file{/usr/bin/upload}.  Let's also suppose
+that this program expects the name of file as its argument.
+
+To make @command{dircond} handle this task, you would need to create a
+watcher for the upload directory which would handle the @samp{create} event:
+
+@example
+watcher @{
+    path /home/ftp/incoming;
+    event create;
+@end example
+
+On this event the watcher is to invoke @file{/usr/bin/upload}
+supplying it the name of created file as an argument.  To make it
+possible the @command{dircond} configuration file provides @dfn{macro
+variables}, which can be used in the @code{command} argument at
+configuration time and which are expanded to the actual values before
+the command is executed.  Macro variables are referred to using the
+same syntax as shell variables: a dollar sign followed by the variable
+name, optionally enclosed in curly braces.  The @samp{file} variable
+is expanded to the name of the file for which the event is reported.
+This name is relative to the current working directory which by the
+time the handler is executed is set to the directory where the event
+occurred.  Thus, the handler can be configured as:
+
+@example
+    command "/usr/bin/upload $file";
+@end example
+
+To summarize, the watcher declaration is:
+
+@example
+watcher @{
+    path /home/ftp/incoming;
+    event create;
+    command "/usr/bin/upload $file";
+@}    
+@end example
+
+@anchor{handler environment}
+Before invoking the handler, the following operations are performed:
+@enumerate 1
+@item
+The current working directory is set to the directory where the event
+occurred.
+@item
+If the @code{environ} statement is present in the watcher, the
+environment is modified according to its rules.  (FIXME-xref)
+@item
+The standard input is closed.
+@item
+If the @samp{stdout} option is supplied,
+the standard output is captured and redirected to the syslog.
+Otherwise it is closed.
+@item
+If the @samp{stderr} option is supplied,
+the standard error is captured and redirected to the syslog.
+Otherwise it is closed.
+@item
+All file descriptors above 2 are closed.
+@item
+Macro variables are expanded.  (FIXME-xref)
+@item
+Word splitting is performed on the resulting command line.  The first
+word is treated as the pathname of the program to be executed.
+@item
+The program is invoked.
+@end enumerate
+
+@node Invocation
+@chapter Invocation
+The invocation syntax is:
+
+@example
+dircond  [@var{options}] [@var{config}]
+@end example
+
+@noindent
+where @var{options} are command line options discussed below and
+optional @var{config} supplies the configuration file to use instead
+of the default @file{/etc/dircond.conf}.
+
+The options are:
+
+@table @option
+@item -F @var{name}
+@itemx --facility=@var{name}
+Set syslog facility.
+@item -P @var{file}
+@item --pidfile=@var{file}
+Upon successful startup store the PID of the daemon process in @var{file}.
+@item -d
+@itemx --debug
+Increase debug level.
+@item -f
+@itemx --foreground
+Remain in foreground.
+@item -l @var{prio}
+While connected to a terminal @command{dircond} outputs its diagnostics
+messages to stderr and, if configured, to syslog.  This option
+limits the amount of information output to the standard error.
+The @var{prio} argument is one of the following priorities (in order
+of increasing severity): @samp{debug}, @samp{info}, @samp{notice},
+@samp{warning}, @samp{err}, @samp{crit}, @samp{alert}, @samp{emerg}.
+When this option is given, only messages with the priority level equal
+to or greater than @var{prio} will be duplicated on the standard eraror.
+@end table
+
+The following options are @dfn{informative}.  They cause the program
+to display the requested piece of information and terminate:
+
+@table @option
+@item -H
+@itemx --config-help
+Show configuration file summary.
+@item -V
+@itemx --version
+Print program version.
+@item -h
+@itemx --help
+Give a short usage summary.
+@item --usage
+Display available command line options.
+@end table
+      
+@node Configuration
+@chapter Configuration
+
+@menu
+* syntax::
+* macro expansion::
+* general settings::
+* syslog::
+* watcher::
+@end menu
+
+@node syntax
+@section Configuration Syntax
+  The configuration file consists of statements and comments.
+
+  There are three classes of lexical tokens: keywords, values, and
+separators.  Blanks, tabs, newlines and comments, collectively called
+@dfn{white space} are ignored except as they serve to separate
+tokens.  Some white space is required to separate otherwise adjacent 
+keywords and values.
+
+@menu
+* Comments::
+* Pragmatic Comments::
+* Statements::
+@end menu
+
+@node Comments
+@subsection Comments
+@cindex Comments in a configuration file
+@cindex single-line comments
+  @dfn{Comments} may appear anywhere where white space may appear in the
+configuration file.  There are two kinds of comments:
+single-line and multi-line comments.  @dfn{Single-line} comments start
+with @samp{#} or @samp{//} and continue to the end of the line:
+
+@smallexample
+# This is a comment
+// This too is a comment
+@end smallexample
+
+@cindex multi-line comments
+  @dfn{Multi-line} or @dfn{C-style} comments start with the two
+characters @samp{/*} (slash, star) and continue until the first
+occurrence of @samp{*/} (star, slash).
+
+  Multi-line comments cannot be nested.  However, single-line comments
+may well appear within multi-line ones.
+
+@node Pragmatic Comments
+@subsection Pragmatic Comments
+@cindex comments, pragmatic
+@cindex pragmatic comments
+  Pragmatic comments are similar to usual single-line comments,
+except that they cause some changes in the way the configuration is
+parsed.  Pragmatic comments begin with a @samp{#} sign and end with the
+next physical newline character.
+
+@table @code
+@kwindex #include
+@item #include <@var{file}>
+@itemx #include @var{file}
+Include the contents of the file @var{file}.
+
+@kwindex #include_once
+@item #include_once <@var{file}>
+@itemx #include_once @var{file}
+  Same as @code{#include}, except that, if the @var{file} has already
+been included, it will not be included again.
+
+@kwindex #line
+@item #line @var{num}
+@itemx #line @var{num} "@var{file}"
+  This line causes the parser to believe, for purposes of error
+diagnostics, that the line number of the next source line is given by
+@var{num} and the current input file is named by @var{file}.
+If the latter is absent, the remembered file name does not change.
+
+@item # @var{num} "@var{file}"
+  This is a special form of @code{#line} statement, understood for
+compatibility with the @sc{c} preprocessor.
+@end table
+
+@node Statements
+@subsection Statements
+@cindex statements, configuration file
+@cindex configuration file statements
+@cindex statement, simple
+@cindex simple statements
+  A @dfn{simple statement} consists of a keyword and value
+separated by any amount of whitespace.  Simple statement is terminated
+with a semicolon (@samp{;}).
+
+  The following is a simple statement:
+
+@smallexample
+standalone yes;
+pidfile /var/run/dircond.pid;
+@end smallexample
+
+  A @dfn{keyword} begins with a letter and may contain letters,
+decimal digits, underscores (@samp{_}) and dashes (@samp{-}).
+Examples of keywords are: @samp{expression}, @samp{output-file}.
+
+  A @dfn{value} can be one of the following:
+
+@table @asis
+@item number
+  A number is a sequence of decimal digits.
+
+@item boolean
+@cindex boolean value
+  A boolean value is one of the following: @samp{yes}, @samp{true},
+@samp{t} or @samp{1}, meaning @dfn{true}, and @samp{no},
+@samp{false}, @samp{nil}, @samp{0} meaning @dfn{false}.
+  
+@item unquoted string
+@cindex string, unquoted
+  An unquoted string may contain letters, digits, and any of the
+following characters: @samp{_}, @samp{-}, @samp{.}, @samp{/},
+@samp{@@}, @samp{*}, @samp{:}.
+
+@item quoted string
+@cindex quoted string
+@cindex string, quoted
+@cindex escape sequence
+  A quoted string is any sequence of characters enclosed in
+double-quotes (@samp{"}).  A backslash appearing within a quoted
+string introduces an @dfn{escape sequence}, which is replaced
+with a single character according to the following rules:
+
+@float Table, backslash-interpretation
+@caption{Backslash escapes}
+@multitable @columnfractions 0.30 .5
+@item Sequence @tab Replaced with
+@item \a @tab Audible bell character (@acronym{ASCII} 7)
+@item \b @tab Backspace character (@acronym{ASCII} 8)
+@item \f @tab Form-feed character (@acronym{ASCII} 12)
+@item \n @tab Newline character (@acronym{ASCII} 10)
+@item \r @tab Carriage return character (@acronym{ASCII} 13)
+@item \t @tab Horizontal tabulation character (@acronym{ASCII} 9)
+@item \v @tab Vertical tabulation character (@acronym{ASCII} 11)
+@item \\ @tab A single backslash (@samp{\})
+@item \" @tab A double-quote.
+@end multitable
+@end float
+
+  In addition, the sequence @samp{\@var{newline}} is removed from
+the string.  This allows to split long strings over several
+physical lines, e.g.:
+
+@smallexample
+@group
+"a long string may be\
+ split over several lines"
+@end group
+@end smallexample
+
+  If the character following a backslash is not one of those specified
+above, the backslash is ignored and a warning is issued.
+
+  Two or more adjacent quoted strings are concatenated, which gives
+another way to split long strings over several lines to improve
+readability.  The following fragment produces the same result as the
+example above:
+
+@smallexample
+@group
+"a long string may be"
+" split over several lines"
+@end group
+@end smallexample
+
+@anchor{here-document}
+@item Here-document
+@cindex here-document
+  A @dfn{here-document} is a special construct that allows to introduce
+strings of text containing embedded newlines.  
+
+  The @code{<<@var{word}} construct instructs the parser to read all
+the following lines up to the line containing only @var{word}, with
+possible trailing blanks.  Any lines thus read are concatenated
+together into a single string.  For example:
+
+@smallexample
+@group
+<<EOT
+A multiline
+string
+EOT
+@end group
+@end smallexample
+
+  The body of a here-document is interpreted the same way as a
+double-quoted string, unless @var{word} is preceded by a backslash
+(e.g.  @samp{<<\EOT}) or enclosed in double-quotes, in which case
+the text is read as is, without interpretation of escape sequences.
+
+  If @var{word} is prefixed with @code{-} (a dash), then all leading
+tab characters are stripped from input lines and the line containing
+@var{word}.  Furthermore, if @code{-} is followed by a single space,
+all leading whitespace is stripped from them.  This allows to indent
+here-documents in a natural fashion.  For example:
+
+@smallexample
+@group
+<<- TEXT
+    The leading whitespace will be
+    ignored when reading these lines.
+TEXT
+@end group
+@end smallexample
+
+  It is important that the terminating delimiter be the only token on
+its line.  The only exception to this rule is allowed if a
+here-document appears as the last element of a statement.  In this
+case a semicolon can be placed on the same line with its terminating 
+delimiter, as in: 
+
+@smallexample
+help-text <<-EOT
+        A sample help text.
+EOT;
+@end smallexample
+
+@item list
+@cindex list
+  A @dfn{list} is a comma-separated list of values.  Lists are
+enclosed in parentheses.  The following example shows a statement
+whose value is a list of strings:
+
+@smallexample
+option (stdout,stderr);
+@end smallexample
+
+  In any case where a list is appropriate, a single value is allowed
+without being a member of a list: it is equivalent to a list with a
+single member.  This means that, e.g.
+
+@smallexample
+option wait;
+@end smallexample
+
+@noindent
+is equivalent to
+
+@smallexample
+option (wait);
+@end smallexample
+@end table
+
+@cindex statement, block
+@cindex block statement
+  A @dfn{block statement} introduces a logical group of 
+statements.  It consists of a keyword, followed by an optional value,
+and a sequence of statements enclosed in curly braces, as shown in
+the example below:
+
+@smallexample
+@group
+syslog @{
+  facility local0;
+  tag "dircond";
+@}
+@end group
+@end smallexample
+
+  The closing curly brace may be followed by a semicolon, although
+this is not required.
+
+@node macro expansion
+@section Macro Expansion
+Arguments of some statements undergo macro expansion before use.
+During the macro expansion any occurrence of @samp{$@var{name}} is replaced
+by the value of the macro @var{name}.  Macro names follow the usual
+convention: they begin with a letter and contain letters digits and
+underscores.  The curly braces around the @var{name} are optional.
+They are required only if the macro reference is followed by a
+character that is not to be interpreted as part of its name, as in
+@samp{$@{command@}string}.
+
+The following macros are defined:
+
+@table @asis
+@item file
+Name of the file covered by the event.
+
+@item sysev_code
+System-dependent event code.  It is a bitwise OR of the event codes
+represented as a decimal number.  
+
+@item sysev_name
+System-dependent event name.  If several events are reported, the
+value of this variable is a list of event names separated by space
+characters.  Each name corresponds to a bit in @samp{sysev_code}.
+@xref{System dependencies}, for a list of system-dependent event names.
+
+@item genev_code
+Generic (system-independent) event code.  It is a bitwise OR of
+the event codes represented as a decimal number.
+
+@item sysev_name
+Generic event name.  If several generic events are reported simultaneously, the
+value of this variable is a list of event names separated by space
+characters.  Each name corresponds to a bit in @samp{Bgenev_code}. 
+@end table
+
+@node general settings
+@section General Settings
+
+@deffn {Config} user @var{name}
+Sets the user to run as.  The @var{name}a rgument must be a name of an
+existing user.
+@end deffn
+
+@deffn {Config} foreground @var{bool}
+Run in foreground.
+@end deffn
+
+@deffn {Config} pidfile @var{file}
+Upon successful startup store the PID of the daemon process in @var{file}.
+@end deffn
+
+@deffn {Config} debug @var{number}
+Set debug level.  Valid @var{number} values are @samp{0} (no debug) to @samp{3}
+(maximum verbosity).
+@end deffn
+
+@node syslog
+@section Syslog
+While connected to the terminal @command{dircond} outputs its diagnostics and
+debugging messages to the standard error.  After disconnecting from the
+controlling terminal it closes the first three file descriptors and directs
+all its output to the syslog.  When running in foreground mode, its
+messages are sent both to the standard error and to the syslog.
+
+The following configuration statement controls the syslog output:
+
+@example
+syslog @{
+    facility @var{string};
+    tag @var{string};
+    print-priority @var{bool};
+@}
+@end example
+
+The statements are:
+
+@deffn {Config} facility @var{string}
+Set syslog facility.  The argument is one of the following:
+@samp{user}, @samp{daemon}, @samp{auth} or @samp{authpriv},
+@samp{mail}, @samp{cron}, @samp{local0} through @samp{local7}
+(case-insensitive), or a facility number.
+@end deffn
+
+@deffn {Config} tag @var{string}
+Tag syslog messages with @samp{string}.  Normally the messages are
+tagged with the program name.
+@end deffn
+
+@deffn {Config} print-priority @samp{bool}
+Prefix each message with its priority.
+@end deffn
+
+An example @code{syslog} statement:
+
+@example
+@group
+syslog @{
+    facility local0;
+    print-priority yes;
+@}
+@end group
+@end example
+
+@node watcher
+@section Watcher
+The @samp{watcher} statement configures a single event watcher.  A watcher can
+control several events in multiple pathnames.  Any number of @code{watcher}
+statements is allowed in the configuration file, each one of them declaring
+a separate watcher.
+
+@example
+@group
+watcher @{
+    path @var{pathname} [recursive [@var{level}]];
+    event  @var{event-list};
+    command @var{command-line};
+    user @var{name};
+    timeout @var{number};
+    environ @var{env-spec};
+    option @var{string-list};
+@}
+@end group
+@end example
+
+The statements within a @code{watcher} block are:
+
+@deffn {Config} path @var{pathname} [recursive [@var{number}]]
+Defines a pathname to watch.  The @var{pathname} argument must be the
+name of an existing directory in the file system.  The watcher will
+watch events occurring for all files within that directory.  If the
+optional @code{recursive} clause is specified, this directory will be
+watched recursively, i.e. when any subdirectory is created in it,
+@command{dircond} will set up a watcher for files in this
+subdirectory.  This new watcher will be an exact copy of the parent
+watcher, excepting for the pathnames.  The optional @var{number}
+parameter defines a cut-off nesting level for recursive watching.  If
+supplied, the recursive behaviour will apply only to the directories
+that are nested below that level. 
+
+Any number of @code{path} statements can appear in a @code{watcher} block.
+At least one @code{path} must be defined.
+@end deffn
+
+@deffn {Config} event @var{string-list}
+Configures the filesystem events to watch for in the directories declared by
+the @code{path} statements.  The argument is a list of event names.  Both
+generic and system-dependent event namess are allowed.  Multiple
+@code{event} statements accumulate.
+
+For example:
+
+@example
+event (open,delete);
+@end example
+@end deffn
+
+@deffn {Config} command @var{string}
+Defines a command to execute on event.  The @var{string} is a command line
+just as you would type it in @command{sh}.  It may contain macro
+variables (@pxref{macro expansion}), which will be expanded prior to execution.
+
+For example:
+
+@example
+command "/bin/prog -event $genev_name -file $file";
+@end example
+
+@xref{handler environment}, for a detailed discussion of how the
+command is executed. 
+@end deffn
+
+@deffn {Config} user @var{string}
+Run command as this user.
+@end deffn
+
+@deffn {Config} timeout @var{number}
+Terminate the command if it runs longer than @var{number} seconds.  The
+default is 5 seconds.
+@end deffn
+
+@deffn {Config} option @var{string-list}
+A list of additional options.  The following options are defined:
+
+@table @asis
+@item wait
+Wait for the program to terminate before handling next event from
+the event queue.  Normally the program runs asynchronously.
+
+@item stdout
+Capture the standard output of the command and redirect it to the
+syslog with the @samp{LOG_INFO} priority.
+
+@item stderr
+Capture the standard error of the command and redirect it to the
+syslog with the @samp{LOG_ERR} priority.
+@end table
+@end deffn
+
+@deffn {Config} environ @var{env-spec}
+Modify command environment.  By default the command inherits the environment
+of @command{dircond} augmented with the following variables:
+
+@table @asis
+@item DIRCOND_SYSEV_CODE
+The system-dependent event code (see the @code{$sysev_code} variable).
+@item DIRCOND_SYSEV_NAME
+The system-dependent event name or names (see the @code{$sysev_name} variable).
+@item DIRCOND_GENEV_CODE
+The generic event code (see the @code{$genev_code} variable).
+@item DIRCOND_GENEV_NAME
+The generic event name or names (see the @code{$genev_name} variable).
+@item DIRCOND_FILE
+The name of the affected file relative to the current working directory
+(see the @var{$file} variable).
+
+The @code{environ} statement allows for trimming the environment.  Its
+argument is a list of one or more of the folloeing environment modification
+directives:
+
+@table @asis
+@item - (a single dash)
+Clear the inherited environment, but retain the variables added by
+@command{dircond}.  The removed environment variables can be selectively
+restored by the directives that follow.  This must be the first directive
+in the list.
+
+@item -- (double-dash)"
+Clear the entire environment, including the variables added by
+@command{dircond}.  This must be the first directive in the list.
+
+@item -@var{name}
+Unset the variable @var{name}.
+
+@item -@var{name}=@var{val}
+Unset the environment variable @var{name} only if its value is @var{val}.
+
+@item @var{name}
+Restore the environment variable @var{name}.  This directive is useful
+after @samp{-} or @samp{--} to retain some variables from the environment.
+
+@item @var{name}=@var{value}
+Define environment variable @var{name} to have given @var{value}.
+
+@item @var{name}+=@var{value}
+Retain variable @var{name} and append @var{value} to its existing
+value.  If no such variable is present in the environment, it is
+created and @var{value} is assigned to it.  However, if @var{value}
+begins with a punctuation character, this character is removed from it
+before the assignment.  This is convenient for using this construct
+with
+environment variables like @env{PATH}, e.g.:
+
+@smallexample
+PATH+=:/sbin
+@end smallexample
+
+In this example, if @env{PATH} exists, @samp{:/sbin} will be appended
+to it.  Otherwise, it will be created and @samp{/sbin} will be
+assigned to it.
+
+@item @var{name}=+@var{value}
+Retain variable @var{name} and prepend @var{value} to its existing
+value.  If no such variable is present in the environment, it is
+created and @var{value} is assigned to it.  However, if @var{value}
+ends with a punctuation character, this character is removed from it
+before assignment.
+@end table
+@end table
+@end deffn
+
+@node System dependencies
+@chapter System Dependencies
+@command{Dircond} relies on the event monitoring API provided by the
+kernel.
+
+@menu
+* linux::     GNU/Linux systems.
+* bsd::       BSD systems.
+* darwin::    Darwin (Mac OS X).
+@end menu
+
+@node linux
+@section GNU/Linux systems.
+On GNU/Linux the program uses @code{inotify} (FIXME-xref).
+
+The maximum number of watches a user process can have is controlled by
+the @samp{fs.inotify.max_user_watches} system variable.  Normally it
+is set to 8192, which is quite enough for most purposes.  However, if
+you monitor a big number or directories and/or are using recursive
+watchers, you may need more watches.  In that case, use 
+@command{sysctl} (FIXME-xref) to raise the limit, e.g.:
+
+@example
+sysctl -w fs.inotify.max_user_watches=16384
+@end example
+
+@noindent
+Most GNU/Linux distributions provide the file @file{/etc/sysctl.conf}
+which can be used to set this variable on startup.
+
+The following system-dependent events are defined on systems that use
+@code{inotify}:
+
+@table @asis
+@item ACCESS
+A file was accessed.
+@item ATTRIB
+A file's metadata changed.
+@item CLOSE_WRITE
+A writable file was closed.
+@item CLOSE_NOWRITE
+An unwritable file closed.
+@item CREATE
+A file was created.
+@item DELETE
+A file was deleted.
+@item MODIFY
+A file was modified.
+@item MOVED_FROM
+A file was moved into a monitored directory.
+@item MOVED_TO
+A file was moved out from a monitored directory.
+@item OPEN
+A file was opened.
+@end table
+
+@node bsd
+@section BSD systems
+When compiled on BSD systems (including Darwin),
+@command{dircond} uses @code{kqueue} (FIXME-xref).
+
+This interface needs an open file handle for each file in a monitored
+directory, which means that the number of watchers is limited by the
+maximum number of open files.  Use @samp{ulimit -n @var{NUM}} in order
+to raise it to a higher number.
+
+Since it operates on files, @code{kqueue} does not provide direct
+support for the @samp{create} generic event.  @command{Dircond} works
+over this disadvantage by keeping track of the contents of each
+monitored directory and rescanning it each time a @samp{WRITE} system
+event is reported for it.  It then generates the @samp{open} event for
+each file that appeared after the last scan.  Such a rescan can
+consume considerable time if a directory has a very large number of
+files in it.
+
+The following system-dependent events are available:
+
+@table @asis
+@item DELETE
+The @code{unlink()} system call was called on the monitored file.
+@item WRITE
+A write occurred on the file.
+@item EXTEND
+The file was extended.
+@item ATTRIB
+The file attributes have changed.
+@item LINK
+The link count on the file changed.
+@item RENAME
+The file was renamed.
+@item REVOKE
+Access to the file was revoked via @code{revoke()} (FIXME-xref)
+or the underlying file system was unmounted.
+@end table
+
+@node darwin
+@section Darwin (Mac OS X)
+Essentially the same as BSD.  The main difference compared to Linux
+and BSD is that on Darwin the watchers are set after disconnecting from the
+controlling terminal, which means that any errors which may happen
+during this process are directed to the syslog instead of the standard
+error.  This is because Darwin lacks the @code{rfork} call and the
+event queue cannot be inherited by the child process.
 
 @node Reporting Bugs
 @chapter How to Report a Bug
