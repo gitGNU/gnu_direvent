@@ -112,23 +112,23 @@ getevt(const char *name, event_mask *mask)
 			return 0;
 		}
 	}
-	if (trans_strtotok(evsys_transtab, name, &mask->sys_mask))
+	if (trans_strtotok(sysev_transtab, name, &mask->sys_mask))
 		return -1;
-	mask->sie_mask = 0;
+	mask->gen_mask = 0;
 	return 0;
 }
 
 int
 evtnullp(event_mask *mask)
 {
-	return mask->sie_mask == 0 && mask->sys_mask == 0;
+	return mask->gen_mask == 0 && mask->sys_mask == 0;
 }
 
-struct transtab sie_trans[] = {
-	{ "create", SIE_CREATE },
-	{ "write",  SIE_WRITE  },
-	{ "attrib", SIE_ATTRIB },
-	{ "delete", SIE_DELETE },
+struct transtab genev_transtab[] = {
+	{ "create", GENEV_CREATE },
+	{ "write",  GENEV_WRITE  },
+	{ "attrib", GENEV_ATTRIB },
+	{ "delete", GENEV_DELETE },
 	{ NULL }
 };
 
@@ -138,12 +138,12 @@ event_mask_init(event_mask *m, int fflags, event_mask const *req)
 	int i;
 
 	m->sys_mask = fflags & req->sys_mask;
-	m->sie_mask = 0;
-	for (i = 0; i < sie_xlat[i].sie_mask; i++)
-		if (sie_xlat[i].sys_mask & m->sys_mask)
-			m->sie_mask |= sie_xlat[i].sie_mask;
-	if (req->sie_mask)
-		m->sie_mask &= req->sie_mask;
+	m->gen_mask = 0;
+	for (i = 0; i < genev_xlat[i].gen_mask; i++)
+		if (genev_xlat[i].sys_mask & m->sys_mask)
+			m->gen_mask |= genev_xlat[i].gen_mask;
+	if (req->gen_mask)
+		m->gen_mask &= req->gen_mask;
 	return m;
 }
 

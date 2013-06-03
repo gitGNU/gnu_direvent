@@ -20,7 +20,7 @@
 
 
 /* Event codes */
-struct transtab evsys_transtab[] = {
+struct transtab sysev_transtab[] = {
 	{ "ACCESS",        IN_ACCESS         },
 	{ "ATTRIB",        IN_ATTRIB         },       
 	{ "CLOSE_WRITE",   IN_CLOSE_WRITE    },  
@@ -34,11 +34,11 @@ struct transtab evsys_transtab[] = {
 	{ 0 }
 };
 
-event_mask sie_xlat[] = {
-	{ SIE_CREATE, IN_CREATE|IN_MOVED_TO },
-	{ SIE_WRITE,  IN_MODIFY },
-	{ SIE_ATTRIB, IN_ATTRIB },
-	{ SIE_DELETE, IN_DELETE|IN_MOVED_FROM },
+event_mask genev_xlat[] = {
+	{ GENEV_CREATE, IN_CREATE|IN_MOVED_TO },
+	{ GENEV_WRITE,  IN_MODIFY },
+	{ GENEV_ATTRIB, IN_ATTRIB },
+	{ GENEV_DELETE, IN_DELETE|IN_MOVED_FROM },
 	{ 0 }
 };
 
@@ -46,13 +46,13 @@ event_mask sie_xlat[] = {
 static int ifd;
 
 int
-evsys_filemask(struct dirwatcher *dp)
+sysev_filemask(struct dirwatcher *dp)
 {
 	return 0;
 }
 
 void
-evsys_init()
+sysev_init()
 {
 	ifd = inotify_init();
 	if (ifd == -1) {
@@ -62,13 +62,13 @@ evsys_init()
 }
 
 int
-evsys_add_watch(struct dirwatcher *dwp, event_mask mask)
+sysev_add_watch(struct dirwatcher *dwp, event_mask mask)
 {
 	return inotify_add_watch(ifd, dwp->dirname, mask.sys_mask);
 }
 
 void
-evsys_rm_watch(struct dirwatcher *dwp)
+sysev_rm_watch(struct dirwatcher *dwp)
 {
 	inotify_rm_watch(ifd, dwp->wd);
 }
@@ -145,7 +145,7 @@ process_event(struct inotify_event *ep)
 }	
 
 int
-evsys_select()
+sysev_select()
 {
 	char buffer[4096];
 	struct inotify_event *ep;

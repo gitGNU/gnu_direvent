@@ -232,10 +232,10 @@ dirwatcher_init(struct dirwatcher *dwp)
 
 	for (hp = dwp->handler_list; hp; hp = hp->next) {
 		mask.sys_mask |= hp->ev_mask.sys_mask;
-		mask.sie_mask |= hp->ev_mask.sie_mask;
+		mask.gen_mask |= hp->ev_mask.gen_mask;
 	}
 	
-	wd = evsys_add_watch(dwp, mask);
+	wd = sysev_add_watch(dwp, mask);
 	if (wd == -1) {
 		diag(LOG_ERR, "cannot set watch on %s: %s",
 		     dwp->dirname, strerror(errno));
@@ -322,7 +322,7 @@ watch_subdirs(struct dirwatcher *parent)
 {
 	DIR *dir;
 	struct dirent *ent;
-	int filemask = evsys_filemask(parent);
+	int filemask = sysev_filemask(parent);
 	
 	if (parent->depth)
 		filemask |= S_IFDIR;
@@ -385,7 +385,7 @@ setwatcher(struct hashent *ent, void *null)
 void
 setup_watchers()
 {
-	evsys_init();
+	sysev_init();
 	if (hashtab_count(texttab) == 0) {
 		diag(LOG_CRIT, "no event handlers configured");
 		exit(1);
@@ -401,7 +401,7 @@ void
 dirwatcher_destroy(struct dirwatcher *dwp)
 {
 	debug(1, ("removing watcher %s", dwp->dirname));
-	evsys_rm_watch(dwp);
+	sysev_rm_watch(dwp);
 
 	dirwatcher_remove_wd(dwp->wd);
 	dirwatcher_remove(dwp->dirname);

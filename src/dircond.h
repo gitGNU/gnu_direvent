@@ -24,11 +24,11 @@
 #include <unistd.h>
 #include <signal.h>
 
-/* System-independent event codes */
-#define SIE_CREATE  0x01
-#define SIE_WRITE   0x02
-#define SIE_ATTRIB  0x04
-#define SIE_DELETE  0x08
+/* Generic (system-independent) event codes */
+#define GENEV_CREATE  0x01
+#define GENEV_WRITE   0x02
+#define GENEV_ATTRIB  0x04
+#define GENEV_DELETE  0x08
 
 /* Handler flags. */
 #define HF_NOWAIT 0x01       /* Don't wait for termination */
@@ -40,8 +40,8 @@
 #endif
 
 typedef struct {
-	int sie_mask;
-	int sys_mask;
+	int gen_mask;        /* Generic event mask */
+	int sys_mask;        /* System event mask */
 } event_mask;
 
 /* Event description */
@@ -106,22 +106,25 @@ void debugprt(const char *fmt, ...);
 void signal_setup(void (*sf) (int));
 int detach(void (*)(void));
 
-int evsys_filemask(struct dirwatcher *dp);
-void evsys_init(void);
-int evsys_add_watch(struct dirwatcher *dwp, event_mask mask);
-void evsys_rm_watch(struct dirwatcher *dwp);
-int evsys_select(void);
-int evsys_name_to_code(const char *name);
-const char *evsys_code_to_name(int code);
+int sysev_filemask(struct dirwatcher *dp);
+void sysev_init(void);
+int sysev_add_watch(struct dirwatcher *dwp, event_mask mask);
+void sysev_rm_watch(struct dirwatcher *dwp);
+int sysev_select(void);
+int sysev_name_to_code(const char *name);
+const char *sysev_code_to_name(int code);
 
 int defevt(const char *name, event_mask *mask, int line);
 int getevt(const char *name, event_mask *mask);
 int evtnullp(event_mask *mask);
 event_mask *event_mask_init(event_mask *m, int fflags, event_mask const *);
 
-extern event_mask sie_xlat[];
-extern struct transtab sie_trans[];
-extern struct transtab evsys_transtab[];
+/* Translate generic events to system ones and vice-versa */
+extern event_mask genev_xlat[];
+/* Translate generic event codes to symbolic names and vice-versa */
+extern struct transtab genev_transtab[];
+/* Translate system event codes to symbolic names and vice-versa */
+extern struct transtab sysev_transtab[];
 
 int trans_strtotok(struct transtab *tab, const char *str, int *ret);
 char *trans_toktostr(struct transtab *tab, int tok);

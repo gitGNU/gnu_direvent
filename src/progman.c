@@ -365,8 +365,8 @@ runcmd(const char *cmd, char **envhint, event_mask *event, const char *file)
 	kve[i++] = estrdup(buf);
 	
 	q = buf;
-	for (p = trans_tokfirst(evsys_transtab, event->sys_mask, &j); p;
-	     p = trans_toknext(evsys_transtab, event->sys_mask, &j)) {
+	for (p = trans_tokfirst(sysev_transtab, event->sys_mask, &j); p;
+	     p = trans_toknext(sysev_transtab, event->sys_mask, &j)) {
 		if (q > buf)
 			*q++ = ' ';
 		while (*p)
@@ -377,9 +377,9 @@ runcmd(const char *cmd, char **envhint, event_mask *event, const char *file)
 		kve[i++] = "sysev_name";
 		kve[i++] = estrdup(buf);
 	}
-	p = trans_toktostr(sie_trans, event->sie_mask);
+	p = trans_toktostr(genev_transtab, event->gen_mask);
 	if (p) {
-		snprintf(buf, sizeof buf, "%d", event->sie_mask);
+		snprintf(buf, sizeof buf, "%d", event->gen_mask);
 		kve[i++] = "genev_code";
 		kve[i++] = estrdup(buf);
 		kve[i++] = "genev_name";

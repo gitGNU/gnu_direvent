@@ -359,7 +359,7 @@ cb_eventlist(enum grecs_callback_command cmd, grecs_node_t *node,
 				    "unrecognized event code");
 			return 1;
 		}
-		mask->sie_mask |= m.sie_mask;
+		mask->gen_mask |= m.gen_mask;
 		mask->sys_mask |= m.sys_mask;
 		break;
 
@@ -374,7 +374,7 @@ cb_eventlist(enum grecs_callback_command cmd, grecs_node_t *node,
 					    "unrecognized event code");
 				return 1;
 			}
-			mask->sie_mask |= m.sie_mask;
+			mask->gen_mask |= m.gen_mask;
 			mask->sys_mask |= m.sys_mask;
 		}
 		break;
@@ -389,7 +389,7 @@ cb_eventlist(enum grecs_callback_command cmd, grecs_node_t *node,
 					    "unrecognized event code");
 				return 1;
 			}
-			mask->sie_mask |= m.sie_mask;
+			mask->gen_mask |= m.gen_mask;
 			mask->sys_mask |= m.sys_mask;
 		}
 		break;

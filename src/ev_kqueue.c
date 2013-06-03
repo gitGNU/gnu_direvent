@@ -21,7 +21,7 @@
 #include <dirent.h>
 #include <sys/stat.h>
 
-struct transtab evsys_transtab[] = {
+struct transtab sysev_transtab[] = {
 	{ "DELETE", NOTE_DELETE },
 	{ "WRITE",  NOTE_WRITE  },
 	{ "EXTEND", NOTE_EXTEND },
@@ -39,16 +39,16 @@ static struct kevent *chtab;
 static int chcnt;
 static int chclosed = -1;
 
-event_mask sie_xlat[] = {
-	{ SIE_CREATE, 0 },
-	{ SIE_WRITE,  NOTE_WRITE|NOTE_EXTEND },
-	{ SIE_ATTRIB, NOTE_ATTRIB|NOTE_LINK },
-	{ SIE_DELETE, NOTE_DELETE|NOTE_RENAME|NOTE_REVOKE },
+event_mask genev_xlat[] = {
+	{ GENEV_CREATE, 0 },
+	{ GENEV_WRITE,  NOTE_WRITE|NOTE_EXTEND },
+	{ GENEV_ATTRIB, NOTE_ATTRIB|NOTE_LINK },
+	{ GENEV_DELETE, NOTE_DELETE|NOTE_RENAME|NOTE_REVOKE },
 	{ 0 }
 };
 
 void
-evsys_init()
+sysev_init()
 {
 	kq = kqueue();
 	if (kq == -1) {
@@ -60,7 +60,7 @@ evsys_init()
 }
 
 int
-evsys_filemask(struct dirwatcher *dp)
+sysev_filemask(struct dirwatcher *dp)
 {
 	struct handler *h;
 
@@ -72,7 +72,7 @@ evsys_filemask(struct dirwatcher *dp)
 }
 
 int
-evsys_add_watch(struct dirwatcher *dwp, event_mask mask)
+sysev_add_watch(struct dirwatcher *dwp, event_mask mask)
 {
 	int wd = open(dwp->dirname, O_RDONLY);
 	if (wd >= 0) {
@@ -86,7 +86,7 @@ evsys_add_watch(struct dirwatcher *dwp, event_mask mask)
 		dwp->file_mode = st.st_mode;
 		dwp->file_ctime = st.st_ctime;
 		sysmask = mask.sys_mask;
-		if (S_ISDIR(st.st_mode) && mask.sie_mask & SIE_CREATE)
+		if (S_ISDIR(st.st_mode) && mask.gen_mask & GENEV_CREATE)
 			sysmask |= NOTE_WRITE;
 		EV_SET(chtab + chcnt, wd, EVFILT_VNODE,
 		       EV_ADD | EV_ENABLE | EV_CLEAR, sysmask,
@@ -97,7 +97,7 @@ evsys_add_watch(struct dirwatcher *dwp, event_mask mask)
 }
 
 void
-evsys_rm_watch(struct dirwatcher *dwp)
+sysev_rm_watch(struct dirwatcher *dwp)
 {
 	close(chtab[dwp->wd].ident);
 	chtab[dwp->wd].ident = -1;
@@ -168,13 +168,13 @@ check_created(struct dirwatcher *dp)
 		   a watcher for it. */
 		} else if (st.st_ctime > dp->file_ctime ||
 			   !dirwatcher_lookup(pathname)) {
-			event_mask m = { SIE_CREATE, 0 };
+			event_mask m = { GENEV_CREATE, 0 };
 
 			watch_pathname(dp, pathname, S_ISDIR(st.st_mode));
 			dp->file_ctime = st.st_ctime;
-			/* Deliver SIE_CREATE event */
+			/* Deliver GENEV_CREATE event */
 			for (h = dp->handler_list; h; h = h->next) {
-				if (h->ev_mask.sie_mask & SIE_CREATE)
+				if (h->ev_mask.gen_mask & GENEV_CREATE)
 					run_handler(h, &m,
 						    dp->dirname, ent->d_name);
 			}
@@ -225,7 +225,7 @@ process_event(struct kevent *ep)
 
 
 int
-evsys_select()
+sysev_select()
 {
 	int i, n;
 	

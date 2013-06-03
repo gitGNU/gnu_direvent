@@ -365,21 +365,22 @@ ev_log(int flags, struct dirwatcher *dp)
 	char *p;
 	
 	if (debug_level > 0) {
-		for (p = trans_tokfirst(evsys_transtab, flags, &i); p;
-		     p = trans_toknext(evsys_transtab, flags, &i))
+		for (p = trans_tokfirst(sysev_transtab, flags, &i); p;
+		     p = trans_toknext(sysev_transtab, flags, &i))
 			debug(1, ("%s: %s", dp->dirname, p));
 	}
 }
 
 
+/* Initialize generic event table */
 void
-sie_init()
+genev_init()
 {
 	int i;
 	
-	for (i = 0; i < sie_xlat[i].sie_mask; i++)
-		defevt(trans_toktostr(sie_trans, sie_xlat[i].sie_mask),
-		       &sie_xlat[i], 0);
+	for (i = 0; i < genev_xlat[i].gen_mask; i++)
+		defevt(trans_toktostr(genev_transtab, genev_xlat[i].gen_mask),
+		       &genev_xlat[i], 0);
 }
 	
 
@@ -424,7 +425,7 @@ main(int argc, char **argv)
 	set_program_name(argv[0]);
 	tag = (char*) program_name;
 
-	sie_init();
+	genev_init();
 
 	parse_options(argc, argv, &i);
 
@@ -492,7 +493,7 @@ main(int argc, char **argv)
 	signal_setup(sigmain);
 
 	/* Main loop */
-	while (evsys_select() == 0 && !stop) {
+	while (sysev_select() == 0 && !stop) {
 		process_timeouts();
 		process_cleanup(0);
 	}
