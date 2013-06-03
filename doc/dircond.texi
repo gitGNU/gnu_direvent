@@ -966,9 +966,7 @@ or the underlying file system was unmounted.
 @section Darwin (Mac OS X)
 Essentially the same as BSD.  The main difference compared to Linux
 and BSD is that on Darwin the watchers are set after disconnecting from the
-controlling terminal, which means that any errors which may happen
-during this process are directed to the syslog instead of the standard
-error.  This is because Darwin lacks the @code{rfork} call and the
+controlling terminal, because Darwin lacks the @code{rfork} call and the
 event queue cannot be inherited by the child process.
 
 @node Reporting Bugs

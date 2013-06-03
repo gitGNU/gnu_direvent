@@ -414,9 +414,7 @@ Essentially the same as
 .BR BSD .
 The main difference compared to \fBLinux\fR and \fBBSD\fR is that on
 \fBDarwin\fR the watchers are set after disconnecting from the
-controlling terminal, which means that any errors which may happen
-during this process are directed to the syslog instead of the standard
-error.  This is because \fBDarwin\fR lacks the
+controlling terminal, because \fBDarwin\fR lacks the
 .BR rfork (2)
 call and the event queue cannot be inherited by the child process.
 .SH "EXIT CODE"

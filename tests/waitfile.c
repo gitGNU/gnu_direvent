@@ -29,7 +29,7 @@ main(int argc, char **argv)
 {
 	int ttl;
 	struct timeval tv;
-	time_t start, now;
+	time_t start;
 	
 	if (argc != 3) {
 		fprintf(stderr, "usage: %s FILE TIMEOUT\n", argv[0]);

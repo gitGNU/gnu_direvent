@@ -14,17 +14,11 @@
    You should have received a copy of the GNU General Public License along
    with dircond. If not, see <http://www.gnu.org/licenses/>. */
 
-/* This file provides a replacement for the daemon(2) function to be used
-   on *BSD.  It uses rfork instead of fork to ensure the event queue is
-   inherited by the child process.  According to the kqueue(2) manpage:
+/* A standard "early-init" version of detach().  The initialization function
+   is called before fork.  No special actions are needed to preserve the
+   initialized watchers' state across fork. */
 
-   The kqueue() system call creates a new kernel event queue and returns a
-   descriptor.  The queue is not inherited by a child created with fork(2).
-   However, if rfork(2) is called without the RFFDG flag, then the descrip-
-   tor table is shared, which will allow sharing of the kqueue between two
-   processes.
-*/	
-
+#include "dircond.h"
 #include <unistd.h>
 #include <fcntl.h>
 #include <signal.h>
@@ -40,11 +34,13 @@
 #endif
 
 int
-daemon(int nochdir, int noclose)
+detach(void (*init)())
 {
 	struct sigaction oldsa, sa;
 	pid_t pid;
 	int ec;
+
+	init();
 	
 	sigemptyset(&sa.sa_mask);
 	sa.sa_handler = SIG_IGN;
@@ -53,7 +49,7 @@ daemon(int nochdir, int noclose)
 	if (sigaction(SIGHUP, &sa, &oldsa))
 		return -1;
 
-	switch (rfork(RFPROC)) {
+	switch (fork()) {
 	case -1:
 		return -1;
 	case 0:
@@ -72,17 +68,15 @@ daemon(int nochdir, int noclose)
 		return -1;
 	}
 
-	if (!nochdir)
-		chdir("/");
+	chdir("/");
 
-	if (!noclose) {
-		close(0);
-		close(1);
-		close(2);
-		open(_PATH_DEVNULL, O_RDONLY);
-		open(_PATH_DEVNULL, O_WRONLY);
-		dup(1);
-	}
+	close(0);
+	close(1);
+	close(2);
+	open(_PATH_DEVNULL, O_RDONLY);
+	open(_PATH_DEVNULL, O_WRONLY);
+	dup(1);
+	
 	return 0;
 }
 	

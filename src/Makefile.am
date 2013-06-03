@@ -8,16 +8,19 @@ dircond_SOURCES=\
  event.c\
  hashtab.c\
  watcher.c\
- progman.c
+ progman.c\
+ sigv.c
 
 if DIRCOND_INOTIFY
-  dircond_SOURCES += ev_inotify.c
+  dircond_SOURCES += ev_inotify.c detach-std.c
 endif
 
 if DIRCOND_KQUEUE
   dircond_SOURCES += ev_kqueue.c
 if DIRCOND_RFORK
-  dircond_SOURCES += rdaemon.c
+  dircond_SOURCES += detach-bsd.c
+else
+  dircond_SOURCES += detach-darwin.c
 endif
 endif
 

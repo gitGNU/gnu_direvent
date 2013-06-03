@@ -256,14 +256,9 @@ set_program_name(const char *arg)
 void
 signal_setup(void (*sf) (int))
 {
-	signal(SIGTERM, sf);
-	signal(SIGQUIT, sf);
-	signal(SIGINT, sf);
-	signal(SIGHUP, sf);
-	signal(SIGALRM, sf);
-	signal(SIGUSR1, sf);
-	signal(SIGUSR2, sf);
-	signal(SIGCHLD, sf);
+	static int sigv[] = { SIGTERM, SIGQUIT, SIGINT, SIGHUP, SIGALRM,
+			      SIGUSR1, SIGUSR1, SIGCHLD };
+	sigv_set_all(sf, NITEMS(sigv), sigv, NULL);
 }
 
 void
@@ -402,18 +397,13 @@ sigmain(int sig)
 	default:
 		stop = 1;
 	}
-	signal(sig, sigmain);
 }
 
 
 #if USE_IFACE == IFACE_INOTIFY
 # define INTERFACE "inotify"
-# define INIT_EARLY 1
 #elif USE_IFACE == IFACE_KQUEUE
 # define INTERFACE "kqueue"
-# ifdef HAVE_RFORK
-#  define INIT_EARLY 1
-# endif
 #endif
 
 static int opt_debug_level = 0;
@@ -478,23 +468,17 @@ main(int argc, char **argv)
 		grecs_log_to_stderr = 0;
 	}
 
-#ifdef INIT_EARLY
-	setup_watchers();
-#endif
-
-	/* Become a daemon */
-	if (!foreground) {
-		if (daemon(0, 0)) {
+	if (foreground)
+		setup_watchers();
+	else {
+		/* Become a daemon */
+		if (detach(setup_watchers)) {
 			diag(LOG_CRIT, "daemon: %s", strerror(errno));
 			exit(1);
 		}
 		log_to_stderr = -1;
 	}
 	
-
-#ifndef INIT_EARLY
-	setup_watchers();
-#endif
 	diag(LOG_INFO, "%s %s started", program_name, VERSION);
 
 	/* Write pidfile */

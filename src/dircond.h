@@ -22,6 +22,7 @@
 #include <errno.h>
 #include <string.h>
 #include <unistd.h>
+#include <signal.h>
 
 /* System-independent event codes */
 #define SIE_CREATE  0x01
@@ -103,6 +104,7 @@ void debugprt(const char *fmt, ...);
 #define debug(l, c) do { if (debug_level>=(l)) debugprt c; } while(0)
 
 void signal_setup(void (*sf) (int));
+int detach(void (*)(void));
 
 int evsys_filemask(struct dirwatcher *dp);
 void evsys_init(void);
@@ -184,3 +186,16 @@ void process_timeouts(void);
 int run_handler(struct handler *hp, event_mask *event,
 		const char *dir, const char *file);
 char **environ_setup(char **hint, char **kve);
+
+#define NITEMS(a) ((sizeof(a)/sizeof((a)[0])))
+struct sigtab {
+	int signo;
+	void (*sigfun)(int);
+};
+
+int sigv_set_action(int sigc, int *sigv, struct sigaction *sa);
+int sigv_set_all(void (*handler)(int), int sigc, int *sigv,
+		 struct sigaction *retsa);
+int sigv_set_tab(int sigc, struct sigtab *sigtab, struct sigaction *retsa);
+int sigv_set_action_tab(int sigc, struct sigtab *sigtab, struct sigaction *sa);
+
