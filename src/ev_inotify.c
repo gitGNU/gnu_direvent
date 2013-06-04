@@ -36,7 +36,7 @@ struct transtab sysev_transtab[] = {
 
 event_mask genev_xlat[] = {
 	{ GENEV_CREATE, IN_CREATE|IN_MOVED_TO },
-	{ GENEV_WRITE,  IN_MODIFY },
+	{ GENEV_WRITE,  IN_MODIFY|IN_CLOSE_WRITE },
 	{ GENEV_ATTRIB, IN_ATTRIB },
 	{ GENEV_DELETE, IN_DELETE|IN_MOVED_FROM },
 	{ 0 }
