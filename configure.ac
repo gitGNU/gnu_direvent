@@ -15,12 +15,12 @@
 # along with Dircond.  If not, see <http://www.gnu.org/licenses/>.
 
 AC_PREREQ([2.69])
-AC_INIT([dircond], [3.99.90], [gray+dircond@gnu.org.ua],,
+AC_INIT([dircond], [4.0], [bug-dircond@gnu.org.ua],,
         [http://www.gnu.org.ua/software/dircond])
 AC_CONFIG_SRCDIR([src/dircond.c])
 AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_AUX_DIR([build-aux])
-AM_INIT_AUTOMAKE([1.11.5 gnu tar-ustar])
+AM_INIT_AUTOMAKE([1.11.5 gnits tar-ustar])
 
 # Checks for programs.
 AC_PROG_AWK

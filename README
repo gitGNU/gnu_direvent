@@ -6,33 +6,39 @@ See the end of file for copying conditions.
 
 Dircond is a directory content watcher daemon, i.e. a program that
 monitors a set of directories on the file system and reacts when
-their content changes. The following changes are monitored: file
-creation, file removal, file update, move of a file between
-directories. When a change is detected, the daemon reacts by invoking
-an external command configured for that kind of change.
+their content changes. When a change is detected, the daemon reacts by
+invoking an external command configured for that kind of change.
+
+The program aims to provide a uniform and system-independent
+command-level interface for file system events.  This version
+is known to work on GNU/Linux (kernels starting from
+v. 2.6.13) and BSD systems (FreeBSD, NetBSD, OpenBSD, Darwin). 
 
 * Building and Configuring
 
-The utility is Linux-specific, therefore no configuration script is
-provided. Run 'make' to build the program, and run 'make install' as a
-superuser to install it. The utility name is 'dircond' and it is
-installed in /usr/local/bin. To change the installation directory, use
-the PREFIX make variable. For example, the following command:
+The usual incantation applies:
 
-   make install PREFIX=/usr
-
-will install the daemon binary in /usr/bin and the manpage in
-/usr/share/man/man1.
-
-Specific installation directories can be overridden using the
-following variables:
-
-  BINDIR      the directory where the binary is to be installed
-  MANDIR      the directory where the manpage is to be installed
+   ./configure [OPTIONS]
+   make
+   make install
+  
+See the file INSTALL for the description of ./configure and its
+generic options.
 
 * Usage Instructions
 
-See dircond(1) for a detailed documentation.
+Complete documentation is included with the package, both in man
+and Texinfo formats. After successful installation, use
+
+   info dircond
+
+to read the Texinfo documentation.  To read the manpages, use:
+
+   man 8 dircond
+   man 5 dircond.conf
+
+An online copy of the documentation in various formats is available
+at http://dircond.man.gnu.org.ua.
 
 
 * Copyright information:

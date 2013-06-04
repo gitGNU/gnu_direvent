@@ -1070,7 +1070,7 @@ event queue cannot be inherited by the child process.
 @node Reporting Bugs
 @chapter How to Report a Bug
 
-Please, report bugs and suggestions to @email{gray+dircond@@gnu.org.ua}.
+Please, report bugs and suggestions to @email{bug-dircond@@gnu.org.ua}.
 
   You hit a bug if at least one of the conditions below is met:
 
