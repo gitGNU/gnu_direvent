@@ -118,6 +118,7 @@ int defevt(const char *name, event_mask *mask, int line);
 int getevt(const char *name, event_mask *mask);
 int evtnullp(event_mask *mask);
 event_mask *event_mask_init(event_mask *m, int fflags, event_mask const *);
+void evtsetall(event_mask *m);
 
 /* Translate generic events to system ones and vice-versa */
 extern event_mask genev_xlat[];

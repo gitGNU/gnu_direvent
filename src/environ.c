@@ -119,7 +119,7 @@ environ_setup(char **hint, char **kve)
 	int wsflags = WRDSF_NOCMD | WRDSF_QUOTE | WRDSF_NOSPLIT |
 		      WRDSF_ENV | WRDSF_ENV_KV;
 
-	ws.ws_env = kve;
+	ws.ws_env = (const char **) kve;
 
 	if (!hint)
 		hint = empty;

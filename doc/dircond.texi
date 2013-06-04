@@ -793,6 +793,8 @@ the @code{path} statements.  The argument is a list of event names.  Both
 generic and system-dependent event namess are allowed.  Multiple
 @code{event} statements accumulate.
 
+A missing @code{event} statement means ``watch all events''.
+
 For example:
 
 @example

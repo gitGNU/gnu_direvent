@@ -13,7 +13,7 @@
 .\"
 .\" You should have received a copy of the GNU General Public License along
 .\" with dircond. If not, see <http://www.gnu.org/licenses/>.
-.TH DIRCOND.CONF 5 "June 3, 2013" "DIRCOND" "Dircond User Reference"
+.TH DIRCOND.CONF 5 "June 4, 2013" "DIRCOND" "Dircond User Reference"
 dircond.conf \- configuration file for
 .BR dircond (8).
 .SH DESCRIPTION
@@ -417,6 +417,8 @@ Configures the filesystem events to watch for in the directories declared by
 the \fBpath\fR statements.  The argument is a list of event names.  Both
 generic and system-dependent event namess are allowed.  Multiple
 \fBevent\fR statements accumulate.
+.
+A missing \fBevent\fR statements means watch all events.
 .
 For example:
 .RS

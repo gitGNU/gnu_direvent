@@ -249,10 +249,8 @@ cb_watcher(enum grecs_callback_command cmd, grecs_node_t *node,
 			grecs_error(&node->locus, 0, "no command configured");
 			++err;
 		}
-		if (evtnullp(&eventconf.eventmask)) {
-			grecs_error(&node->locus, 0, "no events configured");
-			++err;
-		}
+		if (evtnullp(&eventconf.eventmask))
+			evtsetall(&eventconf.eventmask);
 		if (err == 0)
 			eventconf_flush(&node->locus);
 		else

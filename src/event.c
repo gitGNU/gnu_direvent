@@ -147,4 +147,15 @@ event_mask_init(event_mask *m, int fflags, event_mask const *req)
 	return m;
 }
 
+void
+evtsetall(event_mask *m)
+{
+	int i;
 	
+	m->sys_mask = 0;
+	m->gen_mask = 0;
+	for (i = 0; i < genev_xlat[i].gen_mask; i++) {
+		m->gen_mask |= genev_xlat[i].gen_mask;
+		m->sys_mask |= genev_xlat[i].sys_mask;
+	}
+}
