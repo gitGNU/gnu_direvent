@@ -110,6 +110,8 @@ and events to monitor are specified in the configuration file.  When
 an event occurs the utility reacts by invoking an external command
 configured for that event.			      
 
+@cindex events
+@cindex file system events
 There are two kinds of events: @dfn{system-dependent events}, which are
 specific for each particular kernel interface, and @dfn{generic
 events}, which don't depend on the underlying system.  Generic events
@@ -117,20 +119,28 @@ provide a higher level of abstraction and make it possible to port
 dircond configurations between various systems and architectures
 without the need to rewrite them.
 
+@cindex generic events
+@cindex events, generic
 The generic events are:
 
 @table @asis
+@cindex create, generic event
 @item create
 A file was created.
+@cindex delete, generic event
 @item delete
 A file was deleted;
+@cindex write, generic event
 @item write
 A file was written to;
+@cindex attrib, generic event
 @item attrib
 File attributes have changed.  This includes changes in the file
 ownership, mode, link count, etc.
 @end table
 
+@cindex watcher, introduced
+@cindex handler, introduced
 A @dfn{watcher} is a configuration entity which associates a set of
 directories with a set of events and instructs @command{dircond} to
 run a specified external command when any of these events occur in any
@@ -161,6 +171,9 @@ Adjacent quoted strings are concatenated.
 Configuration statements consist of a keyword and value separated by
 any amount of whitespace and is terminated with a semicolon.  A block
 statement is a collection of statements enclosed in curly braces.
+
+@cindex watcher declaration, summary
+The following block statement declares a watcher:
 
 @example
 watcher @{
@@ -210,6 +223,7 @@ watcher for the upload directory which would handle the @samp{create} event:
 watcher @{
     path /home/ftp/incoming;
     event create;
+    # @r{more statements follow...}
 @end example
 
 On this event the watcher is to invoke @file{/usr/bin/upload}
@@ -239,15 +253,18 @@ watcher @{
 @}    
 @end example
 
+@cindex handler execution environment
 @anchor{handler environment}
 Before invoking the handler, the following operations are performed:
+
 @enumerate 1
 @item
 The current working directory is set to the directory where the event
 occurred.
 @item
 If the @code{environ} statement is present in the watcher, the
-environment is modified according to its rules.  (FIXME-xref)
+environment is modified according to its rules.  (@pxref{environ,
+environment modification})
 @item
 The standard input is closed.
 @item
@@ -259,9 +276,9 @@ If the @samp{stderr} option is supplied,
 the standard error is captured and redirected to the syslog.
 Otherwise it is closed.
 @item
-All file descriptors above 2 are closed.
+File descriptors above 2 are closed.
 @item
-Macro variables are expanded.  (FIXME-xref)
+Macro variables are expanded.  @xref{macro expansion}.
 @item
 Word splitting is performed on the resulting command line.  The first
 word is treated as the pathname of the program to be executed.
@@ -285,18 +302,28 @@ of the default @file{/etc/dircond.conf}.
 The options are:
 
 @table @option
+@opindex -F
+@opindex --facility
 @item -F @var{name}
 @itemx --facility=@var{name}
 Set syslog facility.
+@opindex -P
+@opindex --pidfile
 @item -P @var{file}
 @item --pidfile=@var{file}
-Upon successful startup store the PID of the daemon process in @var{file}.
+Upon successful startup store the PID of the daemon process in
+@var{file}.
+@opindex -d
+@opindex --debug
 @item -d
 @itemx --debug
 Increase debug level.
+@opindex -f
+@opindex --foreground
 @item -f
 @itemx --foreground
 Remain in foreground.
+@opindex -l
 @item -l @var{prio}
 While connected to a terminal @command{dircond} outputs its diagnostics
 messages to stderr and, if configured, to syslog.  This option
@@ -312,12 +339,18 @@ The following options are @dfn{informative}.  They cause the program
 to display the requested piece of information and terminate:
 
 @table @option
+@opindex -H
+@opindex --config-help
 @item -H
 @itemx --config-help
 Show configuration file summary.
+@opindex -V
+@opindex --version
 @item -V
 @itemx --version
 Print program version.
+@opindex -h
+@opindex --help
 @item -h
 @itemx --help
 Give a short usage summary.
@@ -597,6 +630,7 @@ this is not required.
 
 @node macro expansion
 @section Macro Expansion
+@cindex macro expansion
 Arguments of some statements undergo macro expansion before use.
 During the macro expansion any occurrence of @samp{$@var{name}} is replaced
 by the value of the macro @var{name}.  Macro names follow the usual
@@ -609,34 +643,39 @@ character that is not to be interpreted as part of its name, as in
 The following macros are defined:
 
 @table @asis
+@kwindex file, macro variable
 @item file
 Name of the file covered by the event.
 
+@kwindex sysev_code, macro variable
 @item sysev_code
 System-dependent event code.  It is a bitwise OR of the event codes
 represented as a decimal number.  
 
+@kwindex sysev_name, macro variable
 @item sysev_name
 System-dependent event name.  If several events are reported, the
 value of this variable is a list of event names separated by space
 characters.  Each name corresponds to a bit in @samp{sysev_code}.
 @xref{System dependencies}, for a list of system-dependent event names.
 
+@kwindex genev_code, macro variable
 @item genev_code
 Generic (system-independent) event code.  It is a bitwise OR of
 the event codes represented as a decimal number.
 
-@item sysev_name
+@kwindex genev_name, macro variable
+@item genev_name
 Generic event name.  If several generic events are reported simultaneously, the
 value of this variable is a list of event names separated by space
-characters.  Each name corresponds to a bit in @samp{Bgenev_code}. 
+characters.  Each name corresponds to a bit in @samp{$genev_code}. 
 @end table
 
 @node general settings
 @section General Settings
 
 @deffn {Config} user @var{name}
-Sets the user to run as.  The @var{name}a rgument must be a name of an
+Sets the user to run as.  The @var{name} argument must be a name of an
 existing user.
 @end deffn
 
@@ -655,6 +694,8 @@ Set debug level.  Valid @var{number} values are @samp{0} (no debug) to @samp{3}
 
 @node syslog
 @section Syslog
+@cindex syslog
+@cindex logging
 While connected to the terminal @command{dircond} outputs its diagnostics and
 debugging messages to the standard error.  After disconnecting from the
 controlling terminal it closes the first three file descriptors and directs
@@ -674,6 +715,8 @@ syslog @{
 The statements are:
 
 @deffn {Config} facility @var{string}
+@cindex facility, syslog
+@cindex syslog facility
 Set syslog facility.  The argument is one of the following:
 @samp{user}, @samp{daemon}, @samp{auth} or @samp{authpriv},
 @samp{mail}, @samp{cron}, @samp{local0} through @samp{local7}
@@ -681,6 +724,8 @@ Set syslog facility.  The argument is one of the following:
 @end deffn
 
 @deffn {Config} tag @var{string}
+@cindex tag, syslog
+@cindex syslog tag
 Tag syslog messages with @samp{string}.  Normally the messages are
 tagged with the program name.
 @end deffn
@@ -702,11 +747,13 @@ syslog @{
 
 @node watcher
 @section Watcher
+@cindex watcher, complete description
 The @samp{watcher} statement configures a single event watcher.  A watcher can
 control several events in multiple pathnames.  Any number of @code{watcher}
 statements is allowed in the configuration file, each one of them declaring
 a separate watcher.
 
+@cindex watcher declaration
 @example
 @group
 watcher @{
@@ -754,6 +801,7 @@ event (open,delete);
 @end deffn
 
 @deffn {Config} command @var{string}
+@cindex handler, defining
 Defines a command to execute on event.  The @var{string} is a command line
 just as you would type it in @command{sh}.  It may contain macro
 variables (@pxref{macro expansion}), which will be expanded prior to execution.
@@ -795,35 +843,45 @@ syslog with the @samp{LOG_ERR} priority.
 @end table
 @end deffn
 
+@anchor{environ}
 @deffn {Config} environ @var{env-spec}
 Modify command environment.  By default the command inherits the environment
 of @command{dircond} augmented with the following variables:
 
-@table @asis
+@cindex Handler environment variables
+@cindex environment, handler
+@table @env
+@kwindex DIRCOND_SYSEV_CODE, environment variable
 @item DIRCOND_SYSEV_CODE
 The system-dependent event code (see the @code{$sysev_code} variable).
+@kwindex DIRCOND_SYSEV_NAME, environment variable
 @item DIRCOND_SYSEV_NAME
 The system-dependent event name or names (see the @code{$sysev_name} variable).
+@kwindex DIRCOND_GENEV_CODE, environment variable
 @item DIRCOND_GENEV_CODE
 The generic event code (see the @code{$genev_code} variable).
+@kwindex DIRCOND_GENEV_NAME, environment variable
 @item DIRCOND_GENEV_NAME
 The generic event name or names (see the @code{$genev_name} variable).
+@kwindex DIRCOND_FILE, environment variable
 @item DIRCOND_FILE
 The name of the affected file relative to the current working directory
-(see the @var{$file} variable).
+(see the @code{$file} variable).
 
+@cindex environment modification
 The @code{environ} statement allows for trimming the environment.  Its
-argument is a list of one or more of the folloeing environment modification
-directives:
+argument is a list of environment modification directives.  Before
+applying, each directive undergoes macro expansion (@pxref{macro
+expansion}).  The following directives are available:
 
 @table @asis
 @item - (a single dash)
 Clear the inherited environment, but retain the variables added by
 @command{dircond}.  The removed environment variables can be selectively
-restored by the directives that follow.  This must be the first directive
-in the list.
+restored using the directives discussed below.  This must be the first
+directive in the list.
 
-@item -- (double-dash)"
+@item @samp{--} (double-dash)
 Clear the entire environment, including the variables added by
 @command{dircond}.  This must be the first directive in the list.
 
@@ -880,54 +938,79 @@ kernel.
 
 @node linux
 @section GNU/Linux systems.
-On GNU/Linux the program uses @code{inotify} (FIXME-xref).
+@cindex linux kernel
+@cindex GNU/Linux
+@cindex inotify
+On GNU/Linux the program uses @code{inotify}.
+@xref{inotify,, monitoring file system events, inotify(7), inotify(7) man page}.
 
+@cindex fs.inotify.max_user_watches
+@cindex number of watches, linux
+@cindex sysctl
 The maximum number of watches a user process can have is controlled by
 the @samp{fs.inotify.max_user_watches} system variable.  Normally it
 is set to 8192, which is quite enough for most purposes.  However, if
 you monitor a big number or directories and/or are using recursive
 watchers, you may need more watches.  In that case, use 
-@command{sysctl} (FIXME-xref) to raise the limit, e.g.:
+@command{sysctl} (@pxref{sysctl,,configure kernel parameters at
+runtime, sysctl(8), sysctl(8) man page}) to raise the limit, e.g.:
 
 @example
 sysctl -w fs.inotify.max_user_watches=16384
 @end example
 
 @noindent
+@flindex sysctl.conf
 Most GNU/Linux distributions provide the file @file{/etc/sysctl.conf}
 which can be used to set this variable on startup.
 
+@cindex system-dependent events, linux
+@cindex events, system-dependent, on linux
 The following system-dependent events are defined on systems that use
 @code{inotify}:
 
 @table @asis
+@kwindex ACCESS, linux event
 @item ACCESS
 A file was accessed.
+@kwindex ATTRIB, linux event
 @item ATTRIB
 A file's metadata changed.
+@kwindex CLOSE_WRITE, linux event
 @item CLOSE_WRITE
 A writable file was closed.
+@kwindex CLOSE_NOWRITE, linux event
 @item CLOSE_NOWRITE
 An unwritable file closed.
+@kwindex CREATE, linux event
 @item CREATE
 A file was created.
+@kwindex DELETE, linux event
 @item DELETE
 A file was deleted.
+@kwindex MODIFY, linux event
 @item MODIFY
 A file was modified.
+@kwindex MOVED_FROM, linux event
 @item MOVED_FROM
 A file was moved into a monitored directory.
+@kwindex MOVED_TO, linux event
 @item MOVED_TO
 A file was moved out from a monitored directory.
+@kwindex OPEN, linux event
 @item OPEN
 A file was opened.
 @end table
 
 @node bsd
 @section BSD systems
+@cindex BSD
+@cindex kqueue
 When compiled on BSD systems (including Darwin),
-@command{dircond} uses @code{kqueue} (FIXME-xref).
+@command{dircond} uses @code{kqueue} (@pxref{kqueue,,kernel event
+notification mechanism,kqueue(2),kqueue(2) man page}).
 
+@cindex number of open file descriptors
 This interface needs an open file handle for each file in a monitored
 directory, which means that the number of watchers is limited by the
 maximum number of open files.  Use @samp{ulimit -n @var{NUM}} in order
@@ -942,28 +1025,41 @@ each file that appeared after the last scan.  Such a rescan can
 consume considerable time if a directory has a very large number of
 files in it.
 
+@cindex system-dependent events on BSD
+@cindex system-dependent events on Darwin
+@cindex events, system-dependent, on BSD
+@cindex events, system-dependent, on Darwin
 The following system-dependent events are available:
 
 @table @asis
+@kwindex DELETE, BSD
 @item DELETE
 The @code{unlink()} system call was called on the monitored file.
+@kwindex WRITE, BSD
 @item WRITE
 A write occurred on the file.
+@kwindex EXTEND, BSD
 @item EXTEND
 The file was extended.
+@kwindex ATTRIB, BSD
 @item ATTRIB
 The file attributes have changed.
+@kwindex LINK, BSD
 @item LINK
 The link count on the file changed.
+@kwindex RENAME, BSD
 @item RENAME
 The file was renamed.
 @item REVOKE
-Access to the file was revoked via @code{revoke()} (FIXME-xref)
+Access to the file was revoked via @code{revoke()}
+(@pxref{revoke,,revoke file access,revoke(2), revoke(2) man page})
 or the underlying file system was unmounted.
 @end table
 
 @node darwin
 @section Darwin (Mac OS X)
+@cindex Darwin
+@cindex Mac OS X
 Essentially the same as BSD.  The main difference compared to Linux
 and BSD is that on Darwin the watchers are set after disconnecting from the
 controlling terminal, because Darwin lacks the @code{rfork} call and the
