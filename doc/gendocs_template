@@ -1,27 +1,19 @@
-<?xml version="1.0" encoding="utf-8" ?>
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
-    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
-
-<head>
- <title>Dircond - Filesystem event monitoring</title>
- <link rev="made" href="mailto:gray@gnu.org.ua" />
- <link rel="stylesheet" type="text/css" href="gray.css" />
- <link rel="icon" type="image/png" href="/graphics/gnu-head-icon.png" />
-</head>
-<body>
-<!--#include virtual="inc/header.html" -->
+<!-- -*- html -*- -->
+<!--#include virtual="inc/pagehdr.html" -->
+<div id="header">
+<!--#include virtual="inc/header.html" -->  
 <ul class='tabs'>
-  <li><a href="dircond.html">Main</a></li>
+  <li><a href="%%PACKAGE%%.html">Main</a></li>
   <li><a href="download.html">Downloads</a></li>
   <li><a class="active" href="manual.html">Documentation</a></li>
 </ul>
+</div> <!-- header -->
 
 <div id="main">
 <p>The manual for <b>%%PACKAGE%%</b> is available in the following formats:</p>
 
 <ul>
-  <li><a href="manual/%%PACKAGE%%.html">HTML
+  <li><a href="manual/%%PACKAGE%%.html">HTML 
       (%%HTML_MONO_SIZE%%K bytes)</a> - entirely on one web page.</li>
   <li><a href="manual/html_node/index.html">HTML</a> - with one web page per
       node.</li>
@@ -34,7 +26,7 @@
       chapter.</li>
 %%ENDIF HTML_CHAPTER%%
   <li><a href="manual/%%PACKAGE%%.html.gz">HTML compressed
-       (%%HTML_MONO_GZ_SIZE%%K gzipped characters)</a> - entirely on
+       (%%HTML_MONO_GZ_SIZE%%K gzipped characters)</a> - entirely on 
        one web page.</li>
   <li><a href="manual/%%PACKAGE%%.html_node.tar.gz">HTML compressed
       (%%HTML_NODE_TGZ_SIZE%%K gzipped tar file)</a> -
