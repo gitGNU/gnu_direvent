@@ -312,7 +312,7 @@ The program is invoked.
 kernel.
 .SH Linux
 On \fBLinux\fR the program uses
-.BR inotify (8).
+.BR inotify (7).
 .PP
 The maximum number of watches a user process can have is controlled by
 the
@@ -335,7 +335,7 @@ Most GNU/Linux distributions provide the file
 which can be used to set this variable on startup.
 .PP
 The following system-dependent events are defined on systems that use
-.BR inotify (8):
+.BR inotify (7):
 .TP
 .B ACCESS
 A file was accessed.
@@ -426,7 +426,7 @@ Command line usage error.
 Another error occurred.
 .SH "SEE ALSO"
 .BR dircond.conf (5),
-.BR inotify (8),
+.BR inotify (7),
 .BR kqueue (2).
 .SH AUTHORS
 Sergey Poznyakoff
