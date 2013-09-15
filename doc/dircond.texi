@@ -89,7 +89,7 @@ Appendices
 @code{Dircond} monitors events in the file system directories.  For
 each event that occurs in a set of pre-configured directories, the
 program calls an external program associated with it, supplying it
-with the information about the event and the location within the file
+the information about the event and the location within the file
 system where it occured.
 
 @code{Dircond} provides an easy way to configure your system to react
@@ -634,7 +634,7 @@ this is not required.
 Arguments of some statements undergo macro expansion before use.
 During the macro expansion any occurrence of @samp{$@var{name}} is replaced
 by the value of the macro @var{name}.  Macro names follow the usual
-convention: they begin with a letter and contain letters digits and
+convention: they begin with a letter and contain letters, digits and
 underscores.  The curly braces around the @var{name} are optional.
 They are required only if the macro reference is followed by a
 character that is not to be interpreted as part of its name, as in
@@ -645,16 +645,16 @@ The following macros are defined:
 @table @asis
 @kwindex file, macro variable
 @item file
-Name of the file covered by the event.
+Name of the file that triggered the event.
 
 @kwindex sysev_code, macro variable
 @item sysev_code
-System-dependent event code.  It is a bitwise OR of the event codes
+A system-dependent event code.  It is a bitwise OR of the event codes
 represented as a decimal number.  
 
 @kwindex sysev_name, macro variable
 @item sysev_name
-System-dependent event name.  If several events are reported, the
+A system-dependent event name.  If several events are reported, the
 value of this variable is a list of event names separated by space
 characters.  Each name corresponds to a bit in @samp{sysev_code}.
 @xref{System dependencies}, for a list of system-dependent event names.
@@ -869,6 +869,7 @@ The generic event name or names (see the @code{$genev_name} variable).
 @item DIRCOND_FILE
 The name of the affected file relative to the current working directory
 (see the @code{$file} variable).
+@end table
 
 @cindex environment modification
 The @code{environ} statement allows for trimming the environment.  Its
@@ -924,7 +925,6 @@ created and @var{value} is assigned to it.  However, if @var{value}
 ends with a punctuation character, this character is removed from it
 before assignment.
 @end table
-@end table
 @end deffn
 
 @node System dependencies
@@ -953,7 +953,7 @@ The maximum number of watches a user process can have is controlled by
 the @samp{fs.inotify.max_user_watches} system variable.  Normally it
 is set to 8192, which is quite enough for most purposes.  However, if
 you monitor a big number or directories and/or are using recursive
-watchers, you may need more watches.  In that case, use 
+watchers, you may need to increase this number.  In that case, use 
 @command{sysctl} (@pxref{sysctl,,configure kernel parameters at
 runtime, sysctl(8), sysctl(8) man page}) to raise the limit, e.g.:
 
