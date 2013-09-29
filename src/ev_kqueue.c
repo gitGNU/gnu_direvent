@@ -168,16 +168,10 @@ check_created(struct dirwatcher *dp)
 		   a watcher for it. */
 		} else if (st.st_ctime > dp->file_ctime ||
 			   !dirwatcher_lookup(pathname)) {
-			event_mask m = { GENEV_CREATE, 0 };
-
-			watch_pathname(dp, pathname, S_ISDIR(st.st_mode));
+			deliver_ev_create(dp, ent->d_name);
+			subwatcher_create(dp, pathname,
+					  S_ISDIR(st.st_mode), 1);
 			dp->file_ctime = st.st_ctime;
-			/* Deliver GENEV_CREATE event */
-			for (h = dp->handler_list; h; h = h->next) {
-				if (h->ev_mask.gen_mask & GENEV_CREATE)
-					run_handler(h, &m,
-						    dp->dirname, ent->d_name);
-			}
 		}
 		free(pathname);
 	}

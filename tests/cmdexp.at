@@ -18,7 +18,7 @@ AT_SETUP([Command line expansions])
 AT_KEYWORDS([cmdexp])
 
 AT_CHECK([
-cwd=`pwd`
+cwd=`pwd -P`
 pidfile=$cwd/dircond.pid
 outfile=$cwd/dump
 mkdir dir

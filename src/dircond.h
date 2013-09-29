@@ -177,7 +177,7 @@ struct dirwatcher *dirwatcher_lookup_wd(int wd);
 int check_new_watcher(const char *dir, const char *name);
 struct dirwatcher *dirwatcher_install(const char *path, int *pnew);
 void dirwatcher_destroy(struct dirwatcher *dwp);
-void watch_pathname(struct dirwatcher *parent, const char *dirname, int isdir);
+int watch_pathname(struct dirwatcher *parent, const char *dirname, int isdir, int notify);
 
 char *split_pathname(struct dirwatcher *dp, char **dirname);
 void unsplit_pathname(struct dirwatcher *dp);

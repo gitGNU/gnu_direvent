@@ -248,15 +248,18 @@ dirwatcher_init(struct dirwatcher *dwp)
 	return 0;
 }
 
-static struct dirwatcher *
-subwatcher_create(struct dirwatcher *parent, const char *dirname)
+static int watch_subdirs(struct dirwatcher *parent, int notify);
+
+int
+subwatcher_create(struct dirwatcher *parent, const char *dirname,
+		  int isdir, int notify)
 {
 	struct dirwatcher *dwp;
 	int inst;
 	
 	dwp = dirwatcher_install(dirname, &inst);
 	if (!inst)
-		return 0;
+		return -1;
 
 	dwp->handler_list = parent->handler_list;
 	dwp->parent = parent;
@@ -270,11 +273,25 @@ subwatcher_create(struct dirwatcher *parent, const char *dirname)
 	
 	if (dirwatcher_init(dwp)) {
 		//FIXME dirwatcher_free(dwp);
-		return NULL;
+		return -1;
 	}
-	return dwp;
-}
 
+	return 1 + (isdir ? watch_subdirs(dwp, notify) : 0);
+}
+
+/* Deliver GENEV_CREATE event */
+void
+deliver_ev_create(struct dirwatcher *dp, const char *name)
+{
+	event_mask m = { GENEV_CREATE, 0 };
+	struct handler *h;
+
+	for (h = dp->handler_list; h; h = h->next) {
+		if (h->ev_mask.gen_mask & GENEV_CREATE)
+			run_handler(h, &m, dp->dirname, name);
+	}
+}
+
 /* Check if a new watcher must be created and create it if so.
 
    A watcher must be created if its parent's autowatch has a non-null
@@ -307,9 +324,10 @@ check_new_watcher(const char *dir, const char *name)
 		diag(LOG_ERR, "cannot create watcher %s/%s, stat failed: %s",
 		     dir, name, strerror(errno));
 		rc = -1;
-	} else if (S_ISDIR(st.st_mode))
-		rc = subwatcher_create(parent, fname) ? 0 : -1;
-	else
+	} else if (S_ISDIR(st.st_mode)) {
+		deliver_ev_create(parent, name);
+		rc = subwatcher_create(parent, fname, 1, 1);
+	} else
 		rc = 0;
 	free(fname);
 	return rc;
@@ -317,23 +335,24 @@ check_new_watcher(const char *dir, const char *name)
 
 /* Recursively scan subdirectories of parent and add them to the
    watcher list, as requested by the parent's autowatch value. */
-static void
-watch_subdirs(struct dirwatcher *parent)
+static int
+watch_subdirs(struct dirwatcher *parent, int notify)
 {
 	DIR *dir;
 	struct dirent *ent;
 	int filemask = sysev_filemask(parent);
-	
+	int total = 0;
+
 	if (parent->depth)
 		filemask |= S_IFDIR;
 	if (!filemask)
-		return;
+		return 0;
 	
 	dir = opendir(parent->dirname);
 	if (!dir) {
 		diag(LOG_ERR, "cannot open directory %s: %s",
 		     parent->dirname, strerror(errno));
-		return;
+		return 0;
 	}
 
 	while (ent = readdir(dir)) {
@@ -354,20 +373,21 @@ watch_subdirs(struct dirwatcher *parent)
 		if (stat(dirname, &st)) {
 			diag(LOG_ERR, "cannot stat %s: %s",
 			     dirname, strerror(errno));
-		} else if (st.st_mode & filemask) {
-			watch_pathname(parent, dirname, S_ISDIR(st.st_mode));
+		} else {
+			if (notify)
+				deliver_ev_create(parent, ent->d_name);
+			if (st.st_mode & filemask) {
+				int rc = subwatcher_create(parent, dirname,
+							   S_ISDIR(st.st_mode),
+							   notify);
+				if (rc > 0)
+					total += rc;
+			}
 		}
 		free(dirname);
 	}
 	closedir(dir);
-}
-
-void
-watch_pathname(struct dirwatcher *parent, const char *dirname, int isdir)
-{
-	struct dirwatcher *dwp = subwatcher_create(parent, dirname);
-	if (dwp && isdir)
-		watch_subdirs(dwp);
+	return total;
 }
 
 
@@ -378,7 +398,7 @@ setwatcher(struct hashent *ent, void *null)
 	struct dirwatcher *dwp = dwref->dw;
 	
 	if (dwp->wd == -1 && dirwatcher_init(dwp) == 0)
-		watch_subdirs(dwp);
+		watch_subdirs(dwp, 0);
 	return 0;
 }
 

@@ -120,15 +120,18 @@ process_event(struct inotify_event *ep)
 			diag(LOG_NOTICE,
 			     "unrecognized event %x", ep->mask);
 		return;
-	} else if (ep->mask & IN_CREATE) {
+	}
+
+	ev_log(ep->mask, dp);
+
+	if (ep->mask & IN_CREATE) {
 		debug(1, ("%s/%s created", dp->dirname, ep->name));
-		check_new_watcher(dp->dirname, ep->name);
+		if (check_new_watcher(dp->dirname, ep->name) > 0)
+			return;
 	} else if (ep->mask & (IN_DELETE|IN_MOVED_FROM)) {
 		debug(1, ("%s/%s deleted", dp->dirname, ep->name));
 		remove_watcher(dp->dirname, ep->name);
 	}
-
-	ev_log(ep->mask, dp);
 
 	if (ep->len == 0)
 		filename = split_pathname(dp, &dirname);
@@ -138,7 +141,9 @@ process_event(struct inotify_event *ep)
 	}
 	for (h = dp->handler_list; h; h = h->next) {
 		if (h->ev_mask.sys_mask & ep->mask)
-			run_handler(h, event_mask_init(&m, ep->mask, &h->ev_mask),
+			run_handler(h, event_mask_init(&m,
+						       ep->mask,
+						       &h->ev_mask),
 				    dirname, filename);
 	}
 	unsplit_pathname(dp);

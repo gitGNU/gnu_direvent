@@ -42,6 +42,7 @@ TESTSUITE_AT = \
   attrib.at\
   cmdexp.at\
   create.at\
+  createrec.at\
   delete.at\
   env00.at\
   env01.at\
