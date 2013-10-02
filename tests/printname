@@ -1,0 +1,2 @@
+#! /bin/sh
+echo `pwd`/$DIRCOND_FILE >> $1

@@ -40,7 +40,7 @@ syslog {
 watcher {
 	path $cwd/dir recursive;
 	event create;
-	command "$TESTDIR/printname $outfile";
+	command "$SRCDIR/printname $outfile";
 	option (stdout,stderr);
 }
 EOT
