@@ -14,8 +14,8 @@
 # You should have received a copy of the GNU General Public License
 # along with Dircond.  If not, see <http://www.gnu.org/licenses/>.
 
-AT_SETUP([Create])
-AT_KEYWORDS([create create01])
+AT_SETUP([Extended case-sensitive])
+AT_KEYWORDS([create fname regexp re re01])
 
 AT_CHECK([
 cwd=`pwd -P`
@@ -32,6 +32,7 @@ syslog {
 watcher {
 	path $cwd/dir;
 	event create;
+	file /temp.*/;
 	command "$TESTDIR/envdump -s -i DIRCOND_FILE=:DIRCOND_GENEV_ -f $outfile";
 	option (stdout,stderr);
 }
@@ -40,6 +41,7 @@ EOT
 dircond -lnotice test.conf || exit 1
 waitfile $pidfile 2
 > dir/file
+> dir/tempfile
 waitfile $outfile 6 
 kill `cat $pidfile`
 sed "s^$cwd^(CWD)^;s^$TESTDIR^(TESTDIR)^" $outfile
@@ -55,7 +57,7 @@ argv[[3]]=DIRCOND_FILE=:DIRCOND_GENEV_
 argv[[4]]=-f
 argv[[5]]=(CWD)/dump
 # Environment
-DIRCOND_FILE=file
+DIRCOND_FILE=tempfile
 DIRCOND_GENEV_CODE=1
 DIRCOND_GENEV_NAME=create
 # End

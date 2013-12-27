@@ -34,4 +34,10 @@ m4_include([env01.at])
 m4_include([env02.at])
 m4_include([env03.at])
 
+AT_BANNER([Filename selection])
+m4_include([glob01.at])
+m4_include([re01.at])
+m4_include([re02.at])
+m4_include([re03.at])
+m4_include([re04.at])
 

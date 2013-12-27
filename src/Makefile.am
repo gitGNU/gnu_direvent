@@ -6,6 +6,7 @@ dircond_SOURCES=\
  config.c\
  environ.c\
  event.c\
+ fnpat.c\
  hashtab.c\
  watcher.c\
  progman.c\

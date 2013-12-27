@@ -149,6 +149,7 @@ static struct grecs_keyword syslog_kw[] = {
 struct eventconf {
 	struct grecs_list *pathlist;
         event_mask eventmask;
+	struct grecs_list *fnames;
 	char *command;
 	uid_t uid;           /* Run as this user (unless 0) */
 	gid_t *gidv;         /* Run with these groups' privileges */
@@ -183,6 +184,7 @@ static void
 eventconf_free()
 {
 	grecs_list_free(eventconf.pathlist);
+	grecs_list_free(eventconf.fnames);
 	free(eventconf.command);
 	free(eventconf.gidv);
 	envfree(eventconf.env);
@@ -213,6 +215,7 @@ eventconf_flush(grecs_locus_t *loc)
 		hp = emalloc(sizeof(*hp));
 		hp->next = NULL;
 		hp->ev_mask = eventconf.eventmask;
+		hp->fnames = eventconf.fnames;
 		hp->flags = eventconf.flags;
 		hp->timeout = eventconf.timeout;
 		hp->prog = eventconf.command;
@@ -578,8 +581,109 @@ cb_environ(enum grecs_callback_command cmd, grecs_node_t *node,
 	}
 	return 0;
 }		
-		
+
+static int
+file_name_pattern(struct grecs_list *lp, grecs_value_t *val)
+{
+	char *arg;
+	int rc;
+	int flags = REG_EXTENDED|REG_NOSUB;
+	struct filename_pattern *pat;
 	
+	if (assert_grecs_value_type(&val->locus, val, GRECS_TYPE_STRING))
+		return 1;
+	arg = val->v.string;
+
+	pat = emalloc(sizeof(*pat));
+	
+	if (arg[0] == '/') {
+		char *q, *p;
+
+		pat->type = PAT_REGEX;
+		
+		p = strchr(arg+1, '/');
+		if (!p) {
+			grecs_error(&val->locus, 0, "Unterminated regexp");
+			free(pat);
+			return 1;
+		}
+		for (q = p + 1; *q; q++) {
+			switch (*q) {
+			case 'b':
+				flags &= ~REG_EXTENDED;
+				break;
+			case 'i':
+				flags |= REG_ICASE;
+				break;
+			default:
+				grecs_error(&val->locus, 0,
+					    "Unrecognized flag: %c", *q);
+				free(pat);
+				return 1;
+			}
+		}
+		
+		*p = 0;
+		rc = regcomp(&pat->v.re, arg + 1, flags);
+		*p = '/';
+
+		if (rc) {
+			char errbuf[128];
+			regerror(rc, &pat->v.re, errbuf, sizeof(errbuf));
+			grecs_error(&val->locus, 0, "%s", errbuf);
+			filename_pattern_free(pat);
+			return 1;
+		}
+	} else {
+		pat->type = PAT_GLOB;
+		pat->v.glob = estrdup(arg);
+	}
+
+	grecs_list_append(lp, pat);
+
+	return 0;
+}
+
+static int
+cb_file_pattern(enum grecs_callback_command cmd, grecs_node_t *node,
+		void *varptr, void *cb_data)
+{
+	grecs_value_t *val = node->v.value;
+	struct grecs_list_entry *ep;
+	struct grecs_list *lp, **lpp = varptr;
+	int i;
+	
+	ASSERT_SCALAR(cmd, &node->locus);
+
+	if (!*lpp) {
+		lp = grecs_list_create();
+		lp->free_entry = filename_pattern_free;
+		*lpp = lp;
+	} else
+		lp = *lpp;
+	
+	switch (val->type) {
+	case GRECS_TYPE_STRING:
+		file_name_pattern(lp, val);
+		break;
+
+	case GRECS_TYPE_ARRAY:
+		for (i = 0; i < val->v.arg.c; i++)
+			if (file_name_pattern(lp, val->v.arg.v[i]))
+				break;
+		break;
+
+	case GRECS_TYPE_LIST:
+		for (ep = val->v.list->head; ep; ep = ep->next)
+			if (file_name_pattern(lp,
+					      (grecs_value_t *) ep->data))
+				break;
+		break;
+	}
+
+	return 0;
+}
+
 static struct grecs_keyword watcher_kw[] = {
 	{ "path", NULL, "Pathname to watch",
 	  grecs_type_string, GRECS_DFLT, &eventconf.pathlist, 0,
@@ -587,6 +691,9 @@ static struct grecs_keyword watcher_kw[] = {
 	{ "event", NULL, "Events to watch for",
 	  grecs_type_string, GRECS_LIST, &eventconf.eventmask, 0,
 	  cb_eventlist },
+	{ "file", "regexp", "Files to watch for",
+	  grecs_type_string, GRECS_LIST, &eventconf.fnames, 0,
+	  cb_file_pattern },
 	{ "command", NULL, "Command to execute on event",
 	  grecs_type_string, GRECS_DFLT, &eventconf.command },
 	{ "user", "name", "Run command as this user",

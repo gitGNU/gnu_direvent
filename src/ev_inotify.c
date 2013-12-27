@@ -140,7 +140,7 @@ process_event(struct inotify_event *ep)
 		filename = ep->name;
 	}
 	for (h = dp->handler_list; h; h = h->next) {
-		if (h->ev_mask.sys_mask & ep->mask)
+		if (handler_matches_event(h, sys, ep->mask, filename))
 			run_handler(h, event_mask_init(&m,
 						       ep->mask,
 						       &h->ev_mask),

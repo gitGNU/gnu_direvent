@@ -23,6 +23,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <signal.h>
+#include <regex.h>
 
 /* Generic (system-independent) event codes */
 #define GENEV_CREATE  0x01
@@ -50,12 +51,24 @@ struct transtab {
 	int tok;
 };
 
+#define PAT_GLOB  0
+#define PAT_REGEX 1
+
+struct filename_pattern {
+	int type;
+	union {
+		regex_t re;
+		char *glob;
+	} v;
+};
+
 /* Handler structure */
 struct handler {
 	struct handler *next;
 	event_mask ev_mask;  /* Event mask */
+	struct grecs_list *fnames;  /* File name patterns */
 	int flags;           /* Handler flags */
-	const char *prog;    /* Handler program (no arguments allowed) */
+	const char *prog;    /* Handler program (with eventual arguments) */
 	uid_t uid;           /* Run as this user (unless 0) */
 	gid_t *gidv;         /* Run with these groups' privileges */
 	size_t gidc;         /* Number of elements in gidv */
@@ -78,6 +91,12 @@ struct dirwatcher {
 	time_t file_ctime;
 #endif
 };
+
+#define __cat2__(a,b) a ## b
+#define handler_matches_event(h,m,f,n)		\
+	(((h)->ev_mask.__cat2__(m,_mask) & (f)) && \
+	 filename_pattern_match((h)->fnames, n) == 0)
+
 
 extern int foreground;
 extern int debug_level;
@@ -202,4 +221,7 @@ int sigv_set_all(void (*handler)(int), int sigc, int *sigv,
 		 struct sigaction *retsa);
 int sigv_set_tab(int sigc, struct sigtab *sigtab, struct sigaction *retsa);
 int sigv_set_action_tab(int sigc, struct sigtab *sigtab, struct sigaction *sa);
+
+void filename_pattern_free(void *p);
+int filename_pattern_match(struct grecs_list *lp, const char *name);
 

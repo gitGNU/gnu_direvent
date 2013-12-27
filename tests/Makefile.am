@@ -48,6 +48,11 @@ TESTSUITE_AT = \
   env01.at\
   env02.at\
   env03.at\
+  glob01.at\
+  re01.at\
+  re02.at\
+  re03.at\
+  re04.at\
   testsuite.at\
   write.at
 

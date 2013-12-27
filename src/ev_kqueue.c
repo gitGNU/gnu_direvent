@@ -202,7 +202,7 @@ process_event(struct kevent *ep)
 
 	filename = split_pathname(dp, &dirname);
 	for (h = dp->handler_list; h; h = h->next) {
-		if (h->ev_mask.sys_mask & ep->fflags) {
+		if (handler_matches_event(h, sys, ep->fflags, filename)) {
 			run_handler(h,
 				    event_mask_init(&m, ep->fflags, &h->ev_mask),
 				    dirname, filename);

@@ -287,7 +287,7 @@ deliver_ev_create(struct dirwatcher *dp, const char *name)
 	struct handler *h;
 
 	for (h = dp->handler_list; h; h = h->next) {
-		if (h->ev_mask.gen_mask & GENEV_CREATE)
+		if (handler_matches_event(h, gen, GENEV_CREATE, name))
 			run_handler(h, &m, dp->dirname, name);
 	}
 }
@@ -450,5 +450,3 @@ unsplit_pathname(struct dirwatcher *dp)
 		dp->split_p = NULL;
 	}
 }
-
-

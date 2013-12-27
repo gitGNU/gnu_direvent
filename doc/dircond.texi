@@ -758,7 +758,8 @@ a separate watcher.
 @group
 watcher @{
     path @var{pathname} [recursive [@var{level}]];
-    event  @var{event-list};
+    file @var{regexp-list};
+    event @var{event-list};
     command @var{command-line};
     user @var{name};
     timeout @var{number};
@@ -785,6 +786,30 @@ that are nested below that level.
 
 Any number of @code{path} statements can appear in a @code{watcher} block.
 At least one @code{path} must be defined.
+@end deffn
+
+@deffn {Config} file @var{regexp-list}
+Selects which files are eligible for monitoring.  The argument is a
+list of extended regular expressions@footnote{@xref{Extended
+regexps, Extended regular expressions, Extended regular expressions,
+sed, GNU sed}.} which must match the file name in
+order for the watcher to act on it.  Each regular expression can
+optionally be surrounded by a pair of slashes and followed by the
+following flags:
+
+@table @asis
+@item b
+Use basic regular expressions.
+
+@item i
+Enable case-insensitive matching.
+@end table
+
+For example:
+
+@example
+file (.*\\.cfg, /.*\\.jpg/i);
+@end example
 @end deffn
 
 @deffn {Config} event @var{string-list}
