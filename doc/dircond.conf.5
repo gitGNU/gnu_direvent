@@ -13,7 +13,7 @@
 .\"
 .\" You should have received a copy of the GNU General Public License along
 .\" with dircond. If not, see <http://www.gnu.org/licenses/>.
-.TH DIRCOND.CONF 5 "June 4, 2013" "DIRCOND" "Dircond User Reference"
+.TH DIRCOND.CONF 5 "December 27, 2013" "DIRCOND" "Dircond User Reference"
 dircond.conf \- configuration file for
 .BR dircond (8).
 .SH DESCRIPTION
@@ -383,6 +383,7 @@ a separate watcher.
 .B watcher {
 .in +4
 \fBpath\fR \fIPATHNAME\fR [\fBrecursive\fR [\fINUMBER\fR]];
+.BI "file " STRING\-LIST ;
 .BI "event " STRING\-LIST ;
 .BI "command " STRING ;
 .BI "user " NAME ;
@@ -411,6 +412,25 @@ only to the directories that are nested below that level.
 .sp
 Any number of \fBpath\fR statements can appear in a \fBwatcher\fR block.
 At least one \fBpath\fR must be defined.
+.TP
+\fBfile\fR \fISTRING\-LIST\fR;
+Selects which files are eligible for monitoring.  The argument is a
+list of globbing patterns (in the sense of
+.BR fnmatch (3))
+and/or extended regular expressions (
+.BR regex (7))
+one of which the file name must match in
+order for the watcher to act on it.  Regular expressions must
+be surrounded by a pair of slashes, optionally followed by the
+following flags:
+.RS
+.TP
+.B b
+Use basic regular expressions.
+.TP
+.B i
+Enable case-insensitive matching.
+.RE
 .TP
 \fBevent\fR \fISTRING\-LIST\fR;
 Configures the filesystem events to watch for in the directories declared by
