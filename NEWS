@@ -4,13 +4,25 @@ See the end of file for copying conditions.
 
 Please send dircond bug reports to <bug-dircond@gnu.org.ua>
 
-Version 4.0.90 (Git)
+Version 4.1, 2013-12-27
+
+* New features
 
 A watcher can be configured to react only on certain files.  To that
 effect, a new statement "file" is introduced.  This statement defines
 a list of regular expressions one of which the file name must match in
 order for the watcher to wake up.
 
+* Bugfixes
+
+Upon creation of a directory, a genev_create event is generated for
+all files and directories below the newly created one (if required
+by the configuration).  At the same time, new watchers are installed.
+
+The version 4.0 incorrectly assumed that a notification would arrive
+for each subdirectory or subfile, once the watcher is installed for
+the parent directory.  This created a race condition, which could
+cause some create events to come unnoticed.
 
 Version 4.0, 2013-06-04
 
