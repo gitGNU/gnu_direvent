@@ -790,11 +790,13 @@ At least one @code{path} must be defined.
 
 @deffn {Config} file @var{regexp-list}
 Selects which files are eligible for monitoring.  The argument is a
-list of extended regular expressions@footnote{@xref{Extended
+list of globbing patterns (in the sense of
+@pxref{fnmatch, fnmatch, fnmatch, fnmatch manual,fnmatch(3)}) or
+extended regular expressions (@pxref{Extended
 regexps, Extended regular expressions, Extended regular expressions,
-sed, GNU sed}.} which must match the file name in
-order for the watcher to act on it.  Each regular expression can
-optionally be surrounded by a pair of slashes and followed by the
+sed, GNU sed}) one of which the file name must match in
+order for the watcher to act on it.  Regular expressions must
+be surrounded by a pair of slashes, optionally followed by the
 following flags:
 
 @table @asis
@@ -808,8 +810,13 @@ Enable case-insensitive matching.
 For example:
 
 @example
-file (.*\\.cfg, /.*\\.jpg/i);
+file (*.cfg, /.*\\.jpg/i);
 @end example
+
+@noindent
+In this statement, the first string (@samp{*.cfg}) is treated as a
+shell globbing pattern.  The second one is a case-sensitive extended
+regular expression.
 @end deffn
 
 @deffn {Config} event @var{string-list}
