@@ -41,16 +41,20 @@ filename_pattern_match(struct grecs_list *lp, const char *name)
 		return 0;
 	for (ep = lp->head; ep; ep = ep->next) {
 		struct filename_pattern *pat = ep->data;
-
+		int rc;
+		
 		switch (pat->type) {
 		case PAT_GLOB:
-			if (fnmatch(pat->v.glob, name, FNM_PATHNAME) == 0)
-				return 0;
+			rc = fnmatch(pat->v.glob, name, FNM_PATHNAME);
 			break;
 		case PAT_REGEX:
-			if (regexec(&pat->v.re, name, 0, NULL, 0) == 0)
-				return 0;
+			rc = regexec(&pat->v.re, name, 0, NULL, 0);
+			break;
 		}
+		if (pat->neg)
+			rc = !rc;
+		if (rc == 0)
+			return 0;
 	}
 	return 1;
 }

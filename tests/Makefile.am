@@ -1,5 +1,5 @@
 # This file is part of Dircond 
-# Copyright (C) 2012, 2013 Sergey Poznyakoff
+# Copyright (C) 2012-2014 Sergey Poznyakoff
 #
 # Dircond is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -49,10 +49,12 @@ TESTSUITE_AT = \
   env02.at\
   env03.at\
   glob01.at\
+  glob02.at\
   re01.at\
   re02.at\
   re03.at\
   re04.at\
+  re05.at\
   testsuite.at\
   write.at
 

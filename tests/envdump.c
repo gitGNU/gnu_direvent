@@ -175,6 +175,7 @@ main(int argc, char **argv)
 	int i;
 	char *p;
 	FILE *fp = NULL;
+	char *file;
 	char *mode = "w";
 	int sortenv = 0;
 	char *include = NULL;
@@ -193,12 +194,7 @@ main(int argc, char **argv)
 			mode = "a";
 			break;
 		case 'f':
-			fp = fopen(optarg, mode);
-			if (!fp) {
-				fprintf(stderr, "%s: ", progname);
-				perror(optarg);
-				return 1;
-			}
+			file = optarg;
 			break;
 		case 'h':
 			printf("usage: %s [-ahsx] [-f FILE] [-i INCLUDELIST] [-k [@]PID[:SIG]] [ARGS...]\n",
@@ -217,7 +213,14 @@ main(int argc, char **argv)
 			return 1;
 		}
 
-	if (!fp)
+	if (file) {
+		fp = fopen(file, mode);
+		if (!fp) {
+			fprintf(stderr, "%s: ", progname);
+			perror(file);
+			return 1;
+		}
+	} else
 		fp = stderr;
 	
 	fprintf(fp, "# Dump of execution environment\n");

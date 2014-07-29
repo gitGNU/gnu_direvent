@@ -595,7 +595,11 @@ file_name_pattern(struct grecs_list *lp, grecs_value_t *val)
 	arg = val->v.string;
 
 	pat = emalloc(sizeof(*pat));
-	
+	if (*arg == '!') {
+		pat->neg = 1;
+		++arg;
+	} else
+		pat->neg = 0;
 	if (arg[0] == '/') {
 		char *q, *p;
 

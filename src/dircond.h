@@ -56,6 +56,7 @@ struct transtab {
 
 struct filename_pattern {
 	int type;
+	int neg;
 	union {
 		regex_t re;
 		char *glob;
