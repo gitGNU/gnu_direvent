@@ -1,5 +1,5 @@
 # This file is part of Dircond -*- autoconf -*-
-# Copyright (C) 2012, 2013 Sergey Poznyakoff
+# Copyright (C) 2012-2014 Sergey Poznyakoff
 #
 # Dircond is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -15,7 +15,7 @@
 # along with Dircond.  If not, see <http://www.gnu.org/licenses/>.
 
 AC_PREREQ([2.69])
-AC_INIT([dircond], [4.1], [bug-dircond@gnu.org.ua],,
+AC_INIT([dircond], [4.1.90], [bug-dircond@gnu.org.ua],,
         [http://www.gnu.org.ua/software/dircond])
 AC_CONFIG_SRCDIR([src/dircond.c])
 AC_CONFIG_HEADERS([config.h])
