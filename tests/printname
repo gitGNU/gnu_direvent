@@ -1,2 +1,4 @@
 #! /bin/sh
 echo `pwd`/$DIREVENT_FILE >> $1
+if test $DIREVENT_FILE = sentinel; then kill -HUP $DIREVENT_SELF_TEST_PID; fi
+

@@ -165,8 +165,10 @@ read_pid_and_sig(char *arg, pid_t *pid, int *sig)
 		}
 	}
 
-	if (p)
+	if (p) {
 		*sig = strtosig(p);
+		p[-1] = ':';
+	}
 }
 
 int

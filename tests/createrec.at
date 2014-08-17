@@ -17,21 +17,7 @@
 AT_SETUP([Create recursive])
 AT_KEYWORDS([create createrec])
 
-AT_CHECK([
-cwd=`pwd -P`
-pidfile=$cwd/direvent.pid
-outfile=$cwd/dump
-mkdir dir
-#sleep 1
-mkdir a
-mkdir a/b
-mkdir a/b/c
-> a/af
-> a/af1
-> a/b/bf
-
-cat > test.conf <<EOT
-pidfile $pidfile;
+AT_DIREVENT_TEST([
 debug 10;
 syslog {
 	facility ${TESTSUITE_FACILITY:-local0};
@@ -43,15 +29,20 @@ watcher {
 	command "$SRCDIR/printname $outfile";
 	option (stdout,stderr);
 }
-EOT
-
-direvent -lnotice test.conf || exit 1
-waitfile $pidfile 2
-cp -r a dir
-waitfile $outfile 6
-kill `cat $pidfile`
-
-sed "s^$cwd^(CWD)^;s^$TESTDIR^(TESTDIR)^" $outfile | sort
+],
+[cp -r a dir
+touch dir/sentinel
+],
+[outfile=$cwd/dump
+mkdir dir
+mkdir a
+mkdir a/b
+mkdir a/b/c
+> a/af
+> a/af1
+> a/b/bf
+],
+[sed "s^$cwd^(CWD)^;s^$TESTDIR^(TESTDIR)^" $outfile | sort
 ],
 [0],
 [(CWD)/dir/a
@@ -60,6 +51,7 @@ sed "s^$cwd^(CWD)^;s^$TESTDIR^(TESTDIR)^" $outfile | sort
 (CWD)/dir/a/b
 (CWD)/dir/a/b/bf
 (CWD)/dir/a/b/c
+(CWD)/dir/sentinel
 ])
 
 AT_CLEANUP

@@ -17,13 +17,7 @@
 AT_SETUP([Attrib])
 AT_KEYWORDS([attrib])
 
-AT_CHECK([
-cwd=`pwd -P`
-pidfile=$cwd/direvent.pid
-outfile=$cwd/dump
-mkdir dir
-cat > test.conf <<EOT
-pidfile $pidfile;
+AT_DIREVENT_TEST([
 debug 10;
 syslog {
 	facility ${TESTSUITE_FACILITY:-local0};
@@ -32,21 +26,17 @@ syslog {
 watcher {
 	path $cwd/dir;
 	event attrib;
-	command "$TESTDIR/envdump -s -i DIREVENT_FILE=:DIREVENT_GENEV_ -f $outfile";
+	command "$TESTDIR/envdump -s -i DIREVENT_FILE=:DIREVENT_GENEV_ -f $outfile -k\$self_test_pid";
 	option (stdout,stderr);
 }
-EOT
-
+],
+[chmod 644 dir/file],
+[outfile=$cwd/dump
+mkdir dir
 > dir/file
 chmod 600 dir/file
-
-direvent -lnotice test.conf || exit 1
-
-chmod 644 dir/file
-
-waitfile $outfile 6 || exit 2
-kill `cat $pidfile`
-sed "s^$cwd^(CWD)^;s^$TESTDIR^(TESTDIR)^" $outfile
+],
+[sed "s^$cwd^(CWD)^;s^$TESTDIR^(TESTDIR)^;/^argv\[[[0-9]]\]=-k/d" $outfile
 ],
 [0],
 [# Dump of execution environment

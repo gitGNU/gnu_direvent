@@ -141,7 +141,9 @@ environ_setup(char **hint, char **kve)
 	
 	for (i = 0; hint[i]; i++)
 		count++;
-	
+
+	if (self_test_pid)
+		count++;
 
 	/* Allocate new environment. */
 	new_env = ecalloc(count + 1, sizeof new_env[0]);
@@ -202,6 +204,12 @@ environ_setup(char **hint, char **kve)
 			if (p)
 				new_env[n++] = p;
 		}
+	}
+	if (self_test_pid) {
+		char buf[512];
+		snprintf(buf, sizeof buf, "DIREVENT_SELF_TEST_PID=%lu",
+			 (unsigned long)self_test_pid);
+		new_env[n++] = estrdup(buf);;
 	}
 	new_env[n] = NULL;
 

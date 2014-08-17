@@ -22,6 +22,7 @@
 #include <grp.h>
 #include <signal.h>
 #include <grecs.h>
+#include "wordsplit.h"
 
 #ifndef SYSCONFDIR
 # define SYSCONFDIR "/etc"
@@ -32,6 +33,7 @@
 const char *program_name;         /* This program name */
 const char *conffile = DEFAULT_CONFFILE;
 int foreground;                   /* Remain in the foreground */
+char *self_test_prog;
 char *tag;                        /* Syslog tag */
 int facility = -1;                /* Use this syslog facility for logging.
 				     -1 means log to stderr */
@@ -387,6 +389,9 @@ genev_init()
 int signo = 0;
 int stop = 0;
 
+pid_t self_test_pid;
+int exit_code = 0;
+
 void
 sigmain(int sig)
 {
@@ -398,6 +403,40 @@ sigmain(int sig)
 	default:
 		stop = 1;
 	}
+}
+extern char **environ;
+
+void
+self_test()
+{
+	pid_t pid;
+	struct wordsplit ws;
+
+	ws.ws_env = (const char **)environ;
+	if (wordsplit(self_test_prog, &ws,
+		      WRDSF_NOCMD | WRDSF_QUOTE | WRDSF_SQUEEZE_DELIMS |
+		      WRDSF_CESCAPES | WRDSF_ENV)) {
+		diag(LOG_CRIT, "wordsplit: %s", wordsplit_strerror (&ws));
+		exit(2);
+	}
+
+	pid = fork();
+	if (pid == (pid_t)-1) {
+		diag(LOG_CRIT,
+		     "cannot run `%s': fork failed: %s",
+		     self_test_prog, strerror(errno));
+		exit(2);
+	}
+	
+	if (pid != 0) {
+		self_test_pid = pid;
+		return;
+	}
+	
+	execv(ws.ws_wordv[0], ws.ws_wordv);
+
+	diag(LOG_ERR, "execv: %s: %s", ws.ws_wordv[0], strerror(errno));
+	_exit(127);
 }
 
 
@@ -492,8 +531,11 @@ main(int argc, char **argv)
 
 	signal_setup(sigmain);
 
+	if (self_test_prog)
+		self_test();
+	
 	/* Main loop */
-	while (sysev_select() == 0 && !stop) {
+	while (!stop && sysev_select() == 0) {
 		process_timeouts();
 		process_cleanup(0);
 	}
@@ -503,5 +545,5 @@ main(int argc, char **argv)
 	if (pidfile)
 		unlink(pidfile);
 	
-	return 0;
+	return exit_code;
 }

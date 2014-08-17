@@ -109,6 +109,10 @@ extern char *user;
 extern unsigned opt_timeout;
 extern unsigned opt_flags;
 extern int signo;
+extern int stop;
+
+extern pid_t self_test_pid;
+extern int exit_code;
 
 
 void *emalloc(size_t size);

@@ -34,6 +34,12 @@ BEGIN
 	opt_foreground++;
 END
 
+OPTION(self-test,T,PROG,
+       [<self-test mode>])
+BEGIN
+	self_test_prog = optarg;
+END	
+
 OPTION(pidfile,P,FILE,
        [<set PID file>])
 BEGIN       

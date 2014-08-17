@@ -17,13 +17,7 @@
 AT_SETUP([clear all environment])
 AT_KEYWORDS([environ env02])
 
-AT_CHECK([
-cwd=`pwd -P`
-pidfile=$cwd/direvent.pid
-outfile=$cwd/dump
-mkdir dir
-cat > test.conf <<EOT
-pidfile $pidfile;
+AT_DIREVENT_TEST([
 debug 10;
 syslog {
 	facility ${TESTSUITE_FACILITY:-local0};
@@ -32,27 +26,21 @@ syslog {
 watcher {
 	path $cwd/dir;
 	event write;
-	command "$TESTDIR/envdump -s -f $outfile";
+	command "$TESTDIR/envdump -s -f $outfile -k\$self_test_pid";
 	option (stdout,stderr);
 	environ --;
 }
-EOT
-
+],
+[echo "to come to" >> dir/testfile],
+[outfile=$cwd/dump
+mkdir dir
 cat > dir/testfile <<EOT
 now is the
 time for all
 men
 EOT
-
-direvent -lnotice test.conf || exit 1
-waitfile $pidfile 2
-echo "to come to" >> dir/testfile
-
-waitfile $outfile 6
-res=$?
-kill `cat $pidfile`
-test $? -ne 0 && exit 1
-sed "s^$cwd^(CWD)^;s^$TESTDIR^(TESTDIR)^;s^\(DIREVENT_SYS.*\)=.*^\1=X^" $outfile
+],
+[sed "s^$cwd^(CWD)^;s^$TESTDIR^(TESTDIR)^;s^\(DIREVENT_SYS.*\)=.*^\1=X^;/^argv\[[[0-9]]\]=-k/d;/DIREVENT_SELF_TEST_PID/d" $outfile
 ],
 [0],
 [# Dump of execution environment

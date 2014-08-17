@@ -17,13 +17,7 @@
 AT_SETUP([Command line expansions])
 AT_KEYWORDS([cmdexp])
 
-AT_CHECK([
-cwd=`pwd -P`
-pidfile=$cwd/direvent.pid
-outfile=$cwd/dump
-mkdir dir
-cat > test.conf <<EOT
-pidfile $pidfile;
+AT_DIREVENT_TEST([
 debug 10;
 syslog {
 	facility ${TESTSUITE_FACILITY:-local0};
@@ -32,26 +26,20 @@ syslog {
 watcher {
 	path $cwd/dir;
 	event write;
-	command "$TESTDIR/envdump -s -i DIREVENT_FILE=:DIREVENT_GENEV_ -f $outfile file=\$file event=\$genev_name";
+	command "$TESTDIR/envdump -s -i DIREVENT_FILE=:DIREVENT_GENEV_ -f $outfile -k\$self_test_pid file=\$file event=\$genev_name";
 	option (stdout,stderr);
 }
-EOT
-
+],
+[echo "to come to" >> dir/testfile],
+[outfile=$cwd/dump
+mkdir dir
 cat > dir/testfile <<EOT
 now is the
 time for all
 men
 EOT
-
-direvent -lnotice test.conf || exit 1
-waitfile $pidfile 2
-echo "to come to" >> dir/testfile
-
-waitfile $outfile 6
-res=$?
-kill `cat $pidfile`
-test $? -ne 0 && exit 1
-sed "s^$cwd^(CWD)^;s^$TESTDIR^(TESTDIR)^" $outfile
+],
+[sed "s^$cwd^(CWD)^;s^$TESTDIR^(TESTDIR)^;/^argv\[[[0-9]]\]=-k/d" $outfile
 ],
 [0],
 [# Dump of execution environment
@@ -63,8 +51,8 @@ argv[[2]]=-i
 argv[[3]]=DIREVENT_FILE=:DIREVENT_GENEV_
 argv[[4]]=-f
 argv[[5]]=(CWD)/dump
-argv[[6]]=file=testfile
-argv[[7]]=event=write
+argv[[7]]=file=testfile
+argv[[8]]=event=write
 # Environment
 DIREVENT_FILE=testfile
 DIREVENT_GENEV_CODE=2

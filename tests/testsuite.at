@@ -18,6 +18,29 @@ m4_version_prereq([2.52g])
 
 m4_define([AT_SKIP_TEST],[exit 77])
 
+dnl AT_DIREVENT_TEST([CONFIG],[SELFTEST],[PROLOGUE],[EPILOGUE],[CODE],[STDOUT],
+dnl                  [STDERR])                 
+m4_define([AT_DIREVENT_TEST],[
+AT_CHECK([
+cwd=`pwd -P`
+$3
+cat > test.conf <<EOT
+[$1]
+EOT
+cat > selftest.sh <<EOT
+#!/bin/sh
+[$2]
+sleep 10
+exit 21
+EOT
+chmod +x selftest.sh
+direvent -lnotice -f --self-test $cwd/selftest.sh test.conf || exit $?
+$4
+],
+[$5],
+[$6],
+[$7])])
+
 AT_INIT
 AT_TESTED([direvent])
 

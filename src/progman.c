@@ -176,28 +176,45 @@ process_cleanup(int expect_term)
 	
 	while ((pid = waitpid(-1, &status, WNOHANG)) > 0) {
 		sigset_t set;
-		struct process *p = process_lookup(pid);
-
 		sigemptyset(&set);
-		if (expect_term)
-			sigaddset(&set, SIGTERM);
-		if (!p) {
-			sigaddset(&set, SIGTERM);
-			sigaddset(&set, SIGKILL);
-		}
-		print_status(pid, status, &set);
-		if (!p)
-			continue;
 
-		if (p->type == PROC_HANDLER) {
-			if (p->v.redir[REDIR_OUT])
-				p->v.redir[REDIR_OUT]->v.master = NULL;
-			if (p->v.redir[REDIR_ERR])
-				p->v.redir[REDIR_ERR]->v.master = NULL;
+		if (pid == self_test_pid) {
+			sigaddset(&set, SIGHUP);
+			print_status(pid, status, &set);
+			
+			if (WIFEXITED(status))
+				exit_code = WEXITSTATUS(status);
+			else if (WIFSIGNALED(status)) {
+				if (WTERMSIG(status) == SIGHUP)
+					exit_code = 0;
+				else
+					exit_code = 2;
+			} else
+				exit_code = 2;
+			stop = 1;
+		} else {
+			struct process *p = process_lookup(pid);
+
+			if (expect_term)
+				sigaddset(&set, SIGTERM);
+			if (!p) {
+				sigaddset(&set, SIGTERM);
+				sigaddset(&set, SIGKILL);
+			}
+			print_status(pid, status, &set);
+			if (!p)
+				continue;
+
+			if (p->type == PROC_HANDLER) {
+				if (p->v.redir[REDIR_OUT])
+					p->v.redir[REDIR_OUT]->v.master = NULL;
+				if (p->v.redir[REDIR_ERR])
+					p->v.redir[REDIR_ERR]->v.master = NULL;
+			}
+			p->pid = 0;
+			proc_unlink(&proc_list, p);
+			proc_push(&proc_avail, p);
 		}
-		p->pid = 0;
-		proc_unlink(&proc_list, p);
-		proc_push(&proc_avail, p);
 	}
 }
 
@@ -351,7 +368,7 @@ open_redirector(const char *tag, int prio, struct process **return_proc)
 static void
 runcmd(const char *cmd, char **envhint, event_mask *event, const char *file)
 {
-	char *kve[11];
+	char *kve[13];
 	char *p,*q;
 	char buf[1024];
 	int i = 0, j;
@@ -363,6 +380,12 @@ runcmd(const char *cmd, char **envhint, event_mask *event, const char *file)
 	snprintf(buf, sizeof buf, "%d", event->sys_mask);
 	kve[i++] = "sysev_code";
 	kve[i++] = estrdup(buf);
+
+	if (self_test_pid) {
+		snprintf(buf, sizeof buf, "%lu", (unsigned long)self_test_pid);
+		kve[i++] = "self_test_pid";
+		kve[i++] = estrdup(buf);
+	}
 	
 	q = buf;
 	for (p = trans_tokfirst(sysev_transtab, event->sys_mask, &j); p;

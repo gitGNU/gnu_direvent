@@ -76,4 +76,4 @@ check-local: atconfig atlocal $(TESTSUITE)
 	@$(SHELL) $(TESTSUITE)
 
 
-noinst_PROGRAMS=envdump waitfile
+noinst_PROGRAMS=envdump
