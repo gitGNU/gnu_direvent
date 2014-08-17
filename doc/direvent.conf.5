@@ -1,21 +1,21 @@
-.\" dircond - directory content watcher daemon -*- nroff -*-
+.\" direvent - directory content watcher daemon -*- nroff -*-
 .\" Copyright (C) 2012-2014 Sergey Poznyakoff
 .\"
-.\" Dircond is free software; you can redistribute it and/or modify it
+.\" Direvent is free software; you can redistribute it and/or modify it
 .\" under the terms of the GNU General Public License as published by the
 .\" Free Software Foundation; either version 3 of the License, or (at your
 .\" option) any later version.
 .\"
-.\" Dircond is distributed in the hope that it will be useful,
+.\" Direvent is distributed in the hope that it will be useful,
 .\" but WITHOUT ANY WARRANTY; without even the implied warranty of
 .\" MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 .\" GNU General Public License for more details.
 .\"
 .\" You should have received a copy of the GNU General Public License along
-.\" with dircond. If not, see <http://www.gnu.org/licenses/>.
-.TH DIRCOND.CONF 5 "August 10, 2014" "DIRCOND" "Dircond User Reference"
-dircond.conf \- configuration file for
-.BR dircond (8).
+.\" with direvent. If not, see <http://www.gnu.org/licenses/>.
+.TH DIREVENT.CONF 5 "August 10, 2014" "DIREVENT" "Direvent User Reference"
+direvent.conf \- configuration file for
+.BR direvent (8).
 .SH DESCRIPTION
 The configuration file consists of statements and comments.
 .PP
@@ -105,7 +105,7 @@ The following is a simple statement:
 .sp
 .RS 4
 .nf
-pidfile /var/run/dircond.pid;
+pidfile /var/run/direvent.pid;
 .RE
 .fi
 .PP
@@ -297,7 +297,7 @@ characters.  Each name corresponds to a bit in \fBsysev_code\fR.  See
 the section  
 .B SYSTEM DEPENDENCIES
 in
-.BR dircond (8),
+.BR direvent (8),
 for a list of system-dependent event names.
 .TP
 .B genev_code
@@ -323,7 +323,7 @@ Upon successful startup store the PID of the daemon process in \fIFILE\fR.
 Set debug level.  Valid \fINUMBER\fR values are \fB0\fR (no debug) to \fB3\fR
 (maximum verbosity).
 .SH LOGGING
-While connected to the terminal \fBdircond\fR outputs its diagnostics and
+While connected to the terminal \fBdirevent\fR outputs its diagnostics and
 debugging messages to the standard error.  After disconnecting from the
 controlling terminal it closes the first three file descriptors and directs
 all its output to the \fBsyslog\fR.  When running in foreground mode, its
@@ -403,7 +403,7 @@ existing directory in the file system.  The watcher will watch events
 occurring for all files within that directory.  If the optional
 .B recursive
 clause is specified, this directory will be watched recursively, i.e.
-when any subdirectory is created in it, \fBdircond\fR will set up
+when any subdirectory is created in it, \fBdirevent\fR will set up
 a watcher for files in this subdirectory.  This new watcher will be
 an exact copy of the parent watcher, excepting for the pathnames.
 The optional \fINUMBER\fR parameter defines a cut-off nesting level for
@@ -472,7 +472,7 @@ command "/bin/prog -event $genev_name -file $file";
 .RE
 .IP
 See the section \fBHANDLER ENVIRONMENT\fR in
-.BR dircond (8),
+.BR direvent (8),
 for a detailed discussion of how the command is executed.
 .TP
 \fBuser\fR \fISTRING\fR;
@@ -501,22 +501,22 @@ Capture the standard error of the command and redirect it to the
 .TP
 \fBenviron\fR \fIENV\-SPEC\fR;
 Modify command environment.  By default the command inherits the environment
-of \fBdircond\fR augmented with the following variables:
+of \fBdirevent\fR augmented with the following variables:
 .RS +10
 .TP
-.B DIRCOND_SYSEV_CODE
+.B DIREVENT_SYSEV_CODE
 The system-dependent event code (see the \fB${sysev_code}\fR variable).
 .TP
-.B DIRCOND_SYSEV_NAME
+.B DIREVENT_SYSEV_NAME
 The system-dependent event name or names (see the \fB${sysev_name}\fR variable).
 .TP
-.B DIRCOND_GENEV_CODE
+.B DIREVENT_GENEV_CODE
 The generic event code (see the \fB${genev_code}\fR variable).
 .TP
-.B DIRCOND_GENEV_NAME
+.B DIREVENT_GENEV_NAME
 The generic event name or names (see the \fB${genev_name}\fR variable).
 .TP
-.B DIRCOND_FILE
+.B DIREVENT_FILE
 The name of the affected file relative to the current working directory
 (see the \fB${file}\fR variable).
 .RE
@@ -528,13 +528,13 @@ directives:
 .TP
 .BR \- " (a single dash)"
 Clear the inherited environment, but retain the variables added by
-\fBdircond\fR.  The removed environment variables can be selectively
+\fBdirevent\fR.  The removed environment variables can be selectively
 restored by the directives that follow.  This must be the first directive
 in the list.
 .TP
 .BR \-\- " (double-dash)"
 Clear the entire environment, including the variables added by
-\fBdircond\fR.  This must be the first directive in the list.
+\fBdirevent\fR.  This must be the first directive in the list.
 .TP
 .BI \- NAME
 Unset the variable \fINAME\fR.
@@ -582,7 +582,7 @@ the assignment.
 The \fIVALUE\fR can contain macro variables, which will be expanded prior
 to the assignment. 
 .SH "SEE ALSO"
-.BR dircond (8).
+.BR direvent (8).
 .SH COPYRIGHT
 Copyright \(co 2012, 2013 Sergey Poznyakoff
 .br

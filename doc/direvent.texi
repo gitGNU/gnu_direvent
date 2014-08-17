@@ -1,8 +1,8 @@
 \input texinfo @c -*-texinfo-*-
 @smallbook
 @c %**start of header
-@setfilename dircond.info
-@settitle Dircond User Manual
+@setfilename direvent.info
+@settitle Direvent User Manual
 @c %**end of header
 @setchapternewpage odd
 
@@ -26,7 +26,7 @@
 @ifinfo
 @dircategory Individual utilities
 @direntry
-* dircond: (dircond).                Monitor changes in directories.
+* direvent: (direvent).                Monitor changes in directories.
 @end direntry
 @end ifinfo
 
@@ -42,7 +42,7 @@ Documentation License''.
 @end copying
 
 @titlepage
-@title Dircond User Manual
+@title Direvent User Manual
 @subtitle version @value{VERSION}, @value{UPDATED}
 @author Sergey Poznyakoff.
 @page
@@ -59,10 +59,10 @@ Documentation License''.
 
 @ifnottex
 @node Top
-@top Dircond
+@top Direvent
 
-This edition of the @cite{Dircond User Manual}, last updated @value{UPDATED},
-documents Dircond Version @value{VERSION}.
+This edition of the @cite{Direvent User Manual}, last updated @value{UPDATED},
+documents Direvent Version @value{VERSION}.
 @end ifnottex
 
 @menu
@@ -86,25 +86,25 @@ Appendices
 
 @node Intro
 @chapter Introduction
-@code{Dircond} monitors events in the file system directories.  For
+@code{Direvent} monitors events in the file system directories.  For
 each event that occurs in a set of pre-configured directories, the
 program calls an external program associated with it, supplying it
 the information about the event and the location within the file
 system where it occured.
 
-@code{Dircond} provides an easy way to configure your system to react
+@code{Direvent} provides an easy way to configure your system to react
 immediately if certain files undergo changes.  This may be helpful,
 for example, to track changes in the important configuration files.
 
 Interfaces for tracking changes to file systems are highly
-system-specific.  @command{Dircond} aims to provide a uniform
+system-specific.  @command{Direvent} aims to provide a uniform
 and system-independent command-level interface.  As of version
-@value{VERSION} @command{dircond} works with modern Linux kernels
+@value{VERSION} @command{direvent} works with modern Linux kernels
 (since v. 2.6.13) and BSD systems (FreeBSD, NetBSD, OpenBSD, Darwin).
 
 @node Overview
 @chapter Overview
-@command{Dircond} monitors a set of directories on the file system and
+@command{Direvent} monitors a set of directories on the file system and
 reacts when a file system event occurs in any of them.  Directories
 and events to monitor are specified in the configuration file.  When
 an event occurs the utility reacts by invoking an external command
@@ -116,7 +116,7 @@ There are two kinds of events: @dfn{system-dependent events}, which are
 specific for each particular kernel interface, and @dfn{generic
 events}, which don't depend on the underlying system.  Generic events
 provide a higher level of abstraction and make it possible to port
-dircond configurations between various systems and architectures
+direvent configurations between various systems and architectures
 without the need to rewrite them.
 
 @cindex generic events
@@ -142,14 +142,14 @@ ownership, mode, link count, etc.
 @cindex watcher, introduced
 @cindex handler, introduced
 A @dfn{watcher} is a configuration entity which associates a set of
-directories with a set of events and instructs @command{dircond} to
+directories with a set of events and instructs @command{direvent} to
 run a specified external command when any of these events occur in any
 of these directories.  This external command (called a @dfn{handler})
 can obtain information about the event that triggered its execution
 from the environment variables, or from its command line.
 
 Watchers are defined in the configuration file, which
-@command{dircond} reads at startup.  This file has a simple and easy
+@command{direvent} reads at startup.  This file has a simple and easy
 to use syntax.
 
 Three types of comments are allowed: inline comments, that begin with
@@ -187,7 +187,7 @@ watcher @{
 @}
 @end example
 
-Each @code{watcher} statement instructs @command{dircond} to monitor
+Each @code{watcher} statement instructs @command{direvent} to monitor
 the events listed in @var{event-list} occurring in the directories
 specified by @var{pathname}s in @code{path} statements (any number of
 @code{path} statements can be given).  When any such event is detected,
@@ -195,13 +195,13 @@ the @var{command-line} will be executed.
 
 Each directory defined with the @code{recursive} keyword will be
 watched recursively.  This means that for each subdirectory created in
-it, @command{dircond} will install a watcher similar to that of its parent
+it, @command{direvent} will install a watcher similar to that of its parent
 directory.  The optional @var{level} can be used to set up a cut-off
 nesting level, beyond which the recursive operation is disabled.
 
 The rest of statements are optional.  The @code{user} statement can be
 used to execute the @var{command-line} as the user @var{name}
-(provided, of course, that @command{dircond} is started with root
+(provided, of course, that @command{direvent} is started with root
 privileges).  The @code{timeout} specifies the maximum amount of time
 (in seconds) the command is allowed to run.  It defaults to 5.  The
 @code{environ} statement modifies the command environment.  Finally,
@@ -216,7 +216,7 @@ time.  Let this directory be @file{/home/ftp/incoming} and the program
 to process the upload be @file{/usr/bin/upload}.  Let's also suppose
 that this program expects the name of file as its argument.
 
-To make @command{dircond} handle this task, you would need to create a
+To make @command{direvent} handle this task, you would need to create a
 watcher for the upload directory which would handle the @samp{create} event:
 
 @example
@@ -228,7 +228,7 @@ watcher @{
 
 On this event the watcher is to invoke @file{/usr/bin/upload}
 supplying it the name of created file as an argument.  To make it
-possible the @command{dircond} configuration file provides @dfn{macro
+possible the @command{direvent} configuration file provides @dfn{macro
 variables}, which can be used in the @code{command} argument at
 configuration time and which are expanded to the actual values before
 the command is executed.  Macro variables are referred to using the
@@ -291,13 +291,13 @@ The program is invoked.
 The invocation syntax is:
 
 @example
-dircond  [@var{options}] [@var{config}]
+direvent  [@var{options}] [@var{config}]
 @end example
 
 @noindent
 where @var{options} are command line options discussed below and
 optional @var{config} supplies the configuration file to use instead
-of the default @file{/etc/dircond.conf}.
+of the default @file{/etc/direvent.conf}.
 
 The options are:
 
@@ -325,7 +325,7 @@ Increase debug level.
 Remain in foreground.
 @opindex -l
 @item -l @var{prio}
-While connected to a terminal @command{dircond} outputs its diagnostics
+While connected to a terminal @command{direvent} outputs its diagnostics
 messages to stderr and, if configured, to syslog.  This option
 limits the amount of information output to the standard error.
 The @var{prio} argument is one of the following priorities (in order
@@ -455,7 +455,7 @@ with a semicolon (@samp{;}).
 
 @smallexample
 standalone yes;
-pidfile /var/run/dircond.pid;
+pidfile /var/run/direvent.pid;
 @end smallexample
 
   A @dfn{keyword} begins with a letter and may contain letters,
@@ -620,7 +620,7 @@ the example below:
 @group
 syslog @{
   facility local0;
-  tag "dircond";
+  tag "direvent";
 @}
 @end group
 @end smallexample
@@ -696,7 +696,7 @@ Set debug level.  Valid @var{number} values are @samp{0} (no debug) to @samp{3}
 @section Syslog
 @cindex syslog
 @cindex logging
-While connected to the terminal @command{dircond} outputs its diagnostics and
+While connected to the terminal @command{direvent} outputs its diagnostics and
 debugging messages to the standard error.  After disconnecting from the
 controlling terminal it closes the first three file descriptors and directs
 all its output to the syslog.  When running in foreground mode, its
@@ -777,7 +777,7 @@ name of an existing directory in the file system.  The watcher will
 watch events occurring for all files within that directory.  If the
 optional @code{recursive} clause is specified, this directory will be
 watched recursively, i.e. when any subdirectory is created in it,
-@command{dircond} will set up a watcher for files in this
+@command{direvent} will set up a watcher for files in this
 subdirectory.  This new watcher will be an exact copy of the parent
 watcher, excepting for the pathnames.  The optional @var{number}
 parameter defines a cut-off nesting level for recursive watching.  If
@@ -882,25 +882,25 @@ syslog with the @samp{LOG_ERR} priority.
 @anchor{environ}
 @deffn {Config} environ @var{env-spec}
 Modify command environment.  By default the command inherits the environment
-of @command{dircond} augmented with the following variables:
+of @command{direvent} augmented with the following variables:
 
 @cindex Handler environment variables
 @cindex environment, handler
 @table @env
-@kwindex DIRCOND_SYSEV_CODE, environment variable
-@item DIRCOND_SYSEV_CODE
+@kwindex DIREVENT_SYSEV_CODE, environment variable
+@item DIREVENT_SYSEV_CODE
 The system-dependent event code (see the @code{$sysev_code} variable).
-@kwindex DIRCOND_SYSEV_NAME, environment variable
-@item DIRCOND_SYSEV_NAME
+@kwindex DIREVENT_SYSEV_NAME, environment variable
+@item DIREVENT_SYSEV_NAME
 The system-dependent event name or names (see the @code{$sysev_name} variable).
-@kwindex DIRCOND_GENEV_CODE, environment variable
-@item DIRCOND_GENEV_CODE
+@kwindex DIREVENT_GENEV_CODE, environment variable
+@item DIREVENT_GENEV_CODE
 The generic event code (see the @code{$genev_code} variable).
-@kwindex DIRCOND_GENEV_NAME, environment variable
-@item DIRCOND_GENEV_NAME
+@kwindex DIREVENT_GENEV_NAME, environment variable
+@item DIREVENT_GENEV_NAME
 The generic event name or names (see the @code{$genev_name} variable).
-@kwindex DIRCOND_FILE, environment variable
-@item DIRCOND_FILE
+@kwindex DIREVENT_FILE, environment variable
+@item DIREVENT_FILE
 The name of the affected file relative to the current working directory
 (see the @code{$file} variable).
 @end table
@@ -914,13 +914,13 @@ expansion}).  The following directives are available:
 @table @asis
 @item - (a single dash)
 Clear the inherited environment, but retain the variables added by
-@command{dircond}.  The removed environment variables can be selectively
+@command{direvent}.  The removed environment variables can be selectively
 restored using the directives discussed below.  This must be the first
 directive in the list.
 
 @item @samp{--} (double-dash)
 Clear the entire environment, including the variables added by
-@command{dircond}.  This must be the first directive in the list.
+@command{direvent}.  This must be the first directive in the list.
 
 @item -@var{name}
 Unset the variable @var{name}.
@@ -963,7 +963,7 @@ before assignment.
 
 @node System dependencies
 @chapter System Dependencies
-@command{Dircond} relies on the event monitoring API provided by the
+@command{Direvent} relies on the event monitoring API provided by the
 kernel.
 
 @menu
@@ -1043,7 +1043,7 @@ A file was opened.
 @cindex BSD
 @cindex kqueue
 When compiled on BSD systems (including Darwin),
-@command{dircond} uses @code{kqueue} (@pxref{kqueue,,kernel event
+@command{direvent} uses @code{kqueue} (@pxref{kqueue,,kernel event
 notification mechanism,kqueue(2),kqueue(2) man page}).
 
 @cindex number of open file descriptors
@@ -1053,7 +1053,7 @@ maximum number of open files.  Use @samp{ulimit -n @var{NUM}} in order
 to raise it to a higher number.
 
 Since it operates on files, @code{kqueue} does not provide direct
-support for the @samp{create} generic event.  @command{Dircond} works
+support for the @samp{create} generic event.  @command{Direvent} works
 over this disadvantage by keeping track of the contents of each
 monitored directory and rescanning it each time a @samp{WRITE} system
 event is reported for it.  It then generates the @samp{open} event for
@@ -1104,12 +1104,12 @@ event queue cannot be inherited by the child process.
 @node Reporting Bugs
 @chapter How to Report a Bug
 
-Please, report bugs and suggestions to @email{bug-dircond@@gnu.org.ua}.
+Please, report bugs and suggestions to @email{bug-direvent@@gnu.org.ua}.
 
   You hit a bug if at least one of the conditions below is met:
 
 @itemize @bullet
-@item @command{dircond} terminates on signal 11
+@item @command{direvent} terminates on signal 11
 (SIGSEGV) or 6 (SIGABRT).
 @item The program fails to do its job as described in
 this manual.

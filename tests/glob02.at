@@ -1,25 +1,25 @@
-# This file is part of Dircond testsuite. -*- Autotest -*-
+# This file is part of Direvent testsuite. -*- Autotest -*-
 # Copyright (C) 2013, 2014 Sergey Poznyakoff
 #
-# Dircond is free software; you can redistribute it and/or modify
+# Direvent is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation; either version 3, or (at your option)
 # any later version.
 #
-# Dircond is distributed in the hope that it will be useful,
+# Direvent is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with Dircond.  If not, see <http://www.gnu.org/licenses/>.
+# along with Direvent.  If not, see <http://www.gnu.org/licenses/>.
 
 AT_SETUP([Globbing pattern negation])
 AT_KEYWORDS([create fname glob glob02 neg])
 
 AT_CHECK([
 cwd=`pwd -P`
-pidfile=$cwd/dircond.pid
+pidfile=$cwd/direvent.pid
 outfile=$cwd/dump
 mkdir dir
 cat > test.conf <<EOT
@@ -27,18 +27,18 @@ pidfile $pidfile;
 debug 10;
 syslog {
 	facility ${TESTSUITE_FACILITY:-local0};
-	tag dircond-test:create;
+	tag direvent-test:create;
 }
 watcher {
 	path $cwd/dir;
 	event create;
 	file "!*.tmp";
-	command "$TESTDIR/envdump -s -i DIRCOND_FILE=:DIRCOND_GENEV_ -f $outfile -a";
+	command "$TESTDIR/envdump -s -i DIREVENT_FILE=:DIREVENT_GENEV_ -f $outfile -a";
 	option (stdout,stderr);
 }
 EOT
 
-dircond -lnotice test.conf || exit 1
+direvent -lnotice test.conf || exit 1
 waitfile $pidfile 2
 > dir/tempfile
 > dir/file.tmp
@@ -53,14 +53,14 @@ cwd is (CWD)/dir
 argv[[0]]=(TESTDIR)/envdump
 argv[[1]]=-s
 argv[[2]]=-i
-argv[[3]]=DIRCOND_FILE=:DIRCOND_GENEV_
+argv[[3]]=DIREVENT_FILE=:DIREVENT_GENEV_
 argv[[4]]=-f
 argv[[5]]=(CWD)/dump
 argv[[6]]=-a
 # Environment
-DIRCOND_FILE=tempfile
-DIRCOND_GENEV_CODE=1
-DIRCOND_GENEV_NAME=create
+DIREVENT_FILE=tempfile
+DIREVENT_GENEV_CODE=1
+DIREVENT_GENEV_NAME=create
 # End
 ])
 

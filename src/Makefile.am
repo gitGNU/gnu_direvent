@@ -1,23 +1,23 @@
-# This file is part of Dircond -*- autoconf -*-
-# Copyright (C) 2012, 2013 Sergey Poznyakoff
+# This file is part of Direvent -*- autoconf -*-
+# Copyright (C) 2012-2014 Sergey Poznyakoff
 #
-# Dircond is free software; you can redistribute it and/or modify
+# Direvent is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation; either version 3, or (at your option)
 # any later version.
 #
-# Dircond is distributed in the hope that it will be useful,
+# Direvent is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with Dircond.  If not, see <http://www.gnu.org/licenses/>.
+# along with Direvent.  If not, see <http://www.gnu.org/licenses/>.
 
-bin_PROGRAMS=dircond
-dircond_SOURCES=\
- dircond.c\
- dircond.h\
+bin_PROGRAMS=direvent
+direvent_SOURCES=\
+ direvent.c\
+ direvent.h\
  cmdline.h\
  config.c\
  environ.c\
@@ -28,16 +28,16 @@ dircond_SOURCES=\
  progman.c\
  sigv.c
 
-if DIRCOND_INOTIFY
-  dircond_SOURCES += ev_inotify.c detach-std.c
+if DIREVENT_INOTIFY
+  direvent_SOURCES += ev_inotify.c detach-std.c
 endif
 
-if DIRCOND_KQUEUE
-  dircond_SOURCES += ev_kqueue.c
-if DIRCOND_RFORK
-  dircond_SOURCES += detach-bsd.c
+if DIREVENT_KQUEUE
+  direvent_SOURCES += ev_kqueue.c
+if DIREVENT_RFORK
+  direvent_SOURCES += detach-bsd.c
 else
-  dircond_SOURCES += detach-darwin.c
+  direvent_SOURCES += detach-darwin.c
 endif
 endif
 

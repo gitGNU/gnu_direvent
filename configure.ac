@@ -1,23 +1,23 @@
-# This file is part of Dircond -*- autoconf -*-
+# This file is part of Direvent -*- autoconf -*-
 # Copyright (C) 2012-2014 Sergey Poznyakoff
 #
-# Dircond is free software; you can redistribute it and/or modify
+# Direvent is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation; either version 3, or (at your option)
 # any later version.
 #
-# Dircond is distributed in the hope that it will be useful,
+# Direvent is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with Dircond.  If not, see <http://www.gnu.org/licenses/>.
+# along with Direvent.  If not, see <http://www.gnu.org/licenses/>.
 
 AC_PREREQ([2.69])
-AC_INIT([dircond], [4.1.90], [bug-dircond@gnu.org.ua],,
-        [http://www.gnu.org.ua/software/dircond])
-AC_CONFIG_SRCDIR([src/dircond.c])
+AC_INIT([direvent], [4.1.90], [bug-direvent@gnu.org.ua],,
+        [http://www.gnu.org.ua/software/direvent])
+AC_CONFIG_SRCDIR([src/direvent.c])
 AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_AUX_DIR([build-aux])
 AM_INIT_AUTOMAKE([1.11.5 gnits tar-ustar silent-rules])
@@ -50,12 +50,12 @@ else
   AC_MSG_ERROR([no suitable interface found])
 fi
 
-AM_CONDITIONAL([DIRCOND_INOTIFY],[test $iface = inotify])
-AM_CONDITIONAL([DIRCOND_KQUEUE],[test $iface = kqueue])
+AM_CONDITIONAL([DIREVENT_INOTIFY],[test $iface = inotify])
+AM_CONDITIONAL([DIREVENT_KQUEUE],[test $iface = kqueue])
 AC_SUBST(IFACE, $iface)
 AC_DEFINE_UNQUOTED(USE_IFACE,IFACE_`echo $iface|tr a-z A-Z`,
                    [event notification interface to use])
-AM_CONDITIONAL([DIRCOND_RFORK], [test "$ac_cv_func_rfork" = yes])
+AM_CONDITIONAL([DIREVENT_RFORK], [test "$ac_cv_func_rfork" = yes])
 AH_TOP([
 /* Supported event notification types */
 #define IFACE_INOTIFY 0  /* inotify - Linux */

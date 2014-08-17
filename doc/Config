@@ -1,20 +1,20 @@
-# Texi2html configuration for Dircond documentation. -*- perl -*-
-# Copyright (C) 2012, 2013 Sergey Poznyakoff
+# Texi2html configuration for Direvent documentation. -*- perl -*-
+# Copyright (C) 2012-2014 Sergey Poznyakoff
 #
-# Dircond is free software; you can redistribute it and/or modify
+# Direvent is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation; either version 3, or (at your option)
 # any later version.
 #
-# Dircond is distributed in the hope that it will be useful,
+# Direvent is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with Dircond.  If not, see <http://www.gnu.org/licenses/>.
+# along with Direvent.  If not, see <http://www.gnu.org/licenses/>.
 
-$top_html_dir="/software/dircond";
+$top_html_dir="/software/direvent";
 $graphics_dir="$top_html_dir/graphics";
 
 ## texi2html configuration
@@ -41,7 +41,7 @@ $AFTER_BODY_OPEN=qq{
 <div id="header">
 <!--#include virtual="${top_html_dir}/inc/header.html" -->
 <ul class='tabs'>
-  <li><a href="${top_html_dir}/dircond.html">Main</a></li>
+  <li><a href="${top_html_dir}/direvent.html">Main</a></li>
   <li><a href="${top_html_dir}/download.html">Downloads</a></li>
   <li><a class="active" href="${top_html_dir}/manual.html">Documentation</a></li>
 </ul>

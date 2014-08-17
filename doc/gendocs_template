@@ -55,10 +55,10 @@
       (%%PDF_SIZE%%K characters)</a>.</li>
   <li><a href="manual/%%PACKAGE%%.texi.tar.gz">Texinfo source
       (%%TEXI_TGZ_SIZE%%K characters gzipped tar file)</a></li>
-  <li><a href="http://man.gnu.org.ua/manpage/?8+dircond">dircond(8) manpage</a></li>
-  <li><a href="manual/dircond.8">dircond(8) manpage</a> - source</li>
-  <li><a href="http://man.gnu.org.ua/manpage/?5+dircond.conf">dircond.conf(5) manpage</a></li>
-  <li><a href="manual/dircond.conf.5">dircond.conf(5) manpage</a> - source</li>
+  <li><a href="http://man.gnu.org.ua/manpage/?8+direvent">direvent(8) manpage</a></li>
+  <li><a href="manual/direvent.8">direvent(8) manpage</a> - source</li>
+  <li><a href="http://man.gnu.org.ua/manpage/?5+direvent.conf">direvent.conf(5) manpage</a></li>
+  <li><a href="manual/direvent.conf.5">direvent.conf(5) manpage</a> - source</li>
 </ul>
 
 </div>

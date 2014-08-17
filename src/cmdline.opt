@@ -1,7 +1,7 @@
 #define EX_USAGE 1
 
-OPTIONS_BEGIN("dircond",
-              [<dircond monitors changes in directories>],
+OPTIONS_BEGIN("direvent",
+              [<direvent monitors changes in directories>],
               [<[CONFIG]>],
               [<gnu>],
               [<copyright_year=2012,2013>],
@@ -74,7 +74,7 @@ help_hook(FILE *fp)
 		"configuration file\n"
 	        "to use instead of %s.\n\n", DEFAULT_CONFFILE); 
 
-	fprintf(fp, "This dircond uses %s interface.\n\n", INTERFACE);
+	fprintf(fp, "This direvent uses %s interface.\n\n", INTERFACE);
 }
 
 void

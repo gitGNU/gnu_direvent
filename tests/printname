@@ -1,2 +1,2 @@
 #! /bin/sh
-echo `pwd`/$DIRCOND_FILE >> $1
+echo `pwd`/$DIREVENT_FILE >> $1

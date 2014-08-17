@@ -1,10 +1,10 @@
-Dircond README.
-Copyright (C) 2012, 2013 Sergey Poznyakoff
+Direvent README.
+Copyright (C) 2012-2014 Sergey Poznyakoff
 See the end of file for copying conditions.
 
 * Overview
 
-Dircond is a directory content watcher daemon, i.e. a program that
+Direvent is a directory content watcher daemon, i.e. a program that
 monitors a set of directories on the file system and reacts when
 their content changes. When a change is detected, the daemon reacts by
 invoking an external command configured for that kind of change.
@@ -30,15 +30,15 @@ generic options.
 Complete documentation is included with the package, both in man
 and Texinfo formats. After successful installation, use
 
-   info dircond
+   info direvent
 
 to read the Texinfo documentation.  To read the manpages, use:
 
-   man 8 dircond
-   man 5 dircond.conf
+   man 8 direvent
+   man 5 direvent.conf
 
 An online copy of the documentation in various formats is available
-at http://dircond.man.gnu.org.ua.
+at http://direvent.man.gnu.org.ua.
 
 
 * Copyright information:

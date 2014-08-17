@@ -1,25 +1,25 @@
-# This file is part of Dircond testsuite. -*- Autotest -*-
-# Copyright (C) 2013 Sergey Poznyakoff
+# This file is part of Direvent testsuite. -*- Autotest -*-
+# Copyright (C) 2013-2014 Sergey Poznyakoff
 #
-# Dircond is free software; you can redistribute it and/or modify
+# Direvent is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation; either version 3, or (at your option)
 # any later version.
 #
-# Dircond is distributed in the hope that it will be useful,
+# Direvent is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with Dircond.  If not, see <http://www.gnu.org/licenses/>.
+# along with Direvent.  If not, see <http://www.gnu.org/licenses/>.
 
 AT_SETUP([Attrib])
 AT_KEYWORDS([attrib])
 
 AT_CHECK([
 cwd=`pwd -P`
-pidfile=$cwd/dircond.pid
+pidfile=$cwd/direvent.pid
 outfile=$cwd/dump
 mkdir dir
 cat > test.conf <<EOT
@@ -27,12 +27,12 @@ pidfile $pidfile;
 debug 10;
 syslog {
 	facility ${TESTSUITE_FACILITY:-local0};
-	tag dircond-test:attrib;
+	tag direvent-test:attrib;
 }
 watcher {
 	path $cwd/dir;
 	event attrib;
-	command "$TESTDIR/envdump -s -i DIRCOND_FILE=:DIRCOND_GENEV_ -f $outfile";
+	command "$TESTDIR/envdump -s -i DIREVENT_FILE=:DIREVENT_GENEV_ -f $outfile";
 	option (stdout,stderr);
 }
 EOT
@@ -40,7 +40,7 @@ EOT
 > dir/file
 chmod 600 dir/file
 
-dircond -lnotice test.conf || exit 1
+direvent -lnotice test.conf || exit 1
 
 chmod 644 dir/file
 
@@ -55,13 +55,13 @@ cwd is (CWD)/dir
 argv[[0]]=(TESTDIR)/envdump
 argv[[1]]=-s
 argv[[2]]=-i
-argv[[3]]=DIRCOND_FILE=:DIRCOND_GENEV_
+argv[[3]]=DIREVENT_FILE=:DIREVENT_GENEV_
 argv[[4]]=-f
 argv[[5]]=(CWD)/dump
 # Environment
-DIRCOND_FILE=file
-DIRCOND_GENEV_CODE=4
-DIRCOND_GENEV_NAME=attrib
+DIREVENT_FILE=file
+DIREVENT_GENEV_CODE=4
+DIREVENT_GENEV_NAME=attrib
 # End
 ])
 

@@ -1,25 +1,25 @@
-# This file is part of Dircond testsuite. -*- Autotest -*-
-# Copyright (C) 2013 Sergey Poznyakoff
+# This file is part of Direvent testsuite. -*- Autotest -*-
+# Copyright (C) 2013-2014 Sergey Poznyakoff
 #
-# Dircond is free software; you can redistribute it and/or modify
+# Direvent is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation; either version 3, or (at your option)
 # any later version.
 #
-# Dircond is distributed in the hope that it will be useful,
+# Direvent is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with Dircond.  If not, see <http://www.gnu.org/licenses/>.
+# along with Direvent.  If not, see <http://www.gnu.org/licenses/>.
 
 AT_SETUP([modify])
 AT_KEYWORDS([environ env00])
 
 AT_CHECK([
 cwd=`pwd -P`
-pidfile=$cwd/dircond.pid
+pidfile=$cwd/direvent.pid
 outfile=$cwd/dump
 mkdir dir
 cat > test.conf <<EOT
@@ -27,12 +27,12 @@ pidfile $pidfile;
 debug 10;
 syslog {
 	facility ${TESTSUITE_FACILITY:-local0};
-	tag dircond-test:write;
+	tag direvent-test:write;
 }
 watcher {
 	path $cwd/dir;
 	event write;
-	command "$TESTDIR/envdump -s -i DIRCOND_FILE=:DIRCOND_GENEV_:VAR1=:VAR2=:VAR3=:FILE= -f $outfile";
+	command "$TESTDIR/envdump -s -i DIREVENT_FILE=:DIREVENT_GENEV_:VAR1=:VAR2=:VAR3=:FILE= -f $outfile";
 	option (stdout,stderr);
 	environ ("VAR3=qux", "FILE=\$file");
 }
@@ -48,7 +48,7 @@ VAR1=foo
 VAR2=bar
 export VAR1 VAR2
 
-dircond -lnotice test.conf || exit 1
+direvent -lnotice test.conf || exit 1
 waitfile $pidfile 2
 echo "to come to" >> dir/testfile
 
@@ -56,7 +56,7 @@ waitfile $outfile 6
 res=$?
 kill `cat $pidfile`
 test $? -ne 0 && exit 1
-sed "s^$cwd^(CWD)^;s^$TESTDIR^(TESTDIR)^;s^\(DIRCOND_SYS.*\)=.*^\1=X^" $outfile
+sed "s^$cwd^(CWD)^;s^$TESTDIR^(TESTDIR)^;s^\(DIREVENT_SYS.*\)=.*^\1=X^" $outfile
 ],
 [0],
 [# Dump of execution environment
@@ -65,13 +65,13 @@ cwd is (CWD)/dir
 argv[[0]]=(TESTDIR)/envdump
 argv[[1]]=-s
 argv[[2]]=-i
-argv[[3]]=DIRCOND_FILE=:DIRCOND_GENEV_:VAR1=:VAR2=:VAR3=:FILE=
+argv[[3]]=DIREVENT_FILE=:DIREVENT_GENEV_:VAR1=:VAR2=:VAR3=:FILE=
 argv[[4]]=-f
 argv[[5]]=(CWD)/dump
 # Environment
-DIRCOND_FILE=testfile
-DIRCOND_GENEV_CODE=2
-DIRCOND_GENEV_NAME=write
+DIREVENT_FILE=testfile
+DIREVENT_GENEV_CODE=2
+DIREVENT_GENEV_NAME=write
 FILE=testfile
 VAR1=foo
 VAR2=bar

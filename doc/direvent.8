@@ -1,23 +1,23 @@
-.\" dircond - directory content watcher daemon -*- nroff -*-
-.\" Copyright (C) 2012, 2013 Sergey Poznyakoff
+.\" direvent - directory content watcher daemon -*- nroff -*-
+.\" Copyright (C) 2012-2014 Sergey Poznyakoff
 .\"
-.\" Dircond is free software; you can redistribute it and/or modify it
+.\" Direvent is free software; you can redistribute it and/or modify it
 .\" under the terms of the GNU General Public License as published by the
 .\" Free Software Foundation; either version 3 of the License, or (at your
 .\" option) any later version.
 .\"
-.\" Dircond is distributed in the hope that it will be useful,
+.\" Direvent is distributed in the hope that it will be useful,
 .\" but WITHOUT ANY WARRANTY; without even the implied warranty of
 .\" MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 .\" GNU General Public License for more details.
 .\"
 .\" You should have received a copy of the GNU General Public License along
-.\" with dircond. If not, see <http://www.gnu.org/licenses/>.
-.TH DIRCOND 8 "June 4, 2013" "DIRCOND" "Dircond User Reference"
+.\" with direvent. If not, see <http://www.gnu.org/licenses/>.
+.TH DIREVENT 8 "June 4, 2013" "DIREVENT" "Direvent User Reference"
 .SH NAME
-dircond \- directory content watcher
+direvent \- directory content watcher
 .SH SYNOPSIS
-\fBdircond\fR [\fB\-HVdfh\fR] [\fB\-F\fR \fINAME\fR]\
+\fBdirevent\fR [\fB\-HVdfh\fR] [\fB\-F\fR \fINAME\fR]\
  [\fB\-P\fR \fIFILE\fR]\
  [\fB-l\fR \fIPRIO\fR]\
  [\fB\-\-debug\fR]
@@ -25,22 +25,22 @@ dircond \- directory content watcher
  [\fB\-\-foreground\fB]\
  [\fB\-\-pidfile\fR=\fIFILE\fR] [\fBCONFIG\fR]
 
-.B dircond \-h
+.B direvent \-h
 .br
-.B dircond \-\-help
+.B direvent \-\-help
 
-.B dircond \-H
+.B direvent \-H
 .br
-.B dircond \-\-config\-help
+.B direvent \-\-config\-help
 
-.B dircond \-\-usage
+.B direvent \-\-usage
 
-.B dircond \-V
+.B direvent \-V
 .br
-.B dircond \-\-version
+.B direvent \-\-version
 
 .SH DESCRIPTION
-.B Dircond
+.B Direvent
 monitors a set of directories on the file system and reacts when
 a file system event occurs in any of them.  Directories and events
 to monitor are specified in the configuration file.  When an event
@@ -65,7 +65,7 @@ File attributes have changed.  This includes changes in the file
 ownership, mode, link count, etc.
 .PP
 Depending on the interface provided by the underlying operating system
-.B dircond
+.B direvent
 can trace various
 .B system-dependent
 events, which may offer a better resolution.  These events are
@@ -76,7 +76,7 @@ below.
 A
 .B watcher
 is a configuration entity within
-.B dircond
+.B direvent
 which associates a set of directories with a set of events and
 instructs the program to run a specified external command when
 any of these events occur in any of these directories.  This
@@ -86,7 +86,7 @@ variables, or from its command line (see the \fBHANDLER ENVIRONMENT\fR
 section below).
 .PP
 Watchers are declared in the program configuration file
-.BR dircond.conf ,
+.BR direvent.conf ,
 located in the system configuration directory (normally \fB/etc\fR).
 .PP
 An alternative configuration file can be used, by supplying its pathname
@@ -125,7 +125,7 @@ Write PID to \fIFILE\fR.
 Check configuration file for errors and exit.
 .TP
 \fB\-l\fR \fIPRIO\fR
-While connected to a terminal \fBdircond\fR outputs its diagnostics
+While connected to a terminal \fBdirevent\fR outputs its diagnostics
 messages to stderr and, if configured, to \fBsyslog\fR.  This option
 limits the amount of information output to the standard error.
 \fIPRIO\fR is one of the following priorities (in order of increasing
@@ -157,12 +157,12 @@ Show available command line options.
 Print program version and copyright information.
 .SH CONFIGURATION
 The default configuration file is
-.BR /etc/dircond.conf .
+.BR /etc/direvent.conf .
 If a file name is supplied as an argument to the program, that file
 will be read instead.
 .PP
 The configuration file syntax is discussed in detail in
-.BR dircond.conf (5).
+.BR direvent.conf (5).
 This section provides only a short description of it.
 .PP
 Three types of comments are allowed: inline comments, that begin with
@@ -205,7 +205,7 @@ It is defined as follows:
 .in
 .fi
 .PP
-Each \fBwatcher\fR statement instructs \fBdircond\fR to monitor
+Each \fBwatcher\fR statement instructs \fBdirevent\fR to monitor
 the events listed in \fIEVENT\-LIST\fR occurring in the directories
 specified by \fIPATHNAME\fRs in \fBpath\fR statements (any number of
 \fBpath\fR statements can be given).  When any such event is detected,
@@ -213,13 +213,13 @@ the \fICOMMAND\-LINE\fR will be executed.
 .PP
 Each directory defined with the \fBrecursive\fR keyword will be
 watched recursively.  This means that for each subdirectory created in
-it, \fBdircond\fR will install a watcher similar to that of its parent
+it, \fBdirevent\fR will install a watcher similar to that of its parent
 directory.  The optional \fILEVEL\fR can be used to set up a cut-off
 nesting level, beyond which the recursive operation is disabled.
 .PP
 The rest of statements are optional.  The \fBuser\fR statement can be
 used to execute the \fICOMMAND\-LINE\fR as the user \fINAME\fR
-(provided, of course, that \fBdircond\fR is started with root
+(provided, of course, that \fBdirevent\fR is started with root
 privileges).  The \fBtimeout\fR specifies the maximum amount of time
 (in seconds) the command is allowed to run.  It defaults to 5.  The
 \fBenviron\fR statement modifies the command environment (see the
@@ -253,7 +253,7 @@ the named file after disconnecting from the controlling terminal.
 .SH "HANDLER ENVIRONMENT"
 The handler to be executed on an event is defined by the \fBcommand\fR
 statement in the \fBwatcher\fR configuration block (see
-.BR dircond.conf (5)).
+.BR direvent.conf (5)).
 Before executing, the following operations are performed:
 .nr step 1 1
 .IP \n[step].
@@ -263,7 +263,7 @@ occurred.
 If the \fBenviron\fR statement is present in the watcher, the
 environment is modified according to its rules.  See the description
 of the \fBenviron\fR statement in
-.BR dircond.conf (5).
+.BR direvent.conf (5).
 .IP \n+[step].
 The standard input is closed.
 .IP
@@ -280,7 +280,7 @@ All file descriptors above 2 are closed.
 \fBMacro variables\fR are expanded.  See the section
 .B MACRO EXPANSION
 in
-.BR dircond.conf (5).
+.BR direvent.conf (5).
 For example, if the handler is about to be executed for the
 \fBwrite\fR event on the file \fBsomefile\fR, and the \fBcommand\fR
 definition was:
@@ -308,7 +308,7 @@ word is treated as the pathname of the program to be executed.
 .IP \n+[step].
 The program is invoked.
 .SH "SYSTEM DEPENDENCIES"
-\fBDircond\fR relies on the event monitoring API provided by the
+\fBDirevent\fR relies on the event monitoring API provided by the
 kernel.
 .SH Linux
 On \fBLinux\fR the program uses
@@ -368,7 +368,7 @@ A file was moved out from a monitored directory.
 A file was opened.
 .SH BSD
 When compiled on \fBBSD\fR systems (including \fBDarwin\fR),
-\fBdircond\fR uses
+\fBdirevent\fR uses
 .BR kqueue (2).
 This interface needs an open file handle for each file in a monitored
 directory, which means that the number of watchers is limited by the
@@ -377,7 +377,7 @@ maximum number of open files.  Use
 to raise it to a higher number.
 .PP
 Since it operates on files, \fBkqueue\fR does not provide direct
-support for the \fBcreate\fR generic event.  \fBDircond\fR works
+support for the \fBcreate\fR generic event.  \fBDirevent\fR works
 over this disadvantage by keeping track of the contents of each
 monitored directory and rescanning it each time a \fBWRITE\fR system
 event is reported for it.  It then generates the
@@ -425,13 +425,13 @@ Command line usage error.
 .IP 2
 Another error occurred.
 .SH "SEE ALSO"
-.BR dircond.conf (5),
+.BR direvent.conf (5),
 .BR inotify (7),
 .BR kqueue (2).
 .SH AUTHORS
 Sergey Poznyakoff
 .SH "BUG REPORTS"
-Report bugs to <bug-dircond@gnu.org.ua>.
+Report bugs to <bug-direvent@gnu.org.ua>.
 .SH COPYRIGHT
 Copyright \(co 2012, 2013 Sergey Poznyakoff
 .br

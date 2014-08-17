@@ -1,8 +1,8 @@
-dircond -- history of user-visible changes. 2014-08-10
+direvent -- history of user-visible changes. 2014-08-10
 Copyright (C) 2012-2014 Sergey Poznyakoff
 See the end of file for copying conditions.
 
-Please send dircond bug reports to <bug-dircond@gnu.org.ua>
+Please send direvent bug reports to <bug-direvent@gnu.org.ua>
 
 Version 4.1.90, Git
 
@@ -41,7 +41,7 @@ Version 2.0, 2013-01-11
 
 * Change command line handling
 
-Dircond accepts handler definitions interspersed with directory
+Direvent accepts handler definitions interspersed with directory
 name.  This allows for having different per-directory handlers.
 
 Similarly, the autowatch options ("-a" and "-l") affect the
