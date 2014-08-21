@@ -2,7 +2,7 @@
 @smallbook
 @c %**start of header
 @setfilename direvent.info
-@settitle Direvent User Manual
+@settitle GNU Direvent
 @c %**end of header
 @setchapternewpage odd
 
@@ -42,7 +42,7 @@ Documentation License''.
 @end copying
 
 @titlepage
-@title Direvent User Manual
+@title GNU Direvent
 @subtitle version @value{VERSION}, @value{UPDATED}
 @author Sergey Poznyakoff.
 @page
@@ -61,8 +61,8 @@ Documentation License''.
 @node Top
 @top Direvent
 
-This edition of the @cite{Direvent User Manual}, last updated @value{UPDATED},
-documents Direvent Version @value{VERSION}.
+This edition of the @cite{GNU Direvent} manual, last updated @value{UPDATED},
+documents GNU Direvent Version @value{VERSION}.
 @end ifnottex
 
 @menu
@@ -86,18 +86,17 @@ Appendices
 
 @node Intro
 @chapter Introduction
-@code{Direvent} monitors events in the file system directories.  For
-each event that occurs in a set of pre-configured directories, the
-program calls an external program associated with it, supplying it
-the information about the event and the location within the file
-system where it occured.
+@acronym{GNU} @command{Direvent} monitors events in the file system
+directories.  For each event that occurs in a set of pre-configured
+directories, the program calls an external program associated with it,
+supplying it the information about the event and the location within
+the file system where it occured.
 
-@code{Direvent} provides an easy way to configure your system to react
-immediately if certain files undergo changes.  This may be helpful,
-for example, to track changes in the important configuration files.
-
-Interfaces for tracking changes to file systems are highly
-system-specific.  @command{Direvent} aims to provide a uniform
+@acronym{GNU} @command{Direvent} provides an easy way to configure
+your system to react immediately if certain files undergo changes.
+This may be helpful, for example, to track changes in the important
+configuration files.  Interfaces for tracking changes to file systems
+are highly system-specific.  @command{Direvent} aims to provide a uniform
 and system-independent command-level interface.  As of version
 @value{VERSION} @command{direvent} works with modern Linux kernels
 (since v. 2.6.13) and BSD systems (FreeBSD, NetBSD, OpenBSD, Darwin).
