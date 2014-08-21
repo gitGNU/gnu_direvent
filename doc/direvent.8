@@ -94,13 +94,13 @@ as the command line argument (\fICONFIG\fR parameter in the \fBSYNOPSIS\fR
 section above).
 .SH OPTIONS
 .TP
-.BR \-\-debug ", " \-d
+.BR \-d ", " \-\-debug 
 Increase debug verbosity level.
 .TP
-.BR \-\-foreground ", " \-f
+.BR \-f ", " \-\-foreground 
 Run in the foreground.
 .TP
-\fB\-\-facility\fR, \fB\-F\fR \fIFACILITY\fR
+\fB\-F\fR, \fB\-\-facility=\fIFACILITY\fR
 Log under this syslog facility.  Allowed values for \fIFACILITY\fR are
 a decimal number or any of the following symbolic names:
 .BR auth ,
@@ -118,10 +118,10 @@ and
 
 The option \fB\-F 0\fR directs logging to the standard error.
 .TP
-\fB\-\-pidfile\fR, \fB\-P\fR \fIFILE\fR
+\fB\-P\fR, \fB\-\-pidfile=\fIFILE\fR
 Write PID to \fIFILE\fR.
 .TP
-.BR \-\-lint ", " \-t
+.BR \-t ", " \-\-lint 
 Check configuration file for errors and exit.
 .TP
 \fB\-l\fR \fIPRIO\fR
@@ -141,19 +141,19 @@ severity):
 When this option is given, only messages with the priority level equal
 to or greater than \fIPRIO\fR will be duplicated on the standard error.
 .TP
-\fB\-\-user\fR, \fB\-u\fR \fIUSER\fR
+\fB\-u\fR, \fB\-\-user=\fIUSER\fR
 Run as this \fIUSER\fR.
 .TP
-.BR \-\-help ", " \-h
+.BR \-h ", " \-\-help 
 Output a terse help summary and exit.
 .TP
-.BR \-\-config\-help ", " \-H
+.BR \-H ", " \-\-config\-help 
 Describe configuration file syntax.
 .TP
 .B \-\-usage
 Show available command line options.
 .TP
-.BR \-\-version ", " \-V
+.BR \-V ", " \-\-version
 Print program version and copyright information.
 .SH CONFIGURATION
 The default configuration file is

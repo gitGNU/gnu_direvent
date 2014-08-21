@@ -309,7 +309,7 @@ Set syslog facility.
 @opindex -P
 @opindex --pidfile
 @item -P @var{file}
-@item --pidfile=@var{file}
+@itemx --pidfile=@var{file}
 Upon successful startup store the PID of the daemon process in
 @var{file}.
 @opindex -d
