@@ -23,6 +23,10 @@
 
 @include version.texi
 
+@macro GNUDIREVENT
+@acronym{GNU} @command{direvent}
+@end macro
+
 @ifinfo
 @dircategory Individual utilities
 @direntry
@@ -86,24 +90,26 @@ Appendices
 
 @node Intro
 @chapter Introduction
-@acronym{GNU} @command{Direvent} monitors events in the file system
-directories.  For each event that occurs in a set of pre-configured
-directories, the program calls an external program associated with it,
-supplying it the information about the event and the location within
-the file system where it occured.
+@GNUDIREVENT{} monitors events in file system directories.  For each
+event that occurs in a set of pre-configured directories, the program
+calls an external program associated with it, supplying it the
+information about the event and the location within the file system
+where it took place.
 
-@acronym{GNU} @command{Direvent} provides an easy way to configure
+@GNUDIREVENT{} provides an easy way to configure
 your system to react immediately if certain files undergo changes.
-This may be helpful, for example, to track changes in the important
-configuration files.  Interfaces for tracking changes to file systems
-are highly system-specific.  @command{Direvent} aims to provide a uniform
+This may be helpful, for example, to track changes in important
+configuration files.
+
+Interfaces for tracking changes to file systems
+are highly system-specific.  @GNUDIREVENT{} aims to provide a uniform
 and system-independent command-level interface.  As of version
 @value{VERSION} @command{direvent} works with modern Linux kernels
 (since v. 2.6.13) and BSD systems (FreeBSD, NetBSD, OpenBSD, Darwin).
 
 @node Overview
 @chapter Overview
-@command{Direvent} monitors a set of directories on the file system and
+@GNUDIREVENT{} monitors a set of directories on the file system and
 reacts when a file system event occurs in any of them.  Directories
 and events to monitor are specified in the configuration file.  When
 an event occurs the utility reacts by invoking an external command
@@ -111,12 +117,12 @@ configured for that event.
 
 @cindex events
 @cindex file system events
-There are two kinds of events: @dfn{system-dependent events}, which are
-specific for each particular kernel interface, and @dfn{generic
-events}, which don't depend on the underlying system.  Generic events
-provide a higher level of abstraction and make it possible to port
-direvent configurations between various systems and architectures
-without the need to rewrite them.
+File system events can be divided into two major groups.  The
+@dfn{system-dependent events} are specific for each particular kernel
+interface.  In the contrast, @dfn{generic events} don't depend on the
+underlying system.  They provide a higher level of abstraction and
+make it possible to port @GNUDIREVENT{} configurations between various
+systems and architectures.
 
 @cindex generic events
 @cindex events, generic
@@ -144,7 +150,7 @@ A @dfn{watcher} is a configuration entity which associates a set of
 directories with a set of events and instructs @command{direvent} to
 run a specified external command when any of these events occur in any
 of these directories.  This external command (called a @dfn{handler})
-can obtain information about the event that triggered its execution
+can obtain information about the event that triggered it
 from the environment variables, or from its command line.
 
 Watchers are defined in the configuration file, which
@@ -167,7 +173,7 @@ marks in order to represent a single token.
 
 Adjacent quoted strings are concatenated.
 
-Configuration statements consist of a keyword and value separated by
+A configuration statement consists of a keyword and value separated by
 any amount of whitespace and is terminated with a semicolon.  A block
 statement is a collection of statements enclosed in curly braces.
 
@@ -179,6 +185,7 @@ watcher @{
     path @var{pathname} [recursive [@var{level}]];
     event  @var{event-list};
     command @var{command-line};
+    file @var{pattern-list};
     user @var{name};
     timeout @var{number};
     environ @var{env-spec};
@@ -187,25 +194,28 @@ watcher @{
 @end example
 
 Each @code{watcher} statement instructs @command{direvent} to monitor
-the events listed in @var{event-list} occurring in the directories
+events listed in @var{event-list} occurring in the directories
 specified by @var{pathname}s in @code{path} statements (any number of
 @code{path} statements can be given).  When any such event is detected,
-the @var{command-line} will be executed.
+the supplied @var{command-line} will be executed.
 
 Each directory defined with the @code{recursive} keyword will be
 watched recursively.  This means that for each subdirectory created in
 it, @command{direvent} will install a watcher similar to that of its parent
-directory.  The optional @var{level} can be used to set up a cut-off
+directory.  Optional @var{level} statement can be used to set up a cut-off
 nesting level, beyond which the recursive operation is disabled.
 
-The rest of statements are optional.  The @code{user} statement can be
-used to execute the @var{command-line} as the user @var{name}
-(provided, of course, that @command{direvent} is started with root
-privileges).  The @code{timeout} specifies the maximum amount of time
-(in seconds) the command is allowed to run.  It defaults to 5.  The
-@code{environ} statement modifies the command environment.  Finally,
-the @code{option} statement supplies additional options.  It can be
-used, for example, to divert the command's output to syslog.
+The rest of statements are optional.  The @code{file} statement
+instructs @GNUDIREVENT{} to react only if the event concerned the
+file whose name matches one of the patterns given in its argument.
+The @code{user} statement can be used to execute the
+@var{command-line} as the user @var{name} (provided, of course, that
+@command{direvent} is started with root privileges).  The
+@code{timeout} specifies the maximum amount of time (in seconds) the
+command is allowed to run.  It defaults to 5.  The @code{environ}
+statement modifies the command environment.  Finally, the
+@code{option} statement supplies additional options.  It can be used,
+for example, to divert the command's output to syslog.
 
 @node Quick start
 @chapter Quick Start
@@ -213,7 +223,7 @@ Let's suppose you have a directory where users can upload their files
 and you want these files to be processed right after upload, in real
 time.  Let this directory be @file{/home/ftp/incoming} and the program
 to process the upload be @file{/usr/bin/upload}.  Let's also suppose
-that this program expects the name of file as its argument.
+that this program expects name of the uploaded file as its argument.
 
 To make @command{direvent} handle this task, you would need to create a
 watcher for the upload directory which would handle the @samp{create} event:
@@ -225,17 +235,17 @@ watcher @{
     # @r{more statements follow...}
 @end example
 
-On this event the watcher is to invoke @file{/usr/bin/upload}
-supplying it the name of created file as an argument.  To make it
-possible the @command{direvent} configuration file provides @dfn{macro
+On this event, the watcher is to invoke @file{/usr/bin/upload}
+with the name of created file as an argument.  To make it
+possible, the @command{direvent} configuration file provides @dfn{macro
 variables}, which can be used in the @code{command} argument at
 configuration time and which are expanded to the actual values before
 the command is executed.  Macro variables are referred to using the
 same syntax as shell variables: a dollar sign followed by the variable
 name, optionally enclosed in curly braces.  The @samp{file} variable
 is expanded to the name of the file for which the event is reported.
-This name is relative to the current working directory which by the
-time the handler is executed is set to the directory where the event
+This name is relative to the current working directory which, by the
+time the handler is executed, is set to the directory where the event
 occurred.  Thus, the handler can be configured as:
 
 @example
@@ -324,14 +334,14 @@ Increase debug level.
 Remain in foreground.
 @opindex -l
 @item -l @var{prio}
-While connected to a terminal @command{direvent} outputs its diagnostics
+While connected to a terminal, @command{direvent} outputs its diagnostics
 messages to stderr and, if configured, to syslog.  This option
 limits the amount of information output to the standard error.
 The @var{prio} argument is one of the following priorities (in order
 of increasing severity): @samp{debug}, @samp{info}, @samp{notice},
 @samp{warning}, @samp{err}, @samp{crit}, @samp{alert}, @samp{emerg}.
 When this option is given, only messages with the priority level equal
-to or greater than @var{prio} will be duplicated on the standard eraror.
+to or greater than @var{prio} will be duplicated on the standard error.
 @end table
 
 The following options are @dfn{informative}.  They cause the program
@@ -634,7 +644,7 @@ Arguments of some statements undergo macro expansion before use.
 During the macro expansion any occurrence of @samp{$@var{name}} is replaced
 by the value of the macro @var{name}.  Macro names follow the usual
 convention: they begin with a letter and contain letters, digits and
-underscores.  The curly braces around the @var{name} are optional.
+underscores.  Curly braces around the @var{name} are optional.
 They are required only if the macro reference is followed by a
 character that is not to be interpreted as part of its name, as in
 @samp{$@{command@}string}.
@@ -642,15 +652,18 @@ character that is not to be interpreted as part of its name, as in
 The following macros are defined:
 
 @table @asis
+@anchor{$file}
 @kwindex file, macro variable
 @item file
 Name of the file that triggered the event.
 
+@anchor{$sysev_code}
 @kwindex sysev_code, macro variable
 @item sysev_code
 A system-dependent event code.  It is a bitwise OR of the event codes
 represented as a decimal number.  
 
+@anchor{$sysev_name}
 @kwindex sysev_name, macro variable
 @item sysev_name
 A system-dependent event name.  If several events are reported, the
@@ -658,11 +671,13 @@ value of this variable is a list of event names separated by space
 characters.  Each name corresponds to a bit in @samp{sysev_code}.
 @xref{System dependencies}, for a list of system-dependent event names.
 
+@anchor{$genev_code}
 @kwindex genev_code, macro variable
 @item genev_code
 Generic (system-independent) event code.  It is a bitwise OR of
 the event codes represented as a decimal number.
 
+@anchor{$genev_name}
 @kwindex genev_name, macro variable
 @item genev_name
 Generic event name.  If several generic events are reported simultaneously, the
@@ -695,7 +710,7 @@ Set debug level.  Valid @var{number} values are @samp{0} (no debug) to @samp{3}
 @section Syslog
 @cindex syslog
 @cindex logging
-While connected to the terminal @command{direvent} outputs its diagnostics and
+While connected to the terminal, @command{direvent} outputs its diagnostics and
 debugging messages to the standard error.  After disconnecting from the
 controlling terminal it closes the first three file descriptors and directs
 all its output to the syslog.  When running in foreground mode, its
@@ -811,7 +826,7 @@ Enable case-insensitive matching.
 For example:
 
 @example
-file (*.cfg, /.*\\.jpg/i);
+file ("*.cfg", "/.*\\.jpg/i");
 @end example
 
 @noindent
@@ -888,20 +903,21 @@ of @command{direvent} augmented with the following variables:
 @table @env
 @kwindex DIREVENT_SYSEV_CODE, environment variable
 @item DIREVENT_SYSEV_CODE
-The system-dependent event code (see the @code{$sysev_code} variable).
+The system-dependent event code (@pxref{$sysev_code, the $sysev_code variable}).
 @kwindex DIREVENT_SYSEV_NAME, environment variable
 @item DIREVENT_SYSEV_NAME
-The system-dependent event name or names (see the @code{$sysev_name} variable).
+The system-dependent event name or names (@pxref{$sysev_name,
+the @code{$sysev_name} variable}).
 @kwindex DIREVENT_GENEV_CODE, environment variable
 @item DIREVENT_GENEV_CODE
-The generic event code (see the @code{$genev_code} variable).
+The generic event code (@pxref{$genev_code,the @code{$genev_code} variable}).
 @kwindex DIREVENT_GENEV_NAME, environment variable
 @item DIREVENT_GENEV_NAME
-The generic event name or names (see the @code{$genev_name} variable).
+The generic event name or names (@pxref{$genev_name, the @code{$genev_name} variable}).
 @kwindex DIREVENT_FILE, environment variable
 @item DIREVENT_FILE
 The name of the affected file relative to the current working directory
-(see the @code{$file} variable).
+(@pxref{$file,the @code{$file} variable}).
 @end table
 
 @cindex environment modification
@@ -911,15 +927,18 @@ applying, each directive undergoes macro expansion (@pxref{macro
 expansion}).  The following directives are available:
 
 @table @asis
-@item - (a single dash)
+@item @samp{-} (a single dash)
 Clear the inherited environment, but retain the variables added by
-@command{direvent}.  The removed environment variables can be selectively
-restored using the directives discussed below.  This must be the first
-directive in the list.
+@command{direvent} itself.  The removed environment variables can be selectively
+restored using the directives discussed below.
+
+If used, this must be the first directive in the list.
 
 @item @samp{--} (double-dash)
 Clear the entire environment, including the variables added by
-@command{direvent}.  This must be the first directive in the list.
+@command{direvent}.
+
+If used, this must be the first directive in the list.
 
 @item -@var{name}
 Unset the variable @var{name}.
