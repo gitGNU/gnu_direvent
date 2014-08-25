@@ -16,12 +16,13 @@
 
 #include "direvent.h"
 #include "wordsplit.h"
+#include <ctype.h>
 
 extern char **environ;    /* Environment */
 
 #define DEBUG_ENVIRON(l,env) do {				\
 	if (debug_level >= (l)) {				\
-		diag(LOG_DEBUG, "environment: ");		\
+		diag(LOG_DEBUG, _("environment: "));		\
 		for (i = 0; (env)[i]; i++)			\
 			diag(LOG_DEBUG, "%s ", (env)[i]);	\
 		diag(LOG_DEBUG, "\n");				\

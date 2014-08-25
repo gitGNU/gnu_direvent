@@ -83,7 +83,7 @@ dirwatcher_install(const char *path, int *pnew)
 					 dwname_hash, dwname_cmp, dwname_copy,
 					 NULL, dwref_free);
 		if (!texttab) {
-			diag(LOG_CRIT, "not enough memory");
+			diag(LOG_CRIT, N_("not enough memory"));
 			exit(1);
 		}
 	}
@@ -179,7 +179,7 @@ dirwatcher_register(struct dirwatcher *dw)
 				       dw_hash, dw_cmp, dw_copy,
 				       NULL, dwref_free);
 		if (!dwtab) {
-			diag(LOG_ERR, "not enough memory");
+			diag(LOG_ERR, _("not enough memory"));
 			exit(1);
 		}
 	}
@@ -188,7 +188,7 @@ dirwatcher_register(struct dirwatcher *dw)
 	key.dw = dw;
 	ent = hashtab_lookup_or_install(dwtab, &key, &install);
 	if (!ent) {
-		diag(LOG_ERR, "not enough memory");
+		diag(LOG_ERR, _("not enough memory"));
 		exit(1);
 	}
 }
@@ -228,7 +228,7 @@ dirwatcher_init(struct dirwatcher *dwp)
 	struct handler *hp;
 	int wd;
 
-	debug(1, ("creating watcher %s", dwp->dirname));
+	debug(1, (_("creating watcher %s"), dwp->dirname));
 
 	for (hp = dwp->handler_list; hp; hp = hp->next) {
 		mask.sys_mask |= hp->ev_mask.sys_mask;
@@ -237,7 +237,7 @@ dirwatcher_init(struct dirwatcher *dwp)
 	
 	wd = sysev_add_watch(dwp, mask);
 	if (wd == -1) {
-		diag(LOG_ERR, "cannot set watch on %s: %s",
+		diag(LOG_ERR, _("cannot set watcher on %s: %s"),
 		     dwp->dirname, strerror(errno));
 		return 1;
 	}
@@ -315,13 +315,15 @@ check_new_watcher(const char *dir, const char *name)
 	
 	fname = mkfilename(dir, name);
 	if (!fname) {
-		diag(LOG_ERR, "cannot create watcher %s/%s: not enough memory",
+		diag(LOG_ERR,
+		     _("cannot create watcher %s/%s: not enough memory"),
 		     dir, name);
 		return -1;
 	}
 
 	if (stat(fname, &st)) {
-		diag(LOG_ERR, "cannot create watcher %s/%s, stat failed: %s",
+		diag(LOG_ERR,
+		     _("cannot create watcher %s/%s, stat failed: %s"),
 		     dir, name, strerror(errno));
 		rc = -1;
 	} else if (S_ISDIR(st.st_mode)) {
@@ -350,7 +352,7 @@ watch_subdirs(struct dirwatcher *parent, int notify)
 	
 	dir = opendir(parent->dirname);
 	if (!dir) {
-		diag(LOG_ERR, "cannot open directory %s: %s",
+		diag(LOG_ERR, _("cannot open directory %s: %s"),
 		     parent->dirname, strerror(errno));
 		return 0;
 	}
@@ -366,12 +368,12 @@ watch_subdirs(struct dirwatcher *parent, int notify)
 		
 		dirname = mkfilename(parent->dirname, ent->d_name);
 		if (!dirname) {
-			diag(LOG_ERR, "cannot stat %s/%s: not enough memory",
+			diag(LOG_ERR, _("cannot stat %s/%s: not enough memory"),
 			     parent->dirname, ent->d_name);
 			continue;
 		}
 		if (stat(dirname, &st)) {
-			diag(LOG_ERR, "cannot stat %s: %s",
+			diag(LOG_ERR, _("cannot stat %s: %s"),
 			     dirname, strerror(errno));
 		} else {
 			if (notify)
@@ -407,12 +409,12 @@ setup_watchers()
 {
 	sysev_init();
 	if (hashtab_count(texttab) == 0) {
-		diag(LOG_CRIT, "no event handlers configured");
+		diag(LOG_CRIT, _("no event handlers configured"));
 		exit(1);
 	}
 	hashtab_foreach(texttab, setwatcher, NULL);
 	if (hashtab_count(dwtab) == 0) {
-		diag(LOG_CRIT, "no event handlers installed");
+		diag(LOG_CRIT, _("no event handlers installed"));
 		exit(2);
 	}
 }
@@ -420,7 +422,7 @@ setup_watchers()
 void
 dirwatcher_destroy(struct dirwatcher *dwp)
 {
-	debug(1, ("removing watcher %s", dwp->dirname));
+	debug(1, (_("removing watcher %s"), dwp->dirname));
 	sysev_rm_watch(dwp);
 
 	dirwatcher_remove_wd(dwp->wd);

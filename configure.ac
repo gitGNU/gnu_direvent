@@ -28,6 +28,7 @@ AM_SILENT_RULES([yes])
 # Checks for programs.
 AC_PROG_AWK
 AC_PROG_CC
+DEVT_CC_PAREN_QUIRK
 AC_PROG_RANLIB
 AC_PROG_INSTALL
 AC_PROG_MAKE_SET
@@ -65,10 +66,16 @@ AH_TOP([
 # Grecs subsystem
 
 GRECS_SETUP([grecs],[tree-api git2chg no-preproc getopt tests])
+GRECS_HOST_PROJECT_INCLUDES='-I$(top_srcdir)/src'
+
+# Gettext.
+AM_ICONV
+AM_GNU_GETTEXT([external], [need-formatstring-macros])
+AM_GNU_GETTEXT_VERSION([0.18])
 
 # Initialize the test suite.
 AC_CONFIG_TESTDIR(tests)
-AC_CONFIG_FILES([tests/Makefile tests/atlocal])
+AC_CONFIG_FILES([tests/Makefile tests/atlocal po/Makefile.in])
 AM_MISSING_PROG([AUTOM4TE], [autom4te])
 
 AC_CONFIG_COMMANDS([status],[

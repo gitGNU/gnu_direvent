@@ -60,7 +60,7 @@ get_facility(const char *arg)
 	if (*p == 0 && errno == 0)
 		return f;
 	if (trans_strtotok(kwfac, arg, &f)) {
-		diag(LOG_CRIT, "unknown syslog facility: %s", arg);
+		diag(LOG_CRIT, _("unknown syslog facility: %s"), arg);
 		exit(1);
 	}
 	return f;
@@ -77,7 +77,7 @@ get_priority(const char *arg)
 	if (*p == 0 && errno == 0)
 		return f;
 	if (trans_strtotok(kwpri, arg, &f)) {
-		diag(LOG_CRIT, "unknown syslog priority: %s", arg);
+		diag(LOG_CRIT, _("unknown syslog priority: %s"), arg);
 		exit(1);
 	}
 	return f;
@@ -85,7 +85,7 @@ get_priority(const char *arg)
 
 #define ASSERT_SCALAR(cmd, locus)					\
 	if ((cmd) != grecs_callback_set_value) {			\
-	        grecs_error(locus, 0, "Unexpected block statement");	\
+		grecs_error(locus, 0, _("unexpected block statement"));	\
 		return 1;						\
 	}
 
@@ -94,12 +94,12 @@ assert_grecs_value_type(grecs_locus_t *locus,
 			const grecs_value_t *value, int type)
 {
 	if (GRECS_VALUE_EMPTY_P(value)) {
-		grecs_error(locus, 0, "expected %s",
+		grecs_error(locus, 0, _("expected %s"),
 			    grecs_data_type_string(type));
 		return 1;
 	}
 	if (value->type != type) {
-		grecs_error(locus, 0, "expected %s, but found %s",
+		grecs_error(locus, 0, _("expected %s, but found %s"),
 			    grecs_data_type_string(type),
 			    grecs_data_type_string(value->type));
 		return 1;
@@ -121,7 +121,7 @@ cb_syslog_facility(enum grecs_callback_command cmd, grecs_node_t *node,
 
 	if (trans_strtotok(kwfac, value->v.string, &fac))
 		grecs_error(&value->locus, 0,
-			    "Unknown syslog facility `%s'",
+			    _("unknown syslog facility `%s'"),
 			    value->v.string);
 	else
 		*(int*)varptr = fac;
@@ -130,17 +130,17 @@ cb_syslog_facility(enum grecs_callback_command cmd, grecs_node_t *node,
 
 static struct grecs_keyword syslog_kw[] = {
 	{ "facility",
-	  "name",
-	  "Set syslog facility. Arg is one of the following: user, daemon, "
-	  "auth, authpriv, mail, cron, local0 through local7 "
-	  "(case-insensitive), or a facility number.",
+	  N_("name"),
+	  N_("Set syslog facility. Arg is one of the following: user, daemon, "
+	     "auth, authpriv, mail, cron, local0 through local7 "
+	     "(case-insensitive), or a facility number."),
 	  grecs_type_string, GRECS_DFLT,
 	  &facility, 0, cb_syslog_facility },
-	{ "tag", "string", "Tag syslog messages with this string",
+	{ "tag", N_("string"), N_("Tag syslog messages with this string"),
 	  grecs_type_string, GRECS_DFLT,
 	  &tag },
-	{ "print-priority", "arg",
-	  "Prefix each message with its priority",
+	{ "print-priority", N_("arg"),
+	  N_("Prefix each message with its priority"),
 	  grecs_type_bool, GRECS_DFLT,
 	  &syslog_include_prio },
 	{ NULL },
@@ -207,7 +207,7 @@ eventconf_flush(grecs_locus_t *loc)
 		for (hp = dwp->handler_list; hp; prev = hp, hp = hp->next) {
 			if (strcmp(dwp->dirname, pe->path) == 0) {
 				grecs_error(loc, 0,
-					    "ignoring duplicate definition");
+					    _("ignoring duplicate definition"));
 				return;
 			}
 		}
@@ -241,15 +241,16 @@ cb_watcher(enum grecs_callback_command cmd, grecs_node_t *node,
 	
 	switch (cmd) {
 	case grecs_callback_section_begin:
-		eventconf_init(&node->locus);
+		eventconf_init();
 		break;
 	case grecs_callback_section_end:
 		if (!eventconf.pathlist) {
-			grecs_error(&node->locus, 0, "no paths configured");
+			grecs_error(&node->locus, 0, _("no paths configured"));
 			++err;
 		}
 		if (!eventconf.command) {
-			grecs_error(&node->locus, 0, "no command configured");
+			grecs_error(&node->locus, 0,
+				    _("no command configured"));
 			++err;
 		}
 		if (evtnullp(&eventconf.eventmask))
@@ -260,7 +261,8 @@ cb_watcher(enum grecs_callback_command cmd, grecs_node_t *node,
 			eventconf_free();
 		break;
 	case grecs_callback_set_value:
-		grecs_error(&node->locus, 0, "invalid use of block statement");
+		grecs_error(&node->locus, 0,
+			    _("invalid use of block statement"));
 	}
 	return 0;
 }
@@ -305,7 +307,7 @@ cb_path(enum grecs_callback_command cmd, grecs_node_t *node,
 			return 1;
 		if (strcmp(val->v.arg.v[1]->v.string, "recursive")) {
 			grecs_error(&val->v.arg.v[1]->locus, 0,
-				    "expected \"recursive\" or end of statement");
+				    _("expected \"recursive\" or end of statement"));
 			return 1;
 		}
 		switch (val->v.arg.c) {
@@ -320,13 +322,13 @@ cb_path(enum grecs_callback_command cmd, grecs_node_t *node,
 			break;
 		default:
 			grecs_error(&val->v.arg.v[3]->locus, 0,
-				    "surplus argument");
+				    _("surplus argument"));
 			return 1;
 		}
 		s = val->v.arg.v[0]->v.string;
 		break;
 	case GRECS_TYPE_LIST:
-		grecs_error(locus, 0, "unexpected list");
+		grecs_error(locus, 0, _("unexpected list"));
 		return 1;
 	}
 	pe = pathent_alloc(s, depth);
@@ -357,7 +359,7 @@ cb_eventlist(enum grecs_callback_command cmd, grecs_node_t *node,
 	case GRECS_TYPE_STRING:
 		if (getevt(val->v.string, &m)) {
 			grecs_error(&val->locus, 0,
-				    "unrecognized event code");
+				    _("unrecognized event code"));
 			return 1;
 		}
 		mask->gen_mask |= m.gen_mask;
@@ -372,7 +374,7 @@ cb_eventlist(enum grecs_callback_command cmd, grecs_node_t *node,
 				return 1;
 			if (getevt(val->v.arg.v[i]->v.string, &m)) {
 				grecs_error(&val->v.arg.v[i]->locus, 0,
-					    "unrecognized event code");
+					    _("unrecognized event code"));
 				return 1;
 			}
 			mask->gen_mask |= m.gen_mask;
@@ -387,7 +389,7 @@ cb_eventlist(enum grecs_callback_command cmd, grecs_node_t *node,
 				return 1;
 			if (getevt(vp->v.string, &m)) {
 				grecs_error(&vp->locus, 0,
-					    "unrecognized event code");
+					    _("unrecognized event code"));
 				return 1;
 			}
 			mask->gen_mask |= m.gen_mask;
@@ -469,7 +471,7 @@ cb_user(enum grecs_callback_command cmd, grecs_node_t *node,
 			grecs_locus_t loc;
 			loc.beg = val->v.arg.v[2]->locus.beg;
 			loc.end = val->v.arg.v[val->v.arg.c - 1]->locus.end;
-			grecs_error(&loc, 0, "surplus arguments");
+			grecs_error(&loc, 0, _("surplus arguments"));
 			return 1;
 		}
 		uv = val->v.arg.v[0];
@@ -477,20 +479,20 @@ cb_user(enum grecs_callback_command cmd, grecs_node_t *node,
 		break;
 
 	case GRECS_TYPE_LIST:
-		grecs_error(locus, 0, "unexpected list");
+		grecs_error(locus, 0, _("unexpected list"));
 		return 1;
 	}
 
 	pw = getpwnam(uv->v.string);
 	if (!pw) {
-		grecs_error(&uv->locus, 0, "no such user");
+		grecs_error(&uv->locus, 0, _("no such user"));
 		return 1;
 	}
 
 	if (gv) {
 		gr = getgrnam(gv->v.string);
 		if (!gr) {
-			grecs_error(&gv->locus, 0, "no such group");
+			grecs_error(&gv->locus, 0, _("no such group"));
 			return 1;
 		}
 		gid = gr->gr_gid;
@@ -529,7 +531,7 @@ cb_option(enum grecs_callback_command cmd, grecs_node_t *node,
 		else if (strcmp(vp->v.string, "stderr") == 0)
 			eventconf.flags |= HF_STDERR;
 		else 
-			grecs_error(&vp->locus, 0, "unrecognized flag");
+			grecs_error(&vp->locus, 0, _("unrecognized flag"));
 	}
 	return 0;
 }
@@ -607,7 +609,7 @@ file_name_pattern(struct grecs_list *lp, grecs_value_t *val)
 		
 		p = strchr(arg+1, '/');
 		if (!p) {
-			grecs_error(&val->locus, 0, "Unterminated regexp");
+			grecs_error(&val->locus, 0, _("unterminated regexp"));
 			free(pat);
 			return 1;
 		}
@@ -621,7 +623,7 @@ file_name_pattern(struct grecs_list *lp, grecs_value_t *val)
 				break;
 			default:
 				grecs_error(&val->locus, 0,
-					    "Unrecognized flag: %c", *q);
+					    _("unrecognized flag: %c"), *q);
 				free(pat);
 				return 1;
 			}
@@ -689,43 +691,44 @@ cb_file_pattern(enum grecs_callback_command cmd, grecs_node_t *node,
 }
 
 static struct grecs_keyword watcher_kw[] = {
-	{ "path", NULL, "Pathname to watch",
+	{ "path", NULL, N_("Pathname to watch"),
 	  grecs_type_string, GRECS_DFLT, &eventconf.pathlist, 0,
 	  cb_path },
-	{ "event", NULL, "Events to watch for",
+	{ "event", NULL, N_("Events to watch for"),
 	  grecs_type_string, GRECS_LIST, &eventconf.eventmask, 0,
 	  cb_eventlist },
-	{ "file", "regexp", "Files to watch for",
+	{ "file", N_("regexp"), N_("Files to watch for"),
 	  grecs_type_string, GRECS_LIST, &eventconf.fnames, 0,
 	  cb_file_pattern },
-	{ "command", NULL, "Command to execute on event",
+	{ "command", NULL, N_("Command to execute on event"),
 	  grecs_type_string, GRECS_DFLT, &eventconf.command },
-	{ "user", "name", "Run command as this user",
+	{ "user", N_("name"), N_("Run command as this user"),
 	  grecs_type_string, GRECS_DFLT, NULL, 0,
 	  cb_user },
-	{ "timeout", "seconds", "Timeout for the command",
+	{ "timeout", N_("seconds"), N_("Timeout for the command"),
 	  grecs_type_uint, GRECS_DFLT, &eventconf.timeout },
-	{ "option", NULL, "List of additional options",
+	{ "option", NULL, N_("List of additional options"),
 	  grecs_type_string, GRECS_LIST, NULL, 0,
 	  cb_option },
-	{ "environ", "<arg: string> <arg: string>...", "Modify environment",
+	{ "environ", N_("<arg: string> <arg: string>..."),
+	  N_("Modify environment"),
 	  grecs_type_string, GRECS_DFLT, NULL, 0,
 	  cb_environ },
 	{ NULL }
 };
 
 static struct grecs_keyword direvent_kw[] = {
-	{ "user", NULL, "Run as this user",
+	{ "user", NULL, N_("Run as this user"),
 	  grecs_type_string, GRECS_DFLT, &user },
-	{ "foreground", NULL, "Run in foreground",
+	{ "foreground", NULL, N_("Run in foreground"),
 	  grecs_type_bool, GRECS_DFLT, &foreground },
-	{ "pidfile", "file", "Set pid file name",
+	{ "pidfile", N_("file"), N_("Set pid file name"),
 	  grecs_type_string, GRECS_DFLT, &pidfile },
-	{ "syslog", NULL, "Configure syslog logging",
+	{ "syslog", NULL, N_("Configure syslog logging"),
 	  grecs_type_section, GRECS_DFLT, NULL, 0, NULL, NULL, syslog_kw },
-	{ "debug", "level", "Set debug level",
+	{ "debug", N_("level"), N_("Set debug level"),
 	  grecs_type_int, GRECS_DFLT, &debug_level },
-	{ "watcher", NULL, "Configure event watcher",
+	{ "watcher", NULL, N_("Configure event watcher"),
 	  grecs_type_section, GRECS_DFLT, NULL, 0,
 	  cb_watcher, NULL, watcher_kw },
 	{ NULL }
@@ -736,16 +739,10 @@ void
 config_help()
 {
 	static char docstring[] =
-		"Configuration file structure for direvent.\n"
-		"For more information, use `info direvent configuration'.";
+		N_("Configuration file structure for direvent.\n"
+		   "For more information, use `info direvent configuration'.");
 	grecs_print_docstring(docstring, 0, stdout);
 	grecs_print_statement_array(direvent_kw, 1, 0, stdout);
-}
-
-void
-config_init()
-{
-	grecs_log_to_stderr = 1;
 }
 
 void

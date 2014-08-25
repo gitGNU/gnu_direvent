@@ -137,11 +137,11 @@ hashtab_strerror(int rc)
 {
 	switch (rc) {
 	case ENOENT:
-		return "element not found in table";
+		return _("element not found in table");
 	case E2BIG:
-		return "symbol table is full";
+		return _("symbol table is full");
 	case ENOMEM:
-		return "out of memory";
+		return _("out of memory");
 	}
 	return strerror(rc);
 }

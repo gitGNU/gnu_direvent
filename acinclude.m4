@@ -14,41 +14,31 @@
 # You should have received a copy of the GNU General Public License
 # along with Direvent.  If not, see <http://www.gnu.org/licenses/>.
 
-bin_PROGRAMS=direvent
-direvent_SOURCES=\
- direvent.c\
- direvent.h\
- cmdline.h\
- config.c\
- environ.c\
- event.c\
- fnpat.c\
- hashtab.c\
- watcher.c\
- progman.c\
- sigv.c
+AC_DEFUN([DEVT_CC_OPT],[
+  m4_pushdef([devt_optname],translit($1,[-],[_]))
+  AC_MSG_CHECKING(whether $CC accepts $1)
+   devt_save_cc="$CC"
+   CC="$CC $1"
+   AC_TRY_RUN([int main() { return 0; }],
+   [devt_cv_cc_]devt_optname=yes,
+   [devt_cv_cc_]devt_optname=no,
+   [devt_cv_cc_]devt_optname=no)
+   CC="$devt_save_cc"
+  AC_MSG_RESULT($[devt_cv_cc_]devt_optname)
+  
+  if test $[devt_cv_cc_]devt_optname = yes; then
+         ifelse([$2],,:,[$2])
+  ifelse([$3],,,else
+         [$3])
+  fi
+  m4_popdef([devt_optname])
+  ])
 
-if DIREVENT_INOTIFY
-  direvent_SOURCES += ev_inotify.c detach-std.c
-endif
-
-if DIREVENT_KQUEUE
-  direvent_SOURCES += ev_kqueue.c
-if DIREVENT_RFORK
-  direvent_SOURCES += detach-bsd.c
-else
-  direvent_SOURCES += detach-darwin.c
-endif
-endif
-
-LDADD=@GRECS_LDADD@ @LIBINTL@
-AM_CPPFLAGS=-I$(top_srcdir)/grecs/src/
-
-BUILT_SOURCES=cmdline.h
-EXTRA_DIST=cmdline.opt
-noinst_HEADERS=gettext.h
-
-SUFFIXES=.opt .c .h
-.opt.h:
-	$(AM_V_GEN)m4 -s $(top_srcdir)/@GRECS_SUBDIR@/build-aux/getopt.m4 $< > $@
+AC_DEFUN([DEVT_CC_OPT_CFLAGS],[
+  DEVT_CC_OPT([$1],[CFLAGS="$CFLAGS $1"])
+])
+  
+AC_DEFUN([DEVT_CC_PAREN_QUIRK],[
+  DEVT_CC_OPT_CFLAGS([-Wno-parentheses])
+])
 

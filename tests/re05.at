@@ -26,7 +26,7 @@ syslog {
 watcher {
 	path $cwd/dir;
 	event create;
-	file "!/\.[[0-9]]+$/";
+	file "!/\.[0-9]+$/";
 	command "$TESTDIR/envdump -s -i DIREVENT_FILE=:DIREVENT_GENEV_ -f $outfile -a -k\$self_test_pid";
 	option (stdout,stderr);
 }

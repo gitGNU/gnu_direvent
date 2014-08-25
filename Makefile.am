@@ -14,9 +14,9 @@
 # You should have received a copy of the GNU General Public License
 # along with Direvent.  If not, see <http://www.gnu.org/licenses/>.
 
-ACLOCAL_AMFLAGS = -I grecs/am
+ACLOCAL_AMFLAGS = -I am -I grecs/am
 
-SUBDIRS=grecs src tests doc
+SUBDIRS= grecs src tests doc po
 
 .PHONY: ChangeLog
 ChangeLog:
@@ -25,3 +25,5 @@ ChangeLog:
 		awk -f $(top_builddir)/grecs/build-aux/git2chg.awk > ChangeLog; \
         fi
 
+
+EXTRA_DIST = build-aux/config.rpath

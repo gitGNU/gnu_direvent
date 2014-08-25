@@ -25,6 +25,11 @@
 #include <signal.h>
 #include <regex.h>
 
+#include "gettext.h"
+
+#define _(s) gettext(s)
+#define N_(s) s
+
 /* Generic (system-independent) event codes */
 #define GENEV_CREATE  0x01
 #define GENEV_WRITE   0x02
@@ -189,7 +194,10 @@ struct pathent {
 	size_t len;
 	char path[1];
 };
-	
+
+void config_help(void);
+struct grecs_node;
+void config_finish(struct grecs_node *tree);
 void config_parse(const char *file);
 
 int get_facility(const char *arg);
@@ -207,6 +215,9 @@ char *split_pathname(struct dirwatcher *dp, char **dirname);
 void unsplit_pathname(struct dirwatcher *dp);
 
 void ev_log(int flags, struct dirwatcher *dp);
+void deliver_ev_create(struct dirwatcher *dp, const char *name);
+int subwatcher_create(struct dirwatcher *parent, const char *dirname,
+		      int isdir, int notify);
 
 struct process *process_lookup(pid_t pid);
 void process_cleanup(int expect_term);

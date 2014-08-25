@@ -138,7 +138,7 @@ emalloc(size_t size)
 {
 	void *p = malloc(size);
 	if (!p) {
-		diag(LOG_CRIT, "not enough memory");
+		diag(LOG_CRIT, _("not enough memory"));
 		exit(2);
 	}
 	return p;
@@ -160,7 +160,7 @@ erealloc(void *ptr, size_t size)
 {
 	void *p = realloc(ptr, size);
 	if (!p) {
-		diag(LOG_CRIT, "not enough memory");
+		diag(LOG_CRIT, _("not enough memory"));
 		exit(2);
 	}
 	return p;
@@ -268,7 +268,7 @@ storepid(const char *pidfile)
 {
 	FILE *fp = fopen(pidfile, "w");
 	if (!fp) {
-		diag(LOG_ERR, "cannot open pidfile %s for writing: %s",
+		diag(LOG_ERR, _("cannot open pidfile %s for writing: %s"),
 		     pidfile, strerror(errno));
 	} else {
 		fprintf(fp, "%lu\n", (unsigned long) getpid());
@@ -296,7 +296,7 @@ get_user_groups(uid_t uid, size_t *pgidc, gid_t **pgidv)
 
 	pw = getpwuid(uid);
 	if (!pw) {
-		diag(LOG_ERR, 0, "no used with UID %lu",
+		diag(LOG_ERR, 0, _("no used with UID %lu"),
 		     (unsigned long)uid);
 		exit(2);
 	}
@@ -423,7 +423,7 @@ self_test()
 	pid = fork();
 	if (pid == (pid_t)-1) {
 		diag(LOG_CRIT,
-		     "cannot run `%s': fork failed: %s",
+		     _("cannot run `%s': fork failed: %s"),
 		     self_test_prog, strerror(errno));
 		exit(2);
 	}
@@ -473,7 +473,7 @@ main(int argc, char **argv)
 
 	switch (argc) {
 	default:
-		diag(LOG_CRIT, "too many arguments");
+		diag(LOG_CRIT, _("too many arguments"));
 		exit(1);
 	case 1:
 		conffile = argv[0];
@@ -519,7 +519,7 @@ main(int argc, char **argv)
 		log_to_stderr = -1;
 	}
 	
-	diag(LOG_INFO, "%s %s started", program_name, VERSION);
+	diag(LOG_INFO, _("%s %s started"), program_name, VERSION);
 
 	/* Write pidfile */
 	if (pidfile)
@@ -540,7 +540,7 @@ main(int argc, char **argv)
 		process_cleanup(0);
 	}
 
-	diag(LOG_INFO, "%s %s stopped", program_name, VERSION);
+	diag(LOG_INFO, _("%s %s stopped"), program_name, VERSION);
 
 	if (pidfile)
 		unlink(pidfile);

@@ -139,10 +139,10 @@ print_status(pid_t pid, int status, sigset_t *mask)
 {
 	if (WIFEXITED(status)) {
 		if (WEXITSTATUS(status) == 0)
-			debug(1, ("process %lu exited successfully",
+			debug(1, (_("process %lu exited successfully"),
 				  (unsigned long) pid));
 		else
-			diag(LOG_ERR, "process %lu failed with status %d",
+			diag(LOG_ERR, _("process %lu failed with status %d"),
 			     (unsigned long) pid, WEXITSTATUS(status));
 	} else if (WIFSIGNALED(status)) {
 		int prio;
@@ -152,19 +152,19 @@ print_status(pid_t pid, int status, sigset_t *mask)
 		else
 			prio = LOG_ERR;
 
-		diag(prio, "process %lu terminated on signal %d",
+		diag(prio, _("process %lu terminated on signal %d"),
 		     (unsigned long) pid, WTERMSIG(status));
 	} else if (WIFSTOPPED(status))
-		diag(LOG_ERR, "process %lu stopped on signal %d",
+		diag(LOG_ERR, _("process %lu stopped on signal %d"),
 		     (unsigned long) pid, WSTOPSIG(status));
 #ifdef WCOREDUMP
 	else if (WCOREDUMP(status))
 		diag(LOG_ERR,
-		     "process %lu dumped core", (unsigned long) pid);
+		     _("process %lu dumped core"), (unsigned long) pid);
 #endif
 	else
 		diag(LOG_ERR,
-		     "process %lu terminated with unrecognized status",
+		     _("process %lu terminated with unrecognized status"),
 		     (unsigned long) pid);
 }
 
@@ -225,11 +225,11 @@ process_timeouts()
 	time_t now = time(NULL);
 	time_t alarm_time = 0, x;
 
-	debug(2, ("begin scanning process list"));
+	debug(2, (_("begin scanning process list")));
 	for (p = proc_list; p; p = p->next) {
 		x = now - p->start;
 		if (x >= p->timeout) {
-			diag(LOG_ERR, "process %lu timed out",
+			diag(LOG_ERR, _("process %lu timed out"),
 			     (unsigned long) p->pid);
 			kill(p->pid, SIGKILL);
 		} else if (alarm_time == 0 ||
@@ -238,7 +238,7 @@ process_timeouts()
 	}
 
 	if (alarm_time) {
-		debug(2, ("scheduling alarm in %lu seconds",
+		debug(2, (_("scheduling alarm in %lu seconds"),
 			  (unsigned long) alarm_time));
 		alarm(alarm_time);
 	}
@@ -319,7 +319,7 @@ open_redirector(const char *tag, int prio, struct process **return_proc)
 
 	if (pipe(p)) {
 		diag(LOG_ERR,
-		     "cannot start redirector for %s, pipe failed: %s",
+		     _("cannot start redirector for %s, pipe failed: %s"),
 		     tag, strerror(errno));
 		return -1;
 	}
@@ -351,12 +351,12 @@ open_redirector(const char *tag, int prio, struct process **return_proc)
       
 	case -1:
 		diag(LOG_CRIT,
-		     "cannot run redirector `%s': fork failed: %s",
+		     _("cannot run redirector `%s': fork failed: %s"),
 		     tag, strerror(errno));
 		return -1;
 
 	default:
-		debug(1, ("redirector for %s started, pid=%lu",
+		debug(1, (_("redirector for %s started, pid=%lu"),
 			  tag, (unsigned long) pid));
 		close(p[0]);
 		*return_proc = register_process(PROC_REDIR, pid, 
@@ -436,7 +436,7 @@ run_handler(struct handler *hp, event_mask *event,
 	if (!hp->prog)
 		return 0;
 	
-	debug(1, ("starting %s, dir=%s, file=%s", hp->prog, dirname, file));
+	debug(1, (_("starting %s, dir=%s, file=%s"), hp->prog, dirname, file));
 	if (hp->flags & HF_STDERR)
 		redir_fd[REDIR_ERR] = open_redirector(hp->prog, LOG_ERR,
 						      &redir_proc[REDIR_ERR]);
@@ -465,7 +465,7 @@ run_handler(struct handler *hp, event_mask *event,
 			_exit(127);
 		
 		if (chdir(dirname)) {
-			diag(LOG_CRIT, "cannot change to %s: %s",
+			diag(LOG_CRIT, _("cannot change to %s: %s"),
 			     dirname, strerror(errno));
 			_exit(127);
 		}
@@ -493,7 +493,7 @@ run_handler(struct handler *hp, event_mask *event,
 	}
 
 	/* master */
-	debug(1, ("%s running; dir=%s, file=%s, pid=%lu",
+	debug(1, (_("%s running; dir=%s, file=%s, pid=%lu"),
 		  hp->prog, dirname, file, (unsigned long)pid));
 
 	p = register_process(PROC_HANDLER, pid, time(NULL), hp->timeout);
@@ -515,7 +515,7 @@ run_handler(struct handler *hp, event_mask *event,
 		return 0;
 	}
 
-	debug(1, ("waiting for %s (%lu) to terminate",
+	debug(1, (_("waiting for %s (%lu) to terminate"),
 		  hp->prog, (unsigned long)pid));
 	while (time(NULL) - p->start < 2 * p->timeout) {
 		sleep(1);

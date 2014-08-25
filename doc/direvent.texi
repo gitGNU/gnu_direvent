@@ -4,7 +4,7 @@
 @setfilename direvent.info
 @settitle GNU Direvent
 @c %**end of header
-@setchapternewpage odd
+@c @setchapternewpage odd
 
 @defcodeindex pr
 @defcodeindex op
@@ -112,7 +112,7 @@ and system-independent command-level interface.  As of version
 @GNUDIREVENT{} monitors a set of directories on the file system and
 reacts when a file system event occurs in any of them.  Directories
 and events to monitor are specified in the configuration file.  When
-an event occurs the utility reacts by invoking an external command
+an event occurs, the program reacts by invoking an external command
 configured for that event.			      
 
 @cindex events
@@ -146,7 +146,7 @@ ownership, mode, link count, etc.
 
 @cindex watcher, introduced
 @cindex handler, introduced
-A @dfn{watcher} is a configuration entity which associates a set of
+A @dfn{watcher} is a configuration entity that associates a set of
 directories with a set of events and instructs @command{direvent} to
 run a specified external command when any of these events occur in any
 of these directories.  This external command (called a @dfn{handler})
@@ -181,16 +181,18 @@ statement is a collection of statements enclosed in curly braces.
 The following block statement declares a watcher:
 
 @example
+@group
 watcher @{
     path @var{pathname} [recursive [@var{level}]];
+    file @var{pattern-list};
     event  @var{event-list};
     command @var{command-line};
-    file @var{pattern-list};
     user @var{name};
     timeout @var{number};
     environ @var{env-spec};
     option @var{string-list};
 @}
+@end group
 @end example
 
 Each @code{watcher} statement instructs @command{direvent} to monitor
@@ -236,7 +238,7 @@ watcher @{
 @end example
 
 On this event, the watcher is to invoke @file{/usr/bin/upload}
-with the name of created file as an argument.  To make it
+with the name of the created file as an argument.  To make it
 possible, the @command{direvent} configuration file provides @dfn{macro
 variables}, which can be used in the @code{command} argument at
 configuration time and which are expanded to the actual values before
