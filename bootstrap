@@ -1,6 +1,57 @@
 #! /bin/sh
+# This file is part of Direvent -*- autoconf -*-
+# Copyright (C) 2012-2014 Sergey Poznyakoff
+#
+# Direvent is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 3, or (at your option)
+# any later version.
+#
+# Direvent is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Direvent.  If not, see <http://www.gnu.org/licenses/>.
+
+if ! test -r configure.ac; then
+    echo >&2 "$0: configure.ac not found"
+    exit 1
+fi
+
+extract_package_name='divert(-1)[]changequote([,])[]define([AC_INIT],[divert(0)[]patsubst([$1],[GNU ],[])[]divert(-1)])'
+package=`echo $extract_package_name | m4 - configure.ac | tr A-Z a-z`
+
+if test -z "$package"; then
+    echo >&2 "$0: can't deduce package name"
+    exit 1
+fi
+
+get_po() {
+    podir=po
+    dndir=po/.download
+    test -d $dndir || mkdir $dndir
+    rsync -Lrtvz translationproject.org::tp/latest/$package/ $dndir || exit 1
+    ls $dndir/*.po | sed 's|.*/||;s|\.po$||' > $podir/LINGUAS
+    for lang in `cat $podir/LINGUAS`
+    do
+	if ! test -f $podir/$lang.po ||
+	    ! cmp $podir/$lang.po $dndir/$lang.po >/dev/null; then
+	    echo "updated $podir/$lang.po"
+	    cp $dndir/$lang.po $podir
+	fi
+    done
+}
+
+#########################
+
 set -e
+
+get_po
+
 test -d am || mkdir am
 git submodule init
 git submodule update
 autoreconf -f -i -s
+    
