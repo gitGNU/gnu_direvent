@@ -296,7 +296,7 @@ get_user_groups(uid_t uid, size_t *pgidc, gid_t **pgidv)
 
 	pw = getpwuid(uid);
 	if (!pw) {
-		diag(LOG_ERR, 0, _("no used with UID %lu"),
+		diag(LOG_ERR, 0, _("no user with UID %lu"),
 		     (unsigned long)uid);
 		exit(2);
 	}
