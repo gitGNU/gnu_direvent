@@ -89,9 +89,13 @@ struct dirwatcher {
 	struct dirwatcher *parent;           /* Points to the parent watcher.
 					        NULL for top-level watchers */
 	char *dirname;                       /* Pathname being watched */
-	struct handler *handler_list;        /* Handlers */
-	int depth;
-	char *split_p;
+	struct handler *handler_list;        /* List of handlers */
+	struct handler *handler_tail;        /* Tail of the handler list */
+	int depth;                           /* Recursion depth */
+	char *split_p;                       /* Points to the deleted directory
+						separator in dirname (see
+						split_pathname,
+						unsplit_pathname */
 #if USE_IFACE == IFACE_KQUEUE
 	mode_t file_mode;
 	time_t file_ctime;

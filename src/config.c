@@ -198,20 +198,18 @@ eventconf_flush(grecs_locus_t *loc)
 	for (ep = eventconf.pathlist->head; ep; ep = ep->next) {
 		struct pathent *pe = ep->data;
 		struct dirwatcher *dwp;
-		struct handler *hp, *prev = NULL;
+		struct handler *hp;
+		int isnew;
 		
-		dwp = dirwatcher_install(pe->path, NULL);
+		dwp = dirwatcher_install(pe->path, &isnew);
 		if (!dwp)
 			abort();
+		if (!isnew && dwp->depth != pe->depth)
+			grecs_error(loc, 0,
+				    _("%s: recursion depth does not match previous definition"),
+				    pe->path);
 		dwp->depth = pe->depth;
-		for (hp = dwp->handler_list; hp; prev = hp, hp = hp->next) {
-			if (strcmp(dwp->dirname, pe->path) == 0) {
-				grecs_error(loc, 0,
-					    _("ignoring duplicate definition"));
-				return;
-			}
-		}
-
+		
 		hp = emalloc(sizeof(*hp));
 		hp->next = NULL;
 		hp->ev_mask = eventconf.eventmask;
@@ -224,10 +222,11 @@ eventconf_flush(grecs_locus_t *loc)
 		hp->gidv = eventconf.gidv;
 		hp->env = eventconf.env;
 		
-		if (prev)
-			prev->next = hp;
+		if (dwp->handler_tail)
+			dwp->handler_tail->next = hp;
 		else
 			dwp->handler_list = hp;
+		dwp->handler_tail = hp;
 	}
 	grecs_list_free(eventconf.pathlist);
 	eventconf_init();
