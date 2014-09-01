@@ -46,13 +46,13 @@ BEGIN
 	opt_pidfile = optarg;
 END	
 
-OPTION(lint,t,,,
+OPTION(lint,t,,
        [<check configuration file and exit>])
 BEGIN       
 	lint_only = 1;
 END
 
-OPTION(user,u,USER,,
+OPTION(user,u,USER,
        [<run as this user>])
 BEGIN
 	opt_user = optarg;

@@ -144,6 +144,7 @@ File attributes have changed.  This includes changes in the file
 ownership, mode, link count, etc.
 @end table
 
+@anchor{handler}
 @cindex watcher, introduced
 @cindex handler, introduced
 A @dfn{watcher} is a configuration entity that associates a set of
@@ -313,22 +314,16 @@ of the default @file{/etc/direvent.conf}.
 The options are:
 
 @table @option
-@opindex -F
-@opindex --facility
-@item -F @var{name}
-@itemx --facility=@var{name}
-Set syslog facility.
-@opindex -P
-@opindex --pidfile
-@item -P @var{file}
-@itemx --pidfile=@var{file}
-Upon successful startup store the PID of the daemon process in
-@var{file}.
 @opindex -d
 @opindex --debug
 @item -d
 @itemx --debug
 Increase debug level.
+@opindex -F
+@opindex --facility
+@item -F @var{name}
+@itemx --facility=@var{name}
+Set syslog facility.
 @opindex -f
 @opindex --foreground
 @item -f
@@ -344,6 +339,69 @@ of increasing severity): @samp{debug}, @samp{info}, @samp{notice},
 @samp{warning}, @samp{err}, @samp{crit}, @samp{alert}, @samp{emerg}.
 When this option is given, only messages with the priority level equal
 to or greater than @var{prio} will be duplicated on the standard error.
+@opindex -P
+@opindex --pidfile
+@item -P @var{file}
+@itemx --pidfile=@var{file}
+Upon successful startup store the PID of the daemon process in
+@var{file}.
+@opindex -T
+@opindex --self-test
+@cindex self-test mode
+@anchor{self-test mode}
+@item -T @var{command}
+@itemx --self-test=@var{command}
+Run in @dfn{self-test mode}.  In this mode, @command{direvent} starts
+external command supplied as the argument to this option and continues
+running until the command exits.  If @var{command} terminates normally,
+@command{direvent} exits with the code returned by it.  If
+@var{command} terminates on signal, @command{direvent} exits with 
+code @samp{0} if this signal was @code{SIGHUP}, and with code @samp{2}
+otherwise.
+
+The @var{command} can include any command line options or arguments,
+provided that it is properly quoted.  It is invoked as 
+@command{/bin/sh -c @var{command}} in the environment of
+the parent @command{direvent} process.
+
+This mode is used in @command{direvent} test suite.  The idea is
+to configure the handler (@pxref{handler}) so that it sends
+@code{SIGHUP} to @var{command} before exiting.  To this effect,
+the special macro variable @code{$self_test_pid} is
+defined (@pxref{macro expansion}) to the PID of the running
+@var{command} process.  For example, consider configuration file
+@file{test.conf}, which contains the following:
+
+@example
+watcher @{
+    path /tmp;
+    command "/bin/kill -HUP $self_test_pid";
+@}    
+@end example
+
+Then, the following command can be used to check whether
+@command{direvent} correctly reacts on file creation in
+the watched directory:
+
+@example
+$ direvent --foreground \
+    --self-test 'touch /tmp/file && /usr/bin/sleep 20 && exit 1' \
+    test.conf
+@end example
+
+The command will return @samp{0} if the handler was invoked, and @samp{1}
+if it was not.
+@opindex -t
+@opindex --lint
+@item -t
+@itemx --lint
+Check configuration file for errors and exit.
+@opindex -u
+@opindex --user
+@item -u @var{name}
+@itemx --user=@var{name}
+Run as this user.  This option overrides the @code{user} configuration
+statement (@pxref{general settings, user}).
 @end table
 
 The following options are @dfn{informative}.  They cause the program
@@ -355,18 +413,19 @@ to display the requested piece of information and terminate:
 @item -H
 @itemx --config-help
 Show configuration file summary.
-@opindex -V
-@opindex --version
-@item -V
-@itemx --version
-Print program version.
 @opindex -h
 @opindex --help
 @item -h
 @itemx --help
 Give a short usage summary.
+@opindex --usage
 @item --usage
 Display available command line options.
+@opindex -V
+@opindex --version
+@item -V
+@itemx --version
+Print program version.
 @end table
       
 @node Configuration
@@ -644,9 +703,9 @@ this is not required.
 @cindex macro expansion
 Arguments of some statements undergo macro expansion before use.
 During the macro expansion any occurrence of @samp{$@var{name}} is replaced
-by the value of the macro @var{name}.  Macro names follow the usual
-convention: they begin with a letter and contain letters, digits and
-underscores.  Curly braces around the @var{name} are optional.
+by the value of the macro variable @var{name}.  Variable names follow
+the usual convention: they begin with a letter and contain letters,
+digits and underscores.  Curly braces around the @var{name} are optional.
 They are required only if the macro reference is followed by a
 character that is not to be interpreted as part of its name, as in
 @samp{$@{command@}string}.
@@ -658,6 +717,25 @@ The following macros are defined:
 @kwindex file, macro variable
 @item file
 Name of the file that triggered the event.
+
+@anchor{$genev_code}
+@kwindex genev_code, macro variable
+@item genev_code
+Generic (system-independent) event code.  It is a bitwise OR of
+the event codes represented as a decimal number.
+
+@anchor{$genev_name}
+@kwindex genev_name, macro variable
+@item genev_name
+Generic event name.  If several generic events are reported simultaneously, the
+value of this variable is a list of event names separated by space
+characters.  Each name corresponds to a bit in @samp{$genev_code}. 
+
+@kwindex self_test_pid
+@item self_test_pid
+The PID of the external command started with the @option{--self-test}
+option (@pxref{self-test mode}).  If @command{direvent} is started
+without this option, this variable is not defined.
 
 @anchor{$sysev_code}
 @kwindex sysev_code, macro variable
@@ -672,19 +750,6 @@ A system-dependent event name.  If several events are reported, the
 value of this variable is a list of event names separated by space
 characters.  Each name corresponds to a bit in @samp{sysev_code}.
 @xref{System dependencies}, for a list of system-dependent event names.
-
-@anchor{$genev_code}
-@kwindex genev_code, macro variable
-@item genev_code
-Generic (system-independent) event code.  It is a bitwise OR of
-the event codes represented as a decimal number.
-
-@anchor{$genev_name}
-@kwindex genev_name, macro variable
-@item genev_name
-Generic event name.  If several generic events are reported simultaneously, the
-value of this variable is a list of event names separated by space
-characters.  Each name corresponds to a bit in @samp{$genev_code}. 
 @end table
 
 @node general settings

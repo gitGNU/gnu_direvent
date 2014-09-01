@@ -404,22 +404,13 @@ sigmain(int sig)
 		stop = 1;
 	}
 }
-extern char **environ;
 
 void
 self_test()
 {
 	pid_t pid;
-	struct wordsplit ws;
-
-	ws.ws_env = (const char **)environ;
-	if (wordsplit(self_test_prog, &ws,
-		      WRDSF_NOCMD | WRDSF_QUOTE | WRDSF_SQUEEZE_DELIMS |
-		      WRDSF_CESCAPES | WRDSF_ENV)) {
-		diag(LOG_CRIT, "wordsplit: %s", wordsplit_strerror (&ws));
-		exit(2);
-	}
-
+	char *args[4];
+	
 	pid = fork();
 	if (pid == (pid_t)-1) {
 		diag(LOG_CRIT,
@@ -432,10 +423,14 @@ self_test()
 		self_test_pid = pid;
 		return;
 	}
-	
-	execv(ws.ws_wordv[0], ws.ws_wordv);
 
-	diag(LOG_ERR, "execv: %s: %s", ws.ws_wordv[0], strerror(errno));
+	args[0] = "/bin/sh";
+	args[1] = "-c";
+	args[2] = self_test_prog;
+	args[3] = NULL;
+	execv(args[0], args);
+
+	diag(LOG_ERR, "execv: %s: %s", self_test_prog, strerror(errno));
 	_exit(127);
 }
 

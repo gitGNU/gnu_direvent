@@ -13,7 +13,7 @@
 .\"
 .\" You should have received a copy of the GNU General Public License along
 .\" with direvent. If not, see <http://www.gnu.org/licenses/>.
-.TH DIREVENT.CONF 5 "August 10, 2014" "DIREVENT" "Direvent User Reference"
+.TH DIREVENT.CONF 5 "September 1, 2014" "DIREVENT" "Direvent User Reference"
 direvent.conf \- configuration file for
 .BR direvent (8).
 .SH DESCRIPTION
@@ -286,6 +286,22 @@ The following macros are defined:
 .B file
 Name of the file covered by the event.
 .TP
+.B genev_code
+Generic (system-independent) event code.  It is a bitwise \fBOR\fR of
+the event codes represented as a decimal number.
+.TP
+.B genev_name
+Generic event name.  If several generic events are reported simultaneously, the
+value of this variable is a list of event names separated by space
+characters.  Each name corresponds to a bit in \fBgenev_code\fR.
+.TP
+.B self_test_pid
+The PID of the external command started with the
+.BR \-\-self\-test " (" \-T )
+option.  If
+.B direvent
+is started without this option, this variable is not defined.
+.TP
 .B sysev_code
 System-dependent event code.  It is a bitwise \fBOR\fR of the event codes
 represented as a decimal number.  
@@ -299,15 +315,6 @@ the section
 in
 .BR direvent (8),
 for a list of system-dependent event names.
-.TP
-.B genev_code
-Generic (system-independent) event code.  It is a bitwise \fBOR\fR of
-the event codes represented as a decimal number.
-.TP
-.B genev_name
-Generic event name.  If several generic events are reported simultaneously, the
-value of this variable is a list of event names separated by space
-characters.  Each name corresponds to a bit in \fBgenev_code\fR. 
 .SH GENERAL SETTINGS
 .TP
 \fBuser\fR \fINAME\fR;
