@@ -45,10 +45,31 @@ get_po() {
 }
 
 #########################
+unset po_only
+while getopts "ph" opt
+do
+    case $opt in
+	p) po_only=1;;
+	h) cat - <<EOF
+usage: $0 [-hp]
+
+options:
+
+  -h         display this help
+  -p         get PO files and exit
+EOF
+           exit 0
+           ;;
+	*) exit 1
+    esac
+done
 
 set -e
 
 get_po
+if [ -n "$po_only" ]; then
+    exit 0
+fi    
 
 test -d am || mkdir am
 git submodule init
