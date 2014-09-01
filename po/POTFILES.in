@@ -7,3 +7,11 @@ src/environ.c
 src/hashtab.c
 src/progman.c
 src/watcher.c
+
+grecs/src/format.c
+grecs/src/opthelp.c
+grecs/src/path-parser.c
+grecs/src/preproc.c
+grecs/src/symtab.c
+grecs/src/tree.c
+grecs/src/wordsplit.c

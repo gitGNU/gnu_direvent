@@ -455,7 +455,13 @@ main(int argc, char **argv)
 {
 	int i;
 	struct grecs_node *tree;
-	
+
+#ifdef ENABLE_NLS
+	setlocale(LC_ALL, "");
+	bindtextdomain(PACKAGE, LOCALEDIR);
+	textdomain(PACKAGE);
+#endif
+
 	set_program_name(argv[0]);
 	tag = (char*) program_name;
 

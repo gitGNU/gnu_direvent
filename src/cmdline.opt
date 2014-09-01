@@ -76,11 +76,11 @@ static void
 help_hook(FILE *fp)
 {
 	fprintf(fp,
-		"The optional CONFIG argument supplies the name of the "
-		"configuration file\n"
-	        "to use instead of %s.\n\n", DEFAULT_CONFFILE); 
-
-	fprintf(fp, "This direvent uses %s interface.\n\n", INTERFACE);
+		_("The optional CONFIG argument supplies the name of the "
+		  "configuration file\n"
+	          "to use instead of %s.\n\n"), DEFAULT_CONFFILE); 
+	/* TRANSLATORS: %s is one of: inotify, kqueue */
+	fprintf(fp, _("This direvent uses %s interface.\n\n"), INTERFACE);
 }
 
 void
