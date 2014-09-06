@@ -50,6 +50,7 @@ m4_include([delete.at])
 m4_include([write.at])
 m4_include([attrib.at])
 m4_include([cmdexp.at])
+m4_include([samepath.at])
 
 AT_BANNER([Environment modifications])
 m4_include([env00.at])

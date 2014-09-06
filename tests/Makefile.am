@@ -55,6 +55,7 @@ TESTSUITE_AT = \
   re03.at\
   re04.at\
   re05.at\
+  samepath.at\
   testsuite.at\
   write.at
 
