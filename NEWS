@@ -1,10 +1,10 @@
-direvent -- history of user-visible changes. 2014-09-03
+direvent -- history of user-visible changes. 2014-09-06
 Copyright (C) 2012-2014 Sergey Poznyakoff
 See the end of file for copying conditions.
 
 Please send direvent bug reports to <bug-direvent@gnu.org.ua>
 
-Version 4.1.91, Git
+Version 5.0, Git
 
 * An official GNU release
 
