@@ -315,7 +315,7 @@ definition was:
 .sp
 .nf
 .in +4
-command "/libexec/handler -e '$genev_name' -f '$file'";
+command "/libexec/handler \-e '$genev_name' \-f '$file'";
 .in
 .fi
 .RE
@@ -325,7 +325,7 @@ then the resulting command line will be:
 .sp
 .nf
 .in +4
-/libexec/handler -e 'open' -f 'somefile'
+/libexec/handler \-e 'open' \-f 'somefile'
 .in
 .fi
 .RE
@@ -353,7 +353,7 @@ to raise the limit, e.g.:
 .sp
 .nf
 .in +4
-sysctl -w fs.inotify.max_user_watches=16384
+sysctl \-w fs.inotify.max_user_watches=16384
 .in
 .fi
 .PP

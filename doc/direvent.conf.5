@@ -14,6 +14,7 @@
 .\" You should have received a copy of the GNU General Public License along
 .\" with direvent. If not, see <http://www.gnu.org/licenses/>.
 .TH DIREVENT.CONF 5 "September 1, 2014" "DIREVENT" "Direvent User Reference"
+.SH NAME
 direvent.conf \- configuration file for
 .BR direvent (8).
 .SH DESCRIPTION
@@ -473,7 +474,7 @@ For example:
 .sp
 .nf
 .in +4
-command "/bin/prog -event $genev_name -file $file";
+command "/bin/prog \-event $genev_name \-file $file";
 .in
 .fi
 .RE
