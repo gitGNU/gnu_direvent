@@ -1,5 +1,5 @@
 # This file is part of Direvent -*- autoconf -*-
-# Copyright (C) 2012-2014 Sergey Poznyakoff
+# Copyright (C) 2012-2015 Sergey Poznyakoff
 #
 # Direvent is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -21,22 +21,22 @@ direvent_TEXINFOS=\
 dist_man_MANS=direvent.8 direvent.conf.5
 
 EXTRA_DIST = \
- gendocs_template
+ gendocs_template\
+ gendocs.sh
 
 clean-local:
 	@rm -rf manual
 
-GENDOCS=gendocs.sh 
+GENDOCS=$(srcdir)/gendocs.sh
 
-TEXI2DVI=texi2dvi -t '@set $(RENDITION)' -E
+TEXI2DVI=texi2dvi -t '@set $(RENDITION)'
 
 .PHONY: manual
 manual:
 	TEXINPUTS=$(srcdir):$(top_srcdir)/build-aux:$(TEXINPUTS) \
 	 MAKEINFO="$(MAKEINFO) $(MAKEINFOFLAGS) $(AM_MAKEINFOFLAGS)" \
 	 TEXI2DVI="$(TEXI2DVI)" \
-         TEXI2HTML="texi2html $(AM_MAKEINFOFLAGS)" \
-	 $(GENDOCS) --texi2html $(PACKAGE) '$(PACKAGE_NAME) manual'
+	 $(GENDOCS) --no-copy-images $(PACKAGE) '$(PACKAGE_NAME) manual'
 
 manual.tar.bz2: manual
 	tar cfj manual.tar.bz2 manual
