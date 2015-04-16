@@ -1,5 +1,5 @@
 # This file is part of Direvent -*- autoconf -*-
-# Copyright (C) 2012-2014 Sergey Poznyakoff
+# Copyright (C) 2012-2015 Sergey Poznyakoff
 #
 # Direvent is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -15,7 +15,7 @@
 # along with Direvent.  If not, see <http://www.gnu.org/licenses/>.
 
 AC_PREREQ([2.69])
-AC_INIT([GNU Direvent], [5.0], [bug-direvent@gnu.org.ua], [direvent],
+AC_INIT([GNU Direvent], [5.0.90], [bug-direvent@gnu.org.ua], [direvent],
         [http://www.gnu.org.ua/software/direvent])
 AC_CONFIG_SRCDIR([src/direvent.c])
 AC_CONFIG_HEADERS([config.h])

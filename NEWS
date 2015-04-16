@@ -1,10 +1,15 @@
-direvent -- history of user-visible changes. 2014-09-06
-Copyright (C) 2012-2014 Sergey Poznyakoff
+direvent -- history of user-visible changes. 2015-04-16
+Copyright (C) 2012-2015 Sergey Poznyakoff
 See the end of file for copying conditions.
 
 Please send direvent bug reports to <bug-direvent@gnu.org.ua>
 
-Version 5.0, Git
+Version 5.0.90, Git
+
+Reword copyright statement in direvent.texi
+
+
+Version 5.0, 2014-09-06
 
 * An official GNU release
 
@@ -68,7 +73,7 @@ Initial release
 =========================================================================
 Copyright information:
 
-Copyright (C) 2012-2014 Sergey Poznyakoff
+Copyright (C) 2012-2015 Sergey Poznyakoff
 
    Permission is granted to anyone to make or distribute verbatim copies
    of this document as received, in any medium, provided that the
