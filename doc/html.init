@@ -43,6 +43,7 @@ set_from_init_file('AFTER_BODY_OPEN', qq{
   <li><a class="active" href="${top_html_dir}/manual.html">Documentation</a></li>
 </ul>
 </div> <!-- header -->
+<div id="docmain">
 });
 
 sub gray_end_file($)
@@ -57,13 +58,13 @@ sub gray_end_file($)
   }
   my $pre_body_close = $self->get_conf('PRE_BODY_CLOSE');
   $pre_body_close = '' if (!defined($pre_body_close));
-  return "</div>
-<div class=\"copyright\">
+  return "</div><!-- docmain -->
+<div id=\"copyright\">
 $program_text
 
 $pre_body_close
-</div>
-</div>
+</div> <!-- copyright -->
+</div> <!-- content -->
 </body>
 </html>
 ";
@@ -81,12 +82,10 @@ set_from_init_file('PROGRAM_NAME_IN_FOOTER',1);
 set_from_init_file('DEFAULT_RULE', '');
 set_from_init_file('BIG_RULE', '');
 
-# Turn off footer buttons in section split
-set_from_init_file('SECTION_FOOTER_BUTTONS', undef);
-#set_from_init_file('SECTION_BUTTONS', undef);
-# Turn off navigation bars at the bottom of each section in chapter split mode
+# Turn off navigation bars at the bottom of each section in chapter split mode,
+# or subsection in section split mode.
 set_from_init_file('HEADERS', undef)
-    if (get_conf('SPLIT') and (get_conf('SPLIT') eq 'chapter'));
+    if ((get_conf('SPLIT') eq 'chapter') or (get_conf('SPLIT') eq 'section'));
 # Use navigation icons
 
 set_from_init_file('ICONS', 1);
@@ -155,9 +154,11 @@ my @gray_buttons = (\&gray_document_title, ' ',
 		    'FastBack', ' ', 'Up', ' ', 'FastForward', ' ',
 		    'Contents', 'Index' );
 
+set_from_init_file('TOP_BUTTONS', undef);
 set_from_init_file('SECTION_BUTTONS', \@gray_buttons);
 set_from_init_file('CHAPTER_BUTTONS', \@gray_buttons);
 set_from_init_file('NODE_FOOTER_BUTTONS', \@gray_buttons);
+set_from_init_file('SECTION_FOOTER_BUTTONS', \@gray_buttons);
 set_from_init_file('MISC_BUTTONS',
 		   [\&gray_document_title,
 		    'Contents',
