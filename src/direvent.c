@@ -22,6 +22,7 @@
 #include <grp.h>
 #include <signal.h>
 #include <grecs.h>
+#include <locale.h>
 #include "wordsplit.h"
 
 #ifndef SYSCONFDIR
@@ -463,7 +464,7 @@ main(int argc, char **argv)
 #endif
 
 	set_program_name(argv[0]);
-	tag = (char*) program_name;
+	tag = estrdup(program_name);
 
 	genev_init();
 

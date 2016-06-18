@@ -1,12 +1,17 @@
-direvent -- history of user-visible changes. 2015-04-16
-Copyright (C) 2012-2015 Sergey Poznyakoff
+direvent -- history of user-visible changes. 2016-06-18
+Copyright (C) 2012-2016 Sergey Poznyakoff
 See the end of file for copying conditions.
 
 Please send direvent bug reports to <bug-direvent@gnu.org.ua>
 
 Version 5.0.90, Git
 
-Reword copyright statement in direvent.texi
+* Globbing patterns in #include statement
+
+If argument to the #include statement contains wildcard characters (*, [,
+], or ?), it is interpreted as shell globbing pattern and all files
+matching that pattern are included, in lexicographical order.  If no
+matching files are found, the directive is replaced with an empty line.
 
 
 Version 5.0, 2014-09-06
@@ -73,7 +78,7 @@ Initial release
 =========================================================================
 Copyright information:
 
-Copyright (C) 2012-2015 Sergey Poznyakoff
+Copyright (C) 2012-2016 Sergey Poznyakoff
 
    Permission is granted to anyone to make or distribute verbatim copies
    of this document as received, in any medium, provided that the

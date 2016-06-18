@@ -489,8 +489,16 @@ next physical newline character.
 @table @code
 @kwindex #include
 @item #include <@var{file}>
-@itemx #include @var{file}
-Include the contents of the file @var{file}.
+@itemx #include "@var{file}"
+Include the contents of the file @var{file}.  If @var{file} is an
+absolute file name, the named file is included.  An error message will
+be issued if it does not exist.
+
+If @var{file} contains wildcard characters (@samp{*}, @samp{[},
+@samp{]} or @samp{?}), it is interpreted as shell globbing pattern and
+all files matching that pattern are included, in lexicographical
+order.  If no matching files are found, the directive is replaced with
+an empty line.
 
 @kwindex #include_once
 @item #include_once <@var{file}>

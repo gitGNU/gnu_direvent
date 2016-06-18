@@ -13,7 +13,7 @@
 .\"
 .\" You should have received a copy of the GNU General Public License along
 .\" with direvent. If not, see <http://www.gnu.org/licenses/>.
-.TH DIREVENT.CONF 5 "September 1, 2014" "DIREVENT" "Direvent User Reference"
+.TH DIREVENT.CONF 5 "June 18, 2016" "DIREVENT" "Direvent User Reference"
 .SH NAME
 direvent.conf \- configuration file for
 .BR direvent (8).
@@ -63,8 +63,15 @@ sign and end with the next physical newline character.
 .TP
 .BI "#include " "FILE"
 .PD
-Include the contents of the file \fIfile\fR.  Both forms are
-equivalent.  The \fIFILE\fR must be an absolute file name.
+Include the contents of the file \fIFILE\fR.  If \fIFILE\fR is an
+absolute file name, the named file is included.  An error message will
+be issued if it does not exist.
+
+If \fIFILE\fR contains wildcard characters (\fB*\fR, \fB[\fR,
+\fB]\fR, or \fB?\fR), it is interpreted as shell globbing pattern and
+all files matching that pattern are included, in lexicographical
+order.  If no matching files are found, the directive is replaced with
+an empty line.
 .\" If it is an
 .\" absolute file name, both forms are equivalent.  Otherwise, the form
 .\" with angle brackets searches for the file in the \fIinclude 
@@ -79,8 +86,8 @@ equivalent.  The \fIFILE\fR must be an absolute file name.
 .TP
 .BR "#include_once " "FILE"
 .PD
-Same as \fB#include\fR, except that, if the \fIFILE\fR has already
-been included, it will not be included again.
+Same as \fB#include\fR, except that, if the \fIFILE\fR (or any of the
+files it expands to) has already been included, it will not be included again.
 .TP
 .BI "#line " "num"
 .PD 0
