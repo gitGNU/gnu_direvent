@@ -40,6 +40,7 @@
 #define HF_NOWAIT 0x01       /* Don't wait for termination */
 #define HF_STDOUT 0x02       /* Capture stdout */
 #define HF_STDERR 0x04       /* Capture stderr */
+#define HF_SHELL  0x08       /* Call program via /bin/sh -c */ 
 
 #ifndef DEFAULT_TIMEOUT
 # define DEFAULT_TIMEOUT 5

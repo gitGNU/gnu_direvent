@@ -366,14 +366,17 @@ open_redirector(const char *tag, int prio, struct process **return_proc)
 }
 
 static void
-runcmd(const char *cmd, char **envhint, event_mask *event, const char *file)
+runcmd(const char *cmd, char **envhint, event_mask *event, const char *file,
+       int shell)
 {
 	char *kve[13];
 	char *p,*q;
 	char buf[1024];
 	int i = 0, j;
+	char **argv;
+	char *xargv[4];
 	struct wordsplit ws;
-
+	
 	kve[i++] = "file";
 	kve[i++] = (char*) file;
 	
@@ -412,15 +415,27 @@ runcmd(const char *cmd, char **envhint, event_mask *event, const char *file)
 
 	ws.ws_env = (const char **) kve;
 	if (wordsplit(cmd, &ws,
-		      WRDSF_NOCMD | WRDSF_QUOTE | WRDSF_SQUEEZE_DELIMS |
-		      WRDSF_CESCAPES | WRDSF_ENV | WRDSF_ENV_KV)) {
-		diag(LOG_CRIT, "wordsplit: %s", wordsplit_strerror (&ws));
+		      WRDSF_NOCMD | WRDSF_QUOTE
+		      | WRDSF_SQUEEZE_DELIMS | WRDSF_CESCAPES
+		      | WRDSF_ENV | WRDSF_ENV_KV
+		      | (shell ? WRDSF_NOSPLIT : 0))) {
+		diag(LOG_CRIT, "wordsplit: %s",
+		     wordsplit_strerror (&ws));
 		_exit(127);
 	}
+	
+	if (shell) {
+		xargv[0] = "/bin/sh";
+		xargv[1] = "-c";
+		xargv[2] = ws.ws_wordv[0];
+		xargv[3] = NULL;
+		argv = xargv;
+	} else
+		argv = ws.ws_wordv;
 
-	execve(ws.ws_wordv[0], ws.ws_wordv, environ_setup(envhint, kve));
+	execve(argv[0], argv, environ_setup(envhint, kve));
 
-	diag(LOG_ERR, "execv: %s: %s", ws.ws_wordv[0], strerror(errno));
+	diag(LOG_ERR, "execve: %s \"%s\": %s", argv[0], cmd, strerror(errno));
 	_exit(127);
 }
 
@@ -489,7 +504,7 @@ run_handler(struct handler *hp, event_mask *event,
 		close_fds(fdset);
 		alarm(0);
 		signal_setup(SIG_DFL);
-		runcmd(hp->prog, hp->env, event, file);
+		runcmd(hp->prog, hp->env, event, file, hp->flags & HF_SHELL);
 	}
 
 	/* master */

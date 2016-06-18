@@ -1,5 +1,5 @@
 .\" direvent - directory content watcher daemon -*- nroff -*-
-.\" Copyright (C) 2012-2014 Sergey Poznyakoff
+.\" Copyright (C) 2012-2016 Sergey Poznyakoff
 .\"
 .\" Direvent is free software; you can redistribute it and/or modify it
 .\" under the terms of the GNU General Public License as published by the
@@ -500,6 +500,9 @@ default is 5 seconds.
 \fBoption\fR \fISTRING\-LIST\fR;
 A list of additional options.  The following options are defined:
 .RS +16
+.TP
+.B shell
+Invoke the handler command as \fB/bin/sh -c "\fIcommand\fB"\fR.
 .TP
 .B wait
 Wait for the program to terminate before handling next event from

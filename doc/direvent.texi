@@ -292,10 +292,12 @@ File descriptors above 2 are closed.
 @item
 Macro variables are expanded.  @xref{macro expansion}.
 @item
-Word splitting is performed on the resulting command line.  The first
-word is treated as the pathname of the program to be executed.
-@item
-The program is invoked.
+If the @samp{shell} option is set, the handler is invoked via the
+shell, as @code{/bin/sh -c "@var{command}"}.
+
+Otherwise, word splitting is performed on the resulting command line.
+The first word is treated as the pathname of the program, which is
+then invoked via the @code{execve} system call.
 @end enumerate
 
 @node Invocation
@@ -937,6 +939,10 @@ For example:
 command "/bin/prog -event $genev_name -file $file";
 @end example
 
+By default, the command is executed directly via @code{execve} system
+call.  If @samp{shell} option is set, the command is executed via
+@code{/bin/sh}.
+
 @xref{handler environment}, for a detailed discussion of how the
 command is executed. 
 @end deffn
@@ -954,15 +960,22 @@ default is 5 seconds.
 A list of additional options.  The following options are defined:
 
 @table @asis
+@item shell
+@kwindex shell, watcher option
+Invoke the handler command as @code{/bin/sh -c "@var{command}"}.
+
 @item wait
+@kwindex wait, watcher option
 Wait for the program to terminate before handling next event from
 the event queue.  Normally the program runs asynchronously.
 
 @item stdout
+@kwindex stdout, watcher option
 Capture the standard output of the command and redirect it to the
 syslog with the @samp{LOG_INFO} priority.
 
 @item stderr
+@kwindex strerr, watcher option
 Capture the standard error of the command and redirect it to the
 syslog with the @samp{LOG_ERR} priority.
 @end table

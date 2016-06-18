@@ -529,8 +529,10 @@ cb_option(enum grecs_callback_command cmd, grecs_node_t *node,
 			eventconf.flags |= HF_STDOUT;
 		else if (strcmp(vp->v.string, "stderr") == 0)
 			eventconf.flags |= HF_STDERR;
+		else if (strcmp(vp->v.string, "shell") == 0)
+			eventconf.flags |= HF_SHELL;
 		else 
-			grecs_error(&vp->locus, 0, _("unrecognized flag"));
+			grecs_error(&vp->locus, 0, _("unrecognized option"));
 	}
 	return 0;
 }

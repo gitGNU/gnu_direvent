@@ -1,5 +1,5 @@
 # This file is part of Direvent 
-# Copyright (C) 2012-2014 Sergey Poznyakoff
+# Copyright (C) 2012-2016 Sergey Poznyakoff
 #
 # Direvent is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -56,6 +56,7 @@ TESTSUITE_AT = \
   re04.at\
   re05.at\
   samepath.at\
+  shell.at\
   testsuite.at\
   write.at
 

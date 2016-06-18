@@ -1,0 +1,58 @@
+# This file is part of Direvent testsuite. -*- Autotest -*-
+# Copyright (C) 2013-2016 Sergey Poznyakoff
+#
+# Direvent is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 3, or (at your option)
+# any later version.
+#
+# Direvent is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Direvent.  If not, see <http://www.gnu.org/licenses/>.
+
+AT_SETUP([Shell])
+AT_KEYWORDS([create shell])
+
+AT_DIREVENT_TEST([
+debug 10;
+syslog {
+	facility ${TESTSUITE_FACILITY:-local0};
+	tag direvent-test:create;
+}
+watcher {
+	path $cwd/dir;
+	event create;
+	command "echo SHELL=\$0 > $outfile;"
+	        "$TESTDIR/envdump -s -i DIREVENT_FILE=:DIREVENT_GENEV_ -af $outfile -k\$self_test_pid";
+	option (stdout,stderr,shell);
+}
+],
+[> dir/file],
+[outfile=$cwd/dump
+mkdir dir
+],
+[sed "s^$cwd^(CWD)^;s^$TESTDIR^(TESTDIR)^;/^argv\[[[0-9]]\]=-k/d" $outfile
+],
+[0],
+[SHELL=/bin/sh
+# Dump of execution environment
+cwd is (CWD)/dir
+# Arguments
+argv[[0]]=(TESTDIR)/envdump
+argv[[1]]=-s
+argv[[2]]=-i
+argv[[3]]=DIREVENT_FILE=:DIREVENT_GENEV_
+argv[[4]]=-af
+argv[[5]]=(CWD)/dump
+# Environment
+DIREVENT_FILE=file
+DIREVENT_GENEV_CODE=1
+DIREVENT_GENEV_NAME=create
+# End
+])
+
+AT_CLEANUP

@@ -1,5 +1,5 @@
 # This file is part of Direvent testsuite. -*- Autotest -*-
-# Copyright (C) 2013, 2014 Sergey Poznyakoff
+# Copyright (C) 2013, 2014, 2016 Sergey Poznyakoff
 #
 # Direvent is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -51,6 +51,7 @@ m4_include([write.at])
 m4_include([attrib.at])
 m4_include([cmdexp.at])
 m4_include([samepath.at])
+m4_include([shell.at])
 
 AT_BANNER([Environment modifications])
 m4_include([env00.at])
