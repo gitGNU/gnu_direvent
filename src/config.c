@@ -747,8 +747,20 @@ config_help()
 }
 
 void
-config_finish(struct grecs_node *tree)
-{	
+config_init(void)
+{
+	grecs_include_path_setup(INCLUDE_PATH_ARGS, NULL);
+}
+
+void
+config_parse(char const *conffile)
+{
+	struct grecs_node *tree;
+
+	tree = grecs_parse(conffile);
+	if (!tree)
+		exit(1);
 	if (grecs_tree_process(tree, direvent_kw))
 		exit(1);
+	
 }

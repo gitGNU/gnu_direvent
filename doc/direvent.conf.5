@@ -13,7 +13,7 @@
 .\"
 .\" You should have received a copy of the GNU General Public License along
 .\" with direvent. If not, see <http://www.gnu.org/licenses/>.
-.TH DIREVENT.CONF 5 "June 18, 2016" "DIREVENT" "Direvent User Reference"
+.TH DIREVENT.CONF 5 "June 20, 2016" "DIREVENT" "Direvent User Reference"
 .SH NAME
 direvent.conf \- configuration file for
 .BR direvent (8).
@@ -68,18 +68,22 @@ absolute file name, the named file is included.  An error message will
 be issued if it does not exist.
 
 If \fIFILE\fR contains wildcard characters (\fB*\fR, \fB[\fR,
-\fB]\fR, or \fB?\fR), it is interpreted as shell globbing pattern and
+\fB]\fR, or \fB?\fR), it is interpreted as a shell globbing pattern and
 all files matching that pattern are included, in lexicographical
 order.  If no matching files are found, the directive is replaced with
 an empty line.
-.\" If it is an
-.\" absolute file name, both forms are equivalent.  Otherwise, the form
-.\" with angle brackets searches for the file in the \fIinclude 
-.\" search path\fR, while the second one looks for it in the current working
-.\" directory first, and, if not found there, in the include search
-.\" path.
-.\" .sp
-.\" The default include search path is:  \fBFIXME\fR.
+
+Otherwise, the form with angle brackets searches for file in the
+include search path, while the second one looks for it in the
+current working directory first, and, if not found there, in the
+include search path.  If the file is not found, an error message will
+be issued.
+
+The order of directories is as follows.  First, \fBdirevent\fR scans
+any directories given with \fB\-I\fR options, in the same order as
+given on the command line, and then the directories in the standard
+include search path.  The latter is defined at compile time and can be
+inspected in the output of the \fB\-\-help\fR option.
 .TP
 .BI "#include_once <" "FILE" >
 .PD 0

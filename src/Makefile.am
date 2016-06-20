@@ -44,7 +44,8 @@ endif
 LDADD=@GRECS_LDADD@ @LIBINTL@
 AM_CPPFLAGS=\
  -I$(top_srcdir)/grecs/src/\
- -DLOCALEDIR=\"$(localedir)\"
+ -DLOCALEDIR=\"$(localedir)\"\
+ -DINCLUDE_PATH_ARGS='$(INCLUDE_PATH_ARGS)'
 
 BUILT_SOURCES=cmdline.h
 EXTRA_DIST=cmdline.opt

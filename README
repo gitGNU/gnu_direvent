@@ -25,6 +25,23 @@ The usual incantation applies:
 See the file INSTALL for the description of ./configure and its
 generic options.
 
+Following are the package-specific options:
+
+ --with-include-path=PATH
+ 
+   Define standard include path.  This is a list of directories where
+   files given in the #include and #include_once configuration
+   statements will be searched.  PATH is a list of directories
+   separated by colons.  Directory names can contain references to
+   Makefile variables, which will be expanded to their actual values
+   at compile time.  The default PATH is
+
+      $(pkgdatadir)/$(VERSION):$(pkgdatadir)/include
+  
+   See the documentation, section 5.1.2 "Pragmatic Comments", for a
+   detailed description of #include and #include_path statements and
+   the meaning of the include search path.
+
 * Usage Instructions
 
 Complete documentation is included with the package, both in man

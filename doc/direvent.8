@@ -13,17 +13,19 @@
 .\"
 .\" You should have received a copy of the GNU General Public License along
 .\" with direvent. If not, see <http://www.gnu.org/licenses/>.
-.TH DIREVENT 8 "September 1, 2014" "DIREVENT" "Direvent User Reference"
+.TH DIREVENT 8 "June 20, 2016" "DIREVENT" "Direvent User Reference"
 .SH NAME
 direvent \- directory event monitor
 .SH SYNOPSIS
 \fBdirevent\fR [\fB\-HVdfh\fR] [\fB\-F\fR \fINAME\fR]\
  [\fB\-P\fR \fIFILE\fR]\
- [\fB-l\fR \fIPRIO\fR]\
- [\fB-T\fR \fICOMMAND\fR]\
+ [\fB\-l\fR \fIPRIO\fR]\
+ [\fB\-I\fR \fIDIR\fR]\
+ [\fB\-T\fR \fICOMMAND\fR]\
  [\fB\-\-debug\fR]\
  [\fB\-\-facility\fR=\fINAME\fR]\
  [\fB\-\-foreground\fB]\
+ [\fB\-\-include=\fIDIR\fR]\
  [\fB\-\-pidfile\fR=\fIFILE\fR]\
  [\fB\-\-self\-test\fR=\fICOMMAND\fR]\
  [\fB\-\-user\fR=\fINAME\fR]\
@@ -121,6 +123,15 @@ The option \fB\-F 0\fR directs logging to the standard error.
 .TP
 .BR \-f ", " \-\-foreground 
 Run in the foreground.
+.TP
+\fB\-I\fR, \fB\-\-include=\fIDIR\fR
+Add \fIDIR\fR to the include search path.  When looking for a file to
+be included in the \fB#include\fR (\fB#include_once\fR) statement,
+\fBdirevent\fR scans first the directories given with \fB\-I\fR
+options (in the same order as given on the command line), and then the
+directories in the standard include search path.  The latter is
+defined at compile time and can be inspected in the output of the
+\fB\-\-help\fR option.
 .TP
 \fB\-l\fR \fIPRIO\fR
 While connected to a terminal \fBdirevent\fR outputs its diagnostics

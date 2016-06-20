@@ -73,6 +73,13 @@ AM_ICONV
 AM_GNU_GETTEXT([external], [need-formatstring-macros])
 AM_GNU_GETTEXT_VERSION([0.18])
 
+AC_SUBST(INCLUDE_PATH_ARGS,[$(pkgdatadir)/$(VERSION):$(pkgdatadir)/include])
+AC_ARG_WITH([include-path],
+            [AC_HELP_STRING([--with-include-path=PATH],
+	         [set direvent runtime include path])],
+            [INCLUDE_PATH_ARGS=$withval])
+INCLUDE_PATH_ARGS=$(echo "$INCLUDE_PATH_ARGS" | sed 's/:/\",\"/g;s/^/\"/;s/$/\"/')
+
 # Initialize the test suite.
 AC_CONFIG_TESTDIR(tests)
 AC_CONFIG_FILES([tests/Makefile tests/atlocal po/Makefile.in])

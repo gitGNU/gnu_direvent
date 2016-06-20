@@ -455,7 +455,6 @@ int
 main(int argc, char **argv)
 {
 	int i;
-	struct grecs_node *tree;
 
 #ifdef ENABLE_NLS
 	setlocale(LC_ALL, "");
@@ -467,7 +466,8 @@ main(int argc, char **argv)
 	tag = estrdup(program_name);
 
 	genev_init();
-
+	config_init();
+	
 	parse_options(argc, argv, &i);
 
 	argc -= i;
@@ -484,11 +484,7 @@ main(int argc, char **argv)
 		break;
 	}
 
-	tree = grecs_parse(conffile);
-	if (!tree)
-		exit(1);
-
-	config_finish(tree);
+	config_parse(conffile);
 	if (lint_only)
 		return 0;
 

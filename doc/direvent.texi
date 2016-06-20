@@ -331,6 +331,13 @@ Set syslog facility.
 @item -f
 @itemx --foreground
 Remain in foreground.
+@opindex -I
+@opindex --include
+@anchor{include option}
+@item -I @var{dir}
+@itemx --include=@var{dir}
+Add @var{dir} to the beginning of the include search path
+(@pxref{include search path}).
 @opindex -l
 @item -l @var{prio}
 While connected to a terminal, @command{direvent} outputs its diagnostics
@@ -497,10 +504,43 @@ absolute file name, the named file is included.  An error message will
 be issued if it does not exist.
 
 If @var{file} contains wildcard characters (@samp{*}, @samp{[},
-@samp{]} or @samp{?}), it is interpreted as shell globbing pattern and
+@samp{]} or @samp{?}), it is interpreted as a shell globbing pattern and
 all files matching that pattern are included, in lexicographical
 order.  If no matching files are found, the directive is replaced with
 an empty line.
+
+Otherwise, the form with angle brackets searches for file in the
+@dfn{include search path}, while the second one looks for it in the
+current working directory first, and, if not found there, in the
+include search path.  If the file is not found, an error message will
+be issued.
+
+@cindex include search path, preprocessor
+@cindex include directories, preprocessor
+@cindex preprocessor include search path
+@anchor{include search path}
+@dfn{Include search path} is formed by two directory sets: the
+user-defined search path, as defined by eventual @option{-I}
+(@pxref{include option}) command line options, and the standard include
+search path, defined at compile time.  The latter can be inspected
+using the @option{--help} option.
+
+The order of directories is as follows.  First, @command{direvent} scans
+any directories given with @option{-I} options, in the same order as
+given on the command line.  If @var{file} is not found in any of them,
+the standard include search path is scanned.  It is defined at the
+compile time and by default consists of two directories:
+
+@itemize @bullet
+@item @file{@var{prefix}/share/direvent/@value{VERSION}/include}
+@item @file{@var{prefix}/share/direvent/include}
+@end itemize
+
+@noindent
+where @var{prefix} is the installation prefix.  The default can be
+changed when configuring the package.  To inspect the actual standard
+include search path at the runtime, run @code{direvent --help}, and
+look for the string @samp{Include search path:} in its output.
 
 @kwindex #include_once
 @item #include_once <@var{file}>

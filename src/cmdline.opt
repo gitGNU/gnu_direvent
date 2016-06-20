@@ -34,6 +34,12 @@ BEGIN
 	opt_foreground++;
 END
 
+OPTION(include-directory,I,DIR,
+       [<add include directory>])
+BEGIN
+        grecs_preproc_add_include_dir(optarg);
+END
+	 
 OPTION(self-test,T,PROG,
        [<self-test mode>])
 BEGIN
@@ -72,6 +78,14 @@ END
 
 OPTIONS_END
 
+static int
+print_dir(int flag, const char *dir, void *data)
+{
+	FILE *fp = data;
+	fprintf(fp, "%s\n", dir);
+	return 0;
+}
+
 static void
 help_hook(FILE *fp)
 {
@@ -81,6 +95,13 @@ help_hook(FILE *fp)
 	          "to use instead of %s.\n\n"), DEFAULT_CONFFILE); 
 	/* TRANSLATORS: %s is one of: inotify, kqueue */
 	fprintf(fp, _("This direvent uses %s interface.\n\n"), INTERFACE);
+
+	if (grecs_include_path_count(GRECS_STD_INCLUDE)) {
+		fprintf(fp, _("Include search path:\n"));
+		grecs_foreach_include_dir(GRECS_STD_INCLUDE, print_dir, fp);
+	} else
+		fprintf(fp, _("No include search path.\n"));
+	fprintf(fp, "\n");
 }
 
 void

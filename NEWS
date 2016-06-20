@@ -1,4 +1,4 @@
-direvent -- history of user-visible changes. 2016-06-18
+direvent -- history of user-visible changes. 2016-06-20
 Copyright (C) 2012-2016 Sergey Poznyakoff
 See the end of file for copying conditions.
 
@@ -21,11 +21,40 @@ The 'shell' option causes watcher command to be executed via
 function).  For example:
 
   watcher {
-     path "/etc/httpd/vhosts"
-     command "/usr/bin/scanhosts && service httpd restart"
+     path "/etc/httpd/vhosts";
+     command "/usr/bin/scanhosts && service httpd restart";
      option (shell);
   }
 
+* Include path
+
+If the argument to the #include (#include_once) statement is not an
+absolute file name or globbing pattern, it is looked up in the include
+search path.  The order of look up is as follows.  First, directories 
+given with '-I' options (see below) are scanned, in the same order as
+given on the command line.  If no matching file is found in any of
+them, directories in the standard include search path are scanned.
+
+By default, the standard include search path contains two directories:
+'$(pkgdatadir)/$(VERSION)' and '$(pkgdatadir)/include', where
+$(pkgdatadir) and $(VERSION) stand for the package data directory, and
+package version, correspondingly.  It can be redefined at compile time using
+the '--with-include-path' to configure, e.g.:
+
+ ./configure --with-include-path='$(sysconfdir)/direvent.d:$(pkgdatadir)/$(VERSION):$(pkgdatadir)/include'
+
+(see the file INSTALL, section "Building and Configuring", for a
+detailed discussion of this option).
+ 
+To inspect the actual path at runtime, run \fBdirevent \-\-help\fR,
+and look for the string 'Include search path:' in its output.
+  
+* New command line option -I (--include)
+
+The '-I DIR' command line option adds DIR to the include search path.
+When looking for include files, directories given with '-I' options
+are scanned first.  If the file is not found, the directories in the
+standard include path are scanned.
 
 
 Version 5.0, 2014-09-06

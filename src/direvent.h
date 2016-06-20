@@ -201,8 +201,7 @@ struct pathent {
 };
 
 void config_help(void);
-struct grecs_node;
-void config_finish(struct grecs_node *tree);
+void config_init(void);
 void config_parse(const char *file);
 
 int get_facility(const char *arg);
