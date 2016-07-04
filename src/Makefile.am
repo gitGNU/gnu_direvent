@@ -43,7 +43,7 @@ endif
 
 LDADD=@GRECS_LDADD@ @LIBINTL@
 AM_CPPFLAGS=\
- -I$(top_srcdir)/grecs/src/\
+ @GRECS_INCLUDES@\
  -DLOCALEDIR=\"$(localedir)\"\
  -DINCLUDE_PATH_ARGS='$(INCLUDE_PATH_ARGS)'
 
