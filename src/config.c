@@ -1,5 +1,5 @@
 /* direvent - directory content watcher daemon
-   Copyright (C) 2012-2014 Sergey Poznyakoff
+   Copyright (C) 2012-2016 Sergey Poznyakoff
 
    Direvent is free software; you can redistribute it and/or modify it
    under the terms of the GNU General Public License as published by the

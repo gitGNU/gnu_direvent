@@ -1,4 +1,4 @@
-direvent -- history of user-visible changes. 2016-06-20
+direvent -- history of user-visible changes. 2016-07-04
 Copyright (C) 2012-2016 Sergey Poznyakoff
 See the end of file for copying conditions.
 
@@ -46,7 +46,7 @@ the '--with-include-path' to configure, e.g.:
 (see the file INSTALL, section "Building and Configuring", for a
 detailed discussion of this option).
  
-To inspect the actual path at runtime, run \fBdirevent \-\-help\fR,
+To inspect the actual path at runtime, run 'direvent --help',
 and look for the string 'Include search path:' in its output.
   
 * New command line option -I (--include)
