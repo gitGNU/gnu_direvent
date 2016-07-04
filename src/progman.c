@@ -474,7 +474,6 @@ run_handler(struct handler *hp, event_mask *event,
 	if (pid == 0) {		
 		/* child */
 		bigfd_set fdset = BIGFD_SET_ALLOC();
-		struct wordsplit ws;
 		
 		if (switchpriv(hp))
 			_exit(127);
