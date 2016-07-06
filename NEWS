@@ -1,10 +1,10 @@
-direvent -- history of user-visible changes. 2016-07-04
+direvent -- history of user-visible changes. 2016-07-06
 Copyright (C) 2012-2016 Sergey Poznyakoff
 See the end of file for copying conditions.
 
 Please send direvent bug reports to <bug-direvent@gnu.org.ua>
 
-Version 5.0.90, Git
+Version 5.1, 2016-07-06
 
 * Globbing patterns in #include statement
 
