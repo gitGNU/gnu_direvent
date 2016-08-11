@@ -68,7 +68,7 @@ dwref_free(void *p)
 	free(dwref);
 }
 
-struct hashtab *texttab;
+struct hashtab *nametab;
 
 struct dirwatcher *
 dirwatcher_install(const char *path, int *pnew)
@@ -78,11 +78,11 @@ dirwatcher_install(const char *path, int *pnew)
 	struct dwref *ent;
 	int install = 1;
 
-	if (!texttab) {
-		texttab = hashtab_create(sizeof(struct dwref),
+	if (!nametab) {
+		nametab = hashtab_create(sizeof(struct dwref),
 					 dwname_hash, dwname_cmp, dwname_copy,
 					 NULL, dwref_free);
-		if (!texttab) {
+		if (!nametab) {
 			diag(LOG_CRIT, N_("not enough memory"));
 			exit(1);
 		}
@@ -90,7 +90,7 @@ dirwatcher_install(const char *path, int *pnew)
 
 	dwkey.dirname = (char*) path;
 	key.dw = &dwkey;
-	ent = hashtab_lookup_or_install(texttab, &key, &install);
+	ent = hashtab_lookup_or_install(nametab, &key, &install);
 	if (install) {
 		dw = ecalloc(1, sizeof(*dw));
 		dw->dirname = estrdup(path);
@@ -112,12 +112,12 @@ dirwatcher_lookup(const char *dirname)
 	struct dwref key;
 	struct dwref *ent;
 
-	if (!texttab)
+	if (!nametab)
 		return NULL;
 	
 	dwkey.dirname = (char*) dirname;
 	key.dw = &dwkey;
-	ent = hashtab_lookup_or_install(texttab, &key, NULL);
+	ent = hashtab_lookup_or_install(nametab, &key, NULL);
 	return ent ? ent->dw : NULL;
 }
 
@@ -127,12 +127,12 @@ dirwatcher_remove(const char *dirname)
 	struct dirwatcher dwkey;
 	struct dwref key;
 
-	if (!texttab)
+	if (!nametab)
 		return;
 	
 	dwkey.dirname = (char*) dirname;
 	key.dw = &dwkey;
-	hashtab_remove(texttab, &key);
+	hashtab_remove(nametab, &key);
 }
 
 
@@ -335,6 +335,18 @@ check_new_watcher(const char *dir, const char *name)
 	return rc;
 }
 
+int
+dirwatcher_pattern_match(struct dirwatcher *dwp, const char *file_name)
+{
+	struct handler *hp;
+
+	for (hp = dwp->handler_list; hp; hp = hp->next) {
+		if (filename_pattern_match(hp->fnames, file_name) == 0)
+			return 0;
+	}
+	return 1;
+}
+
 /* Recursively scan subdirectories of parent and add them to the
    watcher list, as requested by the parent's autowatch value. */
 static int
@@ -375,7 +387,8 @@ watch_subdirs(struct dirwatcher *parent, int notify)
 		if (stat(dirname, &st)) {
 			diag(LOG_ERR, _("cannot stat %s: %s"),
 			     dirname, strerror(errno));
-		} else {
+		} else if (dirwatcher_pattern_match(parent, ent->d_name)
+			   == 0) {
 			if (notify)
 				deliver_ev_create(parent, ent->d_name);
 			if (st.st_mode & filemask) {
@@ -408,11 +421,11 @@ void
 setup_watchers()
 {
 	sysev_init();
-	if (hashtab_count(texttab) == 0) {
+	if (hashtab_count(nametab) == 0) {
 		diag(LOG_CRIT, _("no event handlers configured"));
 		exit(1);
 	}
-	hashtab_foreach(texttab, setwatcher, NULL);
+	hashtab_foreach(nametab, setwatcher, NULL);
 	if (hashtab_count(dwtab) == 0) {
 		diag(LOG_CRIT, _("no event handlers installed"));
 		exit(2);
@@ -427,6 +440,10 @@ dirwatcher_destroy(struct dirwatcher *dwp)
 
 	dirwatcher_remove_wd(dwp->wd);
 	dirwatcher_remove(dwp->dirname);
+	if (hashtab_count(dwtab) == 0) {
+		diag(LOG_CRIT, _("no watchers left; exiting now"));
+		stop = 1;
+	}
 }
 
 char *

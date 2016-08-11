@@ -186,6 +186,8 @@ mkfilename(const char *dir, const char *file)
 	size_t fillen = strlen(file);
 	size_t len;
 
+	if (!file || file[0] == 0)
+		return strdup(dir);
 	while (dirlen > 0 && dir[dirlen-1] == '/')
 		dirlen--;
 

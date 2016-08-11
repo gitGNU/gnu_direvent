@@ -185,7 +185,6 @@ struct hashtab *hashtab_create(size_t elsize,
 			       void *(*alloc_fun)(size_t),
 			       void (*free_fun)(void *));
 void hashtab_free(struct hashtab *st);
-size_t hashtab_count_entries(struct hashtab *st);
 
 typedef int (*hashtab_enumerator_t) (struct hashent *, void *);
 int hashtab_foreach(struct hashtab *st, hashtab_enumerator_t fun,

@@ -99,9 +99,11 @@ process_event(struct inotify_event *ep)
 	char *dirname, *filename;
 	
 	dp = dirwatcher_lookup_wd(ep->wd);
+
 	if (ep->mask & IN_IGNORED)
-		return;
-	else if (ep->mask & IN_Q_OVERFLOW) {
+		ep->mask = IN_DELETE;
+	
+	if (ep->mask & IN_Q_OVERFLOW) {
 		diag(LOG_NOTICE,
 		     "event queue overflow");
 		return;
@@ -128,9 +130,6 @@ process_event(struct inotify_event *ep)
 		debug(1, ("%s/%s created", dp->dirname, ep->name));
 		if (check_new_watcher(dp->dirname, ep->name) > 0)
 			return;
-	} else if (ep->mask & (IN_DELETE|IN_MOVED_FROM)) {
-		debug(1, ("%s/%s deleted", dp->dirname, ep->name));
-		remove_watcher(dp->dirname, ep->name);
 	}
 
 	if (ep->len == 0)
@@ -147,6 +146,11 @@ process_event(struct inotify_event *ep)
 				    dirname, filename);
 	}
 	unsplit_pathname(dp);
+
+	if (ep->mask & (IN_DELETE|IN_MOVED_FROM)) {
+		debug(1, ("%s/%s deleted", dp->dirname, ep->name));
+		remove_watcher(dp->dirname, ep->name);
+	}
 }	
 
 int

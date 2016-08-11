@@ -31,6 +31,7 @@ struct hashtab {
 	int flags;
 	unsigned int hash_num;  /* Index to hash_size table */
 	size_t elsize;          /* Size of an element */
+	size_t elcount;         /* Number of elements in use */
 	struct hashent **tab;
 	unsigned (*hash_fun)(void *, unsigned long hash_num);
 	int (*cmp_fun)(const void *, const void *);
@@ -163,7 +164,8 @@ hashtab_remove(struct hashtab *st, void *elt)
 	}
 	
 	hashent_free(st, entry);
-
+	st->elcount--;
+	
 	for (;;) {
 		st->tab[i] = NULL;
 		j = i;
@@ -174,11 +176,11 @@ hashtab_remove(struct hashtab *st, void *elt)
 			if (!st->tab[i])
 				return 0;
 			r = st->hash_fun(st->tab[i], hash_size[st->hash_num]);
-		}
-		while ((j < r && r <= i)
-		       || (i < j && j < r) || (r <= i && i < j));
+		} while ((j < r && r <= i)
+			 || (i < j && j < r) || (r <= i && i < j));
 		st->tab[j] = st->tab[i];
 	}
+
 	return 0;
 }
 
@@ -242,6 +244,7 @@ hashtab_lookup_or_install(struct hashtab *st, void *key, int *install)
 				return NULL;
 			}
 			st->tab[i] = ent;
+			st->elcount++;
 			return ent;
 		} else
 			return st->tab[i];
@@ -266,6 +269,7 @@ hashtab_clear(struct hashtab *st)
 			st->tab[i] = NULL;
 		}
 	}
+	st->elcount = 0;
 }
 
 struct hashtab *
@@ -279,6 +283,7 @@ hashtab_create(size_t elsize,
 	if (st) {
 		memset(st, 0, sizeof(*st));
 		st->elsize = elsize;
+		st->elcount = 0;
 		st->hash_fun = hash_fun;
 		st->cmp_fun = cmp_fun;
 		st->copy_fun = copy_fun;
@@ -303,18 +308,6 @@ hashtab_free(struct hashtab *st)
 	}
 }
 
-size_t
-hashtab_count_entries(struct hashtab *st)
-{
-	unsigned i;
-	size_t count = 0;
-	
-	for (i = 0; i < hash_size[st->hash_num]; i++)
-		if (st->tab[i])
-			count++;
-	return count;
-}
-
 int
 hashtab_foreach(struct hashtab *st, hashtab_enumerator_t fun, void *data)
 {
@@ -336,16 +329,7 @@ hashtab_foreach(struct hashtab *st, hashtab_enumerator_t fun, void *data)
 size_t
 hashtab_count(struct hashtab *st)
 {
-	unsigned i;
-	size_t count = 0;
-	
-	if (!st)
-		return 0;
-	for (i = 0; i < hash_size[st->hash_num]; i++) {
-		if (st->tab[i])
-			++count;
-	}
-	return count;
+	return st ? st->elcount : 0;
 }
 
 
