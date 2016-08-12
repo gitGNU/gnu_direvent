@@ -148,6 +148,9 @@ check_created(struct dirwatcher *dp)
 		    (ent->d_name[1] == 0 ||
 		     (ent->d_name[1] == '.' && ent->d_name[2] == 0)))
 			continue;
+
+		if (dirwatcher_pattern_match(dp, ent->d_name))
+			continue;
 		
 		pathname = mkfilename(dp->dirname, ent->d_name);
 		if (!pathname) {

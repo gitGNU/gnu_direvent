@@ -19,6 +19,12 @@
 #include <sys/stat.h>
 
 void
+dirwatcher_ref(struct dirwatcher *dw)
+{
+	++dw->refcnt;
+}
+
+void
 dirwatcher_unref(struct dirwatcher *dw)
 {
 	if (--dw->refcnt)
@@ -134,92 +140,6 @@ dirwatcher_remove(const char *dirname)
 	key.dw = &dwkey;
 	hashtab_remove(nametab, &key);
 }
-
-
-struct hashtab *watchtab;
-
-static unsigned
-dw_hash(void *data, unsigned long hashsize)
-{
-	struct dwref *ent = data;
-	return ent->dw->wd % hashsize;
-}
-
-static int
-dw_cmp(const void *a, const void *b)
-{
-	struct dwref const *ha = a;
-	struct dwref const *hb = b;
-	return ha->dw->wd != hb->dw->wd;
-}
-
-static int
-dw_copy(void *a, void *b)
-{
-	struct dwref *ha = a;
-	struct dwref *hb = b;
-
-	ha->used = 1;
-	ha->dw = hb->dw;
-	ha->dw->refcnt++;
-	return 0;
-}
-
-struct hashtab *dwtab;
-
-void
-dirwatcher_register(struct dirwatcher *dw)
-{
-	struct dwref key;
-	struct dwref *ent;
-	int install = 1;
-
-	if (!dwtab) {
-		dwtab = hashtab_create(sizeof(struct dwref),
-				       dw_hash, dw_cmp, dw_copy,
-				       NULL, dwref_free);
-		if (!dwtab) {
-			diag(LOG_ERR, _("not enough memory"));
-			exit(1);
-		}
-	}
-
-	memset(&key, 0, sizeof(key));
-	key.dw = dw;
-	ent = hashtab_lookup_or_install(dwtab, &key, &install);
-	if (!ent) {
-		diag(LOG_ERR, _("not enough memory"));
-		exit(1);
-	}
-}
-
-struct dirwatcher *
-dirwatcher_lookup_wd(int wd)
-{
-	struct dirwatcher dwkey;
-	struct dwref dwref, *ent;
-
-	if (!dwtab) 
-		return NULL;
-	dwkey.wd = wd;
-	dwref.dw = &dwkey;
-	ent = hashtab_lookup_or_install(dwtab, &dwref, NULL);
-	return ent ? ent->dw : NULL;
-}
-
-void
-dirwatcher_remove_wd(int wd)
-{
-	struct dirwatcher dwkey;
-	struct dwref dwref;
-
-	if (!dwtab) 
-		return;
-	dwkey.wd = wd;
-	dwref.dw = &dwkey;
-	hashtab_remove(dwtab, &dwref);
-}
-
 
 int 
 dirwatcher_init(struct dirwatcher *dwp)
@@ -243,7 +163,6 @@ dirwatcher_init(struct dirwatcher *dwp)
 	}
 
 	dwp->wd = wd;
-	dirwatcher_register(dwp);
 
 	return 0;
 }
@@ -407,26 +326,31 @@ watch_subdirs(struct dirwatcher *parent, int notify)
 
 
 int
-setwatcher(struct hashent *ent, void *null)
+setwatcher(struct hashent *ent, void *data)
 {
 	struct dwref *dwref = (struct dwref *) ent;
 	struct dirwatcher *dwp = dwref->dw;
+	int *success = data;
 	
 	if (dwp->wd == -1 && dirwatcher_init(dwp) == 0)
 		watch_subdirs(dwp, 0);
+	if (dwp->wd)
+		*success = 1;
 	return 0;
 }
 
 void
 setup_watchers()
 {
+	int success = 0;
+	
 	sysev_init();
 	if (hashtab_count(nametab) == 0) {
 		diag(LOG_CRIT, _("no event handlers configured"));
 		exit(1);
 	}
-	hashtab_foreach(nametab, setwatcher, NULL);
-	if (hashtab_count(dwtab) == 0) {
+	hashtab_foreach(nametab, setwatcher, &success);
+	if (!success) {
 		diag(LOG_CRIT, _("no event handlers installed"));
 		exit(2);
 	}
@@ -437,10 +361,8 @@ dirwatcher_destroy(struct dirwatcher *dwp)
 {
 	debug(1, (_("removing watcher %s"), dwp->dirname));
 	sysev_rm_watch(dwp);
-
-	dirwatcher_remove_wd(dwp->wd);
 	dirwatcher_remove(dwp->dirname);
-	if (hashtab_count(dwtab) == 0) {
+	if (hashtab_count(nametab) == 0) {
 		diag(LOG_CRIT, _("no watchers left; exiting now"));
 		stop = 1;
 	}

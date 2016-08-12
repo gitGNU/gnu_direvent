@@ -45,6 +45,65 @@ event_mask genev_xlat[] = {
 
 static int ifd;
 
+static struct dirwatcher **dwtab;
+static size_t dwsize;
+
+static int
+dwreg(int wd, struct dirwatcher *wp)
+{
+	if (wd < 0)
+		abort();
+	if (wd >= dwsize) {
+		size_t n = dwsize;
+		struct dirwatcher **p;
+
+		if (n == 0)
+			n = sysconf(_SC_OPEN_MAX);
+		while (wd >= n) {
+			n *= 2;
+			if (n < dwsize) {
+				diag(LOG_CRIT,
+				     _("can't allocate memory for fd %d"),
+				     wd);
+				return -1;
+			}
+		}
+		p = realloc(dwtab, n * sizeof(dwtab[0]));
+		if (!p) {
+			diag(LOG_CRIT,
+			     _("can't allocate memory for fd %d"),
+			     wd);
+			return -1;
+		}
+
+		memset(p + dwsize, 0, (n - dwsize) * sizeof(dwtab[0]));
+		dwtab = p;
+		dwsize = n;
+	}
+	dirwatcher_ref(wp);
+	dwtab[wd] = wp;
+	return 0;
+}
+
+static void
+dwunreg(int wd)
+{
+	if (wd < 0 || wd > dwsize)
+		abort();
+	if (dwtab[wd]) {
+		dirwatcher_unref(dwtab[wd]);
+		dwtab[wd] = NULL;
+	}
+}
+
+static struct dirwatcher *
+dwget(int wd)
+{
+	if (wd >= 0 && wd < dwsize)
+		return dwtab[wd];
+	return NULL;
+}
+
 int
 sysev_filemask(struct dirwatcher *dp)
 {
@@ -64,12 +123,18 @@ sysev_init()
 int
 sysev_add_watch(struct dirwatcher *dwp, event_mask mask)
 {
-	return inotify_add_watch(ifd, dwp->dirname, mask.sys_mask);
+	int wd = inotify_add_watch(ifd, dwp->dirname, mask.sys_mask);
+	if (wd >= 0 && dwreg(wd, dwp)) {
+		inotify_rm_watch(ifd, wd);
+		return -1;
+	}
+	return wd;
 }
 
 void
 sysev_rm_watch(struct dirwatcher *dwp)
 {
+	dwunreg(dwp->wd);
 	inotify_rm_watch(ifd, dwp->wd);
 }
 
@@ -98,8 +163,12 @@ process_event(struct inotify_event *ep)
 	event_mask m;
 	char *dirname, *filename;
 	
-	dp = dirwatcher_lookup_wd(ep->wd);
-
+	dp = dwget(ep->wd);
+	if (!dp) {
+		diag(LOG_NOTICE, _("watcher not found: %d"), ep->wd);
+		return;
+	}
+	
 	if (ep->mask & IN_IGNORED)
 		ep->mask = IN_DELETE;
 	

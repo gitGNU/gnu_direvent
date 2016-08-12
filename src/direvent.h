@@ -206,9 +206,11 @@ void config_parse(const char *file);
 int get_facility(const char *arg);
 int get_priority(const char *arg);
 
+void dirwatcher_ref(struct dirwatcher *dw);
+void dirwatcher_unref(struct dirwatcher *dw);
+
 void setup_watchers(void);
 struct dirwatcher *dirwatcher_lookup(const char *dirname);
-struct dirwatcher *dirwatcher_lookup_wd(int wd);
 int check_new_watcher(const char *dir, const char *name);
 struct dirwatcher *dirwatcher_install(const char *path, int *pnew);
 void dirwatcher_destroy(struct dirwatcher *dwp);

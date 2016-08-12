@@ -162,7 +162,14 @@ hashtab_remove(struct hashtab *st, void *elt)
 		if (i == pos)
 			return ENOENT;
 	}
-	
+
+	if (!entry)
+#if 0
+		return ENOENT;
+#else
+	        abort();
+#endif
+       
 	hashent_free(st, entry);
 	st->elcount--;
 	
