@@ -209,6 +209,8 @@ int get_priority(const char *arg);
 void dirwatcher_ref(struct dirwatcher *dw);
 void dirwatcher_unref(struct dirwatcher *dw);
 
+int dirwatcher_pattern_match(struct dirwatcher *dwp, const char *file_name);
+
 void setup_watchers(void);
 struct dirwatcher *dirwatcher_lookup(const char *dirname);
 int check_new_watcher(const char *dir, const char *name);

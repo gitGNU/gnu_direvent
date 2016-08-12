@@ -334,7 +334,7 @@ setwatcher(struct hashent *ent, void *data)
 	
 	if (dwp->wd == -1 && dirwatcher_init(dwp) == 0)
 		watch_subdirs(dwp, 0);
-	if (dwp->wd)
+	if (dwp->wd >= 0)
 		*success = 1;
 	return 0;
 }
