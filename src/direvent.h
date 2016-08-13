@@ -24,7 +24,7 @@
 #include <unistd.h>
 #include <signal.h>
 #include <regex.h>
-
+#include <grecs/list.h>
 #include "gettext.h"
 
 #define _(s) gettext(s)
@@ -71,17 +71,20 @@ struct filename_pattern {
 
 /* Handler structure */
 struct handler {
-	struct handler *next;
+	size_t refcnt;       /* Reference counter */
 	event_mask ev_mask;  /* Event mask */
 	struct grecs_list *fnames;  /* File name patterns */
 	int flags;           /* Handler flags */
-	const char *prog;    /* Handler program (with eventual arguments) */
+	char *prog;          /* Handler program (with eventual arguments) */
 	uid_t uid;           /* Run as this user (unless 0) */
 	gid_t *gidv;         /* Run with these groups' privileges */
 	size_t gidc;         /* Number of elements in gidv */
 	unsigned timeout;    /* Handler timeout */
 	char **env;          /* Environment */
 };
+
+typedef struct direvent_handler_list *direvent_handler_list_t;
+typedef struct grecs_list_entry *direvent_handler_iterator_t;
 
 /* A directory watcher is described by the following structure */
 struct dirwatcher {
@@ -90,8 +93,7 @@ struct dirwatcher {
 	struct dirwatcher *parent;           /* Points to the parent watcher.
 					        NULL for top-level watchers */
 	char *dirname;                       /* Pathname being watched */
-	struct handler *handler_list;        /* List of handlers */
-	struct handler *handler_tail;        /* Tail of the handler list */
+	direvent_handler_list_t handler_list;/* List of handlers */
 	int depth;                           /* Recursion depth */
 	char *split_p;                       /* Points to the deleted directory
 						separator in dirname (see
@@ -212,6 +214,8 @@ void dirwatcher_unref(struct dirwatcher *dw);
 int dirwatcher_pattern_match(struct dirwatcher *dwp, const char *file_name);
 
 void setup_watchers(void);
+void shutdown_watchers(void);
+
 struct dirwatcher *dirwatcher_lookup(const char *dirname);
 int check_new_watcher(const char *dir, const char *name);
 struct dirwatcher *dirwatcher_install(const char *path, int *pnew);
@@ -225,6 +229,24 @@ void ev_log(int flags, struct dirwatcher *dp);
 void deliver_ev_create(struct dirwatcher *dp, const char *name);
 int subwatcher_create(struct dirwatcher *parent, const char *dirname,
 		      int isdir, int notify);
+
+struct handler *direvent_handler_first(struct dirwatcher *dp,
+				       direvent_handler_iterator_t *itr);
+struct handler *direvent_handler_next(direvent_handler_iterator_t *itr);
+struct handler *direvent_handler_current(direvent_handler_iterator_t itr);
+
+#define for_each_handler(d,i,h)				\
+	for (h = direvent_handler_first(d, &(i));	\
+	     h;						\
+	     h = direvent_handler_next(&(i)))
+	
+
+direvent_handler_list_t direvent_handler_list_create(void);
+direvent_handler_list_t direvent_handler_list_copy(direvent_handler_list_t);
+void direvent_handler_list_unref(direvent_handler_list_t hlist);
+void direvent_handler_list_append(direvent_handler_list_t hlist,
+				  struct handler *hp);
+
 
 struct process *process_lookup(pid_t pid);
 void process_cleanup(int expect_term);

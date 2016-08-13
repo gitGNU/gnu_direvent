@@ -189,16 +189,126 @@ eventconf_free()
 	free(eventconf.gidv);
 	envfree(eventconf.env);
 }
+
+static struct handler *
+handler_alloc(struct eventconf const *eventconf)
+{
+	struct handler *hp = emalloc(sizeof(*hp));
+	hp->ev_mask = eventconf->eventmask;
+	hp->fnames = eventconf->fnames;
+	hp->flags = eventconf->flags;
+	hp->timeout = eventconf->timeout;
+	hp->prog = eventconf->command;
+	hp->uid = eventconf->uid;
+	hp->gidc = eventconf->gidc;
+	hp->gidv = eventconf->gidv;
+	hp->env = eventconf->env;
+	hp->refcnt = 0;
+	return hp;
+}
 
+static void
+handler_ref(struct handler *hp)
+{
+	++hp->refcnt;
+}
+
+static void
+handler_unref(struct handler *hp)
+{
+	if (hp && --hp->refcnt) {
+		grecs_list_free(hp->fnames);
+		free(hp->prog);
+		free(hp->gidv);
+		envfree(hp->env);
+	}
+}
+
+static void
+handler_free(void *p)
+{
+	struct handler *hp = p;
+	handler_unref(hp);
+}
+
+struct direvent_handler_list {
+	size_t refcnt;
+	grecs_list_ptr_t list;
+};
+
+struct handler *
+direvent_handler_first(struct dirwatcher *dwp,
+		       direvent_handler_iterator_t *itr)
+{
+	if (!dwp->handler_list)
+		return NULL;
+	*itr = dwp->handler_list->list->head;
+	return direvent_handler_current(*itr);
+}
+
+struct handler *
+direvent_handler_next(direvent_handler_iterator_t *itr)
+{
+	if (!itr || !*itr)
+		return NULL;
+	*itr = (*itr)->next;
+	return direvent_handler_current(*itr);
+}
+		
+struct handler *
+direvent_handler_current(direvent_handler_iterator_t itr)
+{
+	if (!itr)
+		return NULL;
+	return itr ? itr->data : NULL;
+}
+
+direvent_handler_list_t
+direvent_handler_list_create(void)
+{
+	direvent_handler_list_t hlist = emalloc(sizeof(*hlist));
+	hlist->list = grecs_list_create();
+	hlist->list->free_entry = handler_free;
+	hlist->refcnt = 1;
+	return hlist;
+}
+
+direvent_handler_list_t
+direvent_handler_list_copy(direvent_handler_list_t orig)
+{
+	if (!orig)
+		return direvent_handler_list_create();
+	++orig->refcnt;
+	return orig;
+}
+
+void
+direvent_handler_list_unref(direvent_handler_list_t hlist)
+{
+	if (hlist) {
+		if (--hlist->refcnt == 0) {
+			grecs_list_free(hlist->list);
+			free(hlist);
+		}
+	}
+}
+		
+void
+direvent_handler_list_append(direvent_handler_list_t hlist, struct handler *hp)
+{
+	handler_ref(hp);
+	grecs_list_append(hlist->list, hp);
+}
+
 void
 eventconf_flush(grecs_locus_t *loc)
 {
 	struct grecs_list_entry *ep;
+	struct handler *hp = handler_alloc(&eventconf);
 	
 	for (ep = eventconf.pathlist->head; ep; ep = ep->next) {
 		struct pathent *pe = ep->data;
 		struct dirwatcher *dwp;
-		struct handler *hp;
 		int isnew;
 		
 		dwp = dirwatcher_install(pe->path, &isnew);
@@ -209,24 +319,9 @@ eventconf_flush(grecs_locus_t *loc)
 				    _("%s: recursion depth does not match previous definition"),
 				    pe->path);
 		dwp->depth = pe->depth;
-		
-		hp = emalloc(sizeof(*hp));
-		hp->next = NULL;
-		hp->ev_mask = eventconf.eventmask;
-		hp->fnames = eventconf.fnames;
-		hp->flags = eventconf.flags;
-		hp->timeout = eventconf.timeout;
-		hp->prog = eventconf.command;
-		hp->uid = eventconf.uid;
-		hp->gidc = eventconf.gidc;
-		hp->gidv = eventconf.gidv;
-		hp->env = eventconf.env;
-		
-		if (dwp->handler_tail)
-			dwp->handler_tail->next = hp;
-		else
-			dwp->handler_list = hp;
-		dwp->handler_tail = hp;
+		if (!dwp->handler_list)
+			dwp->handler_list = direvent_handler_list_create();
+		direvent_handler_list_append(dwp->handler_list, hp);
 	}
 	grecs_list_free(eventconf.pathlist);
 	eventconf_init();

@@ -30,6 +30,7 @@ dirwatcher_unref(struct dirwatcher *dw)
 	if (--dw->refcnt)
 		return;
 	free(dw->dirname);
+	direvent_handler_list_unref(dw->handler_list);
 	free(dw);
 }
 
@@ -140,17 +141,31 @@ dirwatcher_remove(const char *dirname)
 	key.dw = &dwkey;
 	hashtab_remove(nametab, &key);
 }
+
+void
+dirwatcher_destroy(struct dirwatcher *dwp)
+{
+	debug(1, (_("removing watcher %s"), dwp->dirname));
+	sysev_rm_watch(dwp);
+	dirwatcher_remove(dwp->dirname);
+	if (hashtab_count(nametab) == 0) {
+		diag(LOG_CRIT, _("no watchers left; exiting now"));
+		stop = 1;
+	}
+}
 
 int 
 dirwatcher_init(struct dirwatcher *dwp)
 {
 	event_mask mask = { 0, 0 };
 	struct handler *hp;
+	direvent_handler_iterator_t itr;
+	
 	int wd;
 
 	debug(1, (_("creating watcher %s"), dwp->dirname));
 
-	for (hp = dwp->handler_list; hp; hp = hp->next) {
+	for_each_handler(dwp, itr, hp) {
 		mask.sys_mask |= hp->ev_mask.sys_mask;
 		mask.gen_mask |= hp->ev_mask.gen_mask;
 	}
@@ -180,7 +195,7 @@ subwatcher_create(struct dirwatcher *parent, const char *dirname,
 	if (!inst)
 		return -1;
 
-	dwp->handler_list = parent->handler_list;
+	dwp->handler_list = direvent_handler_list_copy(parent->handler_list);
 	dwp->parent = parent;
 	
 	if (parent->depth == -1)
@@ -204,8 +219,9 @@ deliver_ev_create(struct dirwatcher *dp, const char *name)
 {
 	event_mask m = { GENEV_CREATE, 0 };
 	struct handler *h;
-
-	for (h = dp->handler_list; h; h = h->next) {
+	direvent_handler_iterator_t itr;
+	
+	for_each_handler(dp, itr, h) {
 		if (handler_matches_event(h, gen, GENEV_CREATE, name))
 			run_handler(h, &m, dp->dirname, name);
 	}
@@ -260,8 +276,9 @@ int
 dirwatcher_pattern_match(struct dirwatcher *dwp, const char *file_name)
 {
 	struct handler *hp;
+	direvent_handler_iterator_t itr;
 
-	for (hp = dwp->handler_list; hp; hp = hp->next) {
+	for_each_handler(dwp, itr, hp) {
 		if (filename_pattern_match(hp->fnames, file_name) == 0)
 			return 0;
 	}
@@ -328,7 +345,7 @@ watch_subdirs(struct dirwatcher *parent, int notify)
 }
 
 
-int
+static int
 setwatcher(struct hashent *ent, void *data)
 {
 	struct dwref *dwref = (struct dwref *) ent;
@@ -343,7 +360,7 @@ setwatcher(struct hashent *ent, void *data)
 }
 
 void
-setup_watchers()
+setup_watchers(void)
 {
 	int success = 0;
 	
@@ -359,17 +376,23 @@ setup_watchers()
 	}
 }
 
-void
-dirwatcher_destroy(struct dirwatcher *dwp)
+static int
+stopwatcher(struct hashent *ent, void *data)
 {
+	struct dwref *dwref = (struct dwref *) ent;
+	struct dirwatcher *dwp = dwref->dw;
 	debug(1, (_("removing watcher %s"), dwp->dirname));
 	sysev_rm_watch(dwp);
-	dirwatcher_remove(dwp->dirname);
-	if (hashtab_count(nametab) == 0) {
-		diag(LOG_CRIT, _("no watchers left; exiting now"));
-		stop = 1;
-	}
+	return 0;
 }
+
+void
+shutdown_watchers(void)
+{
+	hashtab_foreach(nametab, stopwatcher, NULL);
+	hashtab_clear(nametab);
+}
+
 
 char *
 split_pathname(struct dirwatcher *dp, char **dirname)

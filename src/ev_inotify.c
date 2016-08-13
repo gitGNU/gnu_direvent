@@ -160,6 +160,7 @@ process_event(struct inotify_event *ep)
 {
 	struct dirwatcher *dp;
 	struct handler *h;
+	direvent_handler_iterator_t itr;
 	event_mask m;
 	char *dirname, *filename;
 	
@@ -207,7 +208,7 @@ process_event(struct inotify_event *ep)
 		dirname = dp->dirname;
 		filename = ep->name;
 	}
-	for (h = dp->handler_list; h; h = h->next) {
+	for_each_handler(dp, itr, h) {
 		if (handler_matches_event(h, sys, ep->mask, filename))
 			run_handler(h, event_mask_init(&m,
 						       ep->mask,

@@ -63,8 +63,9 @@ int
 sysev_filemask(struct dirwatcher *dp)
 {
 	struct handler *h;
+	direvent_handler_iterator_t itr;
 
-	for (h = dp->handler_list; h; h = h->next) {
+	for_each_handler(dp, itr, h) {
 		if (h->ev_mask.sys_mask)
 			return S_IFMT;
 	}
@@ -186,6 +187,7 @@ process_event(struct kevent *ep)
 {
 	struct dirwatcher *dp = ep->udata;
 	struct handler *h;
+	direvent_handler_iterator_t itr;
 	event_mask m;
 	char *filename, *dirname;
 	
@@ -204,7 +206,7 @@ process_event(struct kevent *ep)
 	}
 
 	filename = split_pathname(dp, &dirname);
-	for (h = dp->handler_list; h; h = h->next) {
+	for_each_handler(dp, itr, h) {
 		if (handler_matches_event(h, sys, ep->fflags, filename)) {
 			run_handler(h,
 				    event_mask_init(&m, ep->fflags, &h->ev_mask),

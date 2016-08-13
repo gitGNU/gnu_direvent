@@ -540,6 +540,8 @@ main(int argc, char **argv)
 		process_cleanup(0);
 	}
 
+	shutdown_watchers();
+
 	diag(LOG_INFO, _("%s %s stopped"), program_name, VERSION);
 
 	if (pidfile)
