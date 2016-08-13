@@ -1105,6 +1105,8 @@ created and @var{value} is assigned to it.  However, if @var{value}
 ends with a punctuation character, this character is removed from it
 before assignment.
 @end table
+
+Multiple @code{environ} statements accumulate.
 @end deffn
 
 @node System dependencies
