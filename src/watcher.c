@@ -213,10 +213,12 @@ deliver_ev_create(struct dirwatcher *dp, const char *name)
 
 /* Check if a new watcher must be created and create it if so.
 
-   A watcher must be created if its parent's autowatch has a non-null
-   value.  If it has a negative value, it will be inherited by the new
-   watcher.  Otherwise, the new watcher will inherit the parent's autowatch
-   decreased by one.
+   A watcher must be created if its parent's recursion depth has a non-null
+   value.  If it has a negative value, which means "recursively watch new
+   subdirectories without limit on their nesting level", it will be inherited
+   by the new watcher.  Otherwise, the new watcher will inherit the parent's
+   depth decreased by one, thus eventually cutting off creation of new
+   watchers.
 
    Return 0 on success, -1 on error.
 */
@@ -267,7 +269,7 @@ dirwatcher_pattern_match(struct dirwatcher *dwp, const char *file_name)
 }
 
 /* Recursively scan subdirectories of parent and add them to the
-   watcher list, as requested by the parent's autowatch value. */
+   watcher list, as requested by the parent's recursion depth value. */
 static int
 watch_subdirs(struct dirwatcher *parent, int notify)
 {
@@ -299,7 +301,8 @@ watch_subdirs(struct dirwatcher *parent, int notify)
 		
 		dirname = mkfilename(parent->dirname, ent->d_name);
 		if (!dirname) {
-			diag(LOG_ERR, _("cannot stat %s/%s: not enough memory"),
+			diag(LOG_ERR,
+			     _("cannot stat %s/%s: not enough memory"),
 			     parent->dirname, ent->d_name);
 			continue;
 		}
