@@ -27,8 +27,16 @@ static unsigned int hash_size[] = {
 /* |max_rehash| keeps the number of entries in |hash_size| table. */
 static unsigned int max_rehash = sizeof(hash_size) / sizeof(hash_size[0]);
 
+struct hashent_list_entry {
+	struct hashent_list_entry *prev, *next;
+	struct hashent *ent;
+};
+
+struct hashent_list {
+	struct hashent_list_entry *head, *tail;
+};
+
 struct hashtab {
-	int flags;
 	unsigned int hash_num;  /* Index to hash_size table */
 	size_t elsize;          /* Size of an element */
 	size_t elcount;         /* Number of elements in use */
@@ -38,8 +46,62 @@ struct hashtab {
 	int (*copy_fun)(void *, void *);
 	void *(*hashent_alloc_fun)(size_t size);
 	void (*hashent_free_fun) (void *);
+	
+	unsigned int itr_level;
+	struct hashent_list list_new, list_del;
 };
+
+static void
+hashent_list_init(struct hashent_list *list)
+{
+	list->head = NULL;
+	list->tail = NULL;
+}
 
+static int
+hashent_list_append(struct hashent_list *list, struct hashent *ent)
+{
+	struct hashent_list_entry *hent = malloc(sizeof(*ent));
+	if (!hent)
+		return -1;
+	hent->ent = ent;
+	hent->next = NULL;
+	hent->prev = list->tail;
+	if (list->tail)
+		list->tail->next = hent;
+	else
+		list->head = hent;
+	list->tail = hent;
+	return 0;
+}
+
+static void
+hashent_list_remove(struct hashent_list *list, struct hashent_list_entry *hent)
+{
+	struct hashent_list_entry *p;
+	if ((p = hent->prev))
+		p->next = hent->next;
+	else
+		list->head = hent->next;
+	if ((p = hent->next))
+		p->prev = hent->prev;
+	else
+		list->tail = hent->prev;
+	free(hent);
+}
+
+static struct hashent_list_entry *
+hashent_list_lookup(struct hashtab *st, struct hashent_list *list,
+		    struct hashent *ent)
+{
+	struct hashent_list_entry *p;
+	for (p = list->head; p; p = p->next) {
+		if (st->cmp_fun(p->ent, ent) == 0)
+			return p;
+	}
+	return NULL;
+}
+
 static void
 hashent_free(struct hashtab *st, void *ptr)
 {
@@ -152,6 +214,17 @@ hashtab_remove(struct hashtab *st, void *elt)
 {
 	unsigned int pos, i, j, r;
 	struct hashent *entry;
+
+	if (st->itr_level) {
+		struct hashent_list_entry *hent;
+		hent = hashent_list_lookup(st, &st->list_new, elt);
+		if (hent) {
+			entry = hent->ent;
+			hashent_list_remove(&st->list_new, hent);
+			hashent_free(st, entry);
+			return 0;
+		}			
+	}
 	
 	pos = st->hash_fun(elt, hash_size[st->hash_num]);
 	for (i = pos; entry = st->tab[i];) {
@@ -169,7 +242,13 @@ hashtab_remove(struct hashtab *st, void *elt)
 #else
 	        abort();
 #endif
-       
+
+	if (st->itr_level) {
+		if (hashent_list_append(&st->list_del, entry))
+			return ENOMEM;
+		entry->used = 0;
+	}
+		
 	hashent_free(st, entry);
 	st->elcount--;
 	
@@ -250,11 +329,26 @@ hashtab_lookup_or_install(struct hashtab *st, void *key, int *install)
 				errno = ENOMEM;
 				return NULL;
 			}
+			if (st->itr_level) {
+				if (hashent_list_append(&st->list_new, ent)) {
+					int ec = errno;
+					hashent_free(st, ent);
+					errno = ec;
+					return NULL;
+				}
+				return ent;
+			}
 			st->tab[i] = ent;
 			st->elcount++;
 			return ent;
 		} else
 			return st->tab[i];
+	} else if (rc == ENOENT && st->itr_level) {
+		struct hashent_list_entry *hent;
+		hent = hashent_list_lookup(st, &st->list_new, key);
+		if (hent)
+			return hent->ent;
+		rc = ENOENT;
 	}
 	errno = rc;
 	return NULL;
@@ -322,6 +416,12 @@ hashtab_foreach(struct hashtab *st, hashtab_enumerator_t fun, void *data)
 
 	if (!st)
 		return 0;
+
+	if (st->itr_level++ == 0) {
+		hashent_list_init(&st->list_new);
+		hashent_list_init(&st->list_del);
+	}
+	
 	for (i = 0; i < hash_size[st->hash_num]; i++) {
 		struct hashent *ep = st->tab[i];
 		if (ep) {
@@ -330,6 +430,26 @@ hashtab_foreach(struct hashtab *st, hashtab_enumerator_t fun, void *data)
 				return rc;
 		}
 	}
+
+	if (--st->itr_level == 0) {
+		while (st->list_del.head) {
+			struct hashent *ent = st->list_del.head->ent;
+			hashent_list_remove(&st->list_del, st->list_del.head);
+			hashtab_remove(st, ent);
+		}
+
+		while (st->list_new.head) {
+			struct hashent *ent = st->list_new.head->ent;
+			unsigned i;
+			int install = 1;
+			if (hashtab_get_index(&i, st, ent, &install) == 0) {
+				st->tab[i] = ent;
+				st->elcount++;
+			}
+			hashent_list_remove(&st->list_new, st->list_new.head);
+		}
+	}
+	
 	return 0;
 }
 

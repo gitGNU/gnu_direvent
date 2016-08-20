@@ -248,25 +248,25 @@ process_timeouts()
 int
 switchpriv(struct handler *hp)
 {
-	if (hp->uid == 0 || hp->uid == getuid())
+	if (hp->prog_uid == 0 || hp->prog_uid == getuid())
 		return 0;
 	
-	if (setgroups(hp->gidc, hp->gidv) < 0) {
+	if (setgroups(hp->prog_gidc, hp->prog_gidv) < 0) {
 		diag(LOG_CRIT, "setgroups: %s",
 		     strerror(errno));
 		return 1;
 	}
-	if (setregid(hp->gidv[0], hp->gidv[0]) < 0) {
+	if (setregid(hp->prog_gidv[0], hp->prog_gidv[0]) < 0) {
 		diag(LOG_CRIT, "setregid(%lu,%lu): %s",
-		     (unsigned long) hp->gidv[0],
-		     (unsigned long) hp->gidv[0],
+		     (unsigned long) hp->prog_gidv[0],
+		     (unsigned long) hp->prog_gidv[0],
 		     strerror(errno));
 		return 1;
 	}
-	if (setreuid(hp->uid, hp->uid) < 0) {
+	if (setreuid(hp->prog_uid, hp->prog_uid) < 0) {
 		diag(LOG_CRIT, "setreuid(%lu,%lu): %s",
-		     (unsigned long) hp->uid,
-		     (unsigned long) hp->uid,
+		     (unsigned long) hp->prog_uid,
+		     (unsigned long) hp->prog_uid,
 		     strerror(errno));
 		return 1;
 	}
@@ -439,24 +439,24 @@ runcmd(const char *cmd, char **envhint, event_mask *event, const char *file,
 	_exit(127);
 }
 
-int
-run_handler(struct handler *hp, event_mask *event,
-	    const char *dirname, const char *file)
+static int
+run_handler_prog(struct handler *hp, event_mask *event,
+		 const char *dirname, const char *file)
 {
 	pid_t pid;
 	int redir_fd[2] = { -1, -1 };
 	struct process *redir_proc[2] = { NULL, NULL };
 	struct process *p;
 
-	if (!hp->prog)
+	if (!hp->prog_command)
 		return 0;
 	
-	debug(1, (_("starting %s, dir=%s, file=%s"), hp->prog, dirname, file));
-	if (hp->flags & HF_STDERR)
-		redir_fd[REDIR_ERR] = open_redirector(hp->prog, LOG_ERR,
+	debug(1, (_("starting %s, dir=%s, file=%s"), hp->prog_command, dirname, file));
+	if (hp->prog_flags & HF_STDERR)
+		redir_fd[REDIR_ERR] = open_redirector(hp->prog_command, LOG_ERR,
 						      &redir_proc[REDIR_ERR]);
-	if (hp->flags & HF_STDOUT)
-		redir_fd[REDIR_OUT] = open_redirector(hp->prog, LOG_INFO,
+	if (hp->prog_flags & HF_STDOUT)
+		redir_fd[REDIR_OUT] = open_redirector(hp->prog_command, LOG_INFO,
 						      &redir_proc[REDIR_OUT]);
 	
 	pid = fork();
@@ -503,34 +503,34 @@ run_handler(struct handler *hp, event_mask *event,
 		close_fds(fdset);
 		alarm(0);
 		signal_setup(SIG_DFL);
-		runcmd(hp->prog, hp->env, event, file, hp->flags & HF_SHELL);
+		runcmd(hp->prog_command, hp->prog_env, event, file, hp->prog_flags & HF_SHELL);
 	}
 
 	/* master */
 	debug(1, (_("%s running; dir=%s, file=%s, pid=%lu"),
-		  hp->prog, dirname, file, (unsigned long)pid));
+		  hp->prog_command, dirname, file, (unsigned long)pid));
 
-	p = register_process(PROC_HANDLER, pid, time(NULL), hp->timeout);
+	p = register_process(PROC_HANDLER, pid, time(NULL), hp->prog_timeout);
 
 	if (redir_proc[REDIR_OUT]) {
 		redir_proc[REDIR_OUT]->v.master = p;
-		redir_proc[REDIR_OUT]->timeout = hp->timeout;
+		redir_proc[REDIR_OUT]->timeout = hp->prog_timeout;
 	}
 	if (redir_proc[REDIR_ERR]) {
 		redir_proc[REDIR_ERR]->v.master = p;
-		redir_proc[REDIR_ERR]->timeout = hp->timeout;
+		redir_proc[REDIR_ERR]->timeout = hp->prog_timeout;
 	}
 	memcpy(p->v.redir, redir_proc, sizeof(p->v.redir));
 	
 	close(redir_fd[REDIR_OUT]);
 	close(redir_fd[REDIR_ERR]);
 
-	if (hp->flags & HF_NOWAIT) {
+	if (hp->prog_flags & HF_NOWAIT) {
 		return 0;
 	}
 
 	debug(1, (_("waiting for %s (%lu) to terminate"),
-		  hp->prog, (unsigned long)pid));
+		  hp->prog_command, (unsigned long)pid));
 	while (time(NULL) - p->start < 2 * p->timeout) {
 		sleep(1);
 		process_cleanup(1);
@@ -539,3 +539,29 @@ run_handler(struct handler *hp, event_mask *event,
 	}
 	return 0;
 }
+
+static int
+run_sentinel(struct handler *hp)
+{
+	return dirwatcher_init(hp->sentinel_watcher);
+	//FIXME: Remove watcher
+}
+
+int
+run_handler(struct handler *hp, event_mask *event,
+	    const char *dirname, const char *file)
+{
+	int rc;
+	switch (hp->type) {
+	case HANDLER_EXTERN:
+		rc = run_handler_prog(hp, event, dirname, file);
+		break;
+	case HANDLER_SENTINEL:
+		rc = run_sentinel(hp);
+		break;
+	default:
+		abort();
+	}
+	return rc;
+}
+		

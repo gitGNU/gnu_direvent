@@ -90,7 +90,7 @@ dirwatcher_install(const char *path, int *pnew)
 					 dwname_hash, dwname_cmp, dwname_copy,
 					 NULL, dwref_free);
 		if (!nametab) {
-			diag(LOG_CRIT, N_("not enough memory"));
+			diag(LOG_CRIT, _("not enough memory"));
 			exit(1);
 		}
 	}
@@ -102,6 +102,7 @@ dirwatcher_install(const char *path, int *pnew)
 		dw = ecalloc(1, sizeof(*dw));
 		dw->dirname = estrdup(path);
 		dw->wd = -1;
+		dw->handler_list = direvent_handler_list_create();
 		dw->refcnt++;
 		ent->dw = dw;
 	}
@@ -154,17 +155,82 @@ dirwatcher_destroy(struct dirwatcher *dwp)
 	}
 }
 
-int 
-dirwatcher_init(struct dirwatcher *dwp)
+static int
+convert_watcher(struct dirwatcher *dwp)
 {
-	event_mask mask = { 0, 0 };
+	char *dirname;
+	char *filename;
+	char *new_dirname;
 	struct handler *hp;
 	direvent_handler_iterator_t itr;
 	
+	for_each_handler(dwp, itr, hp) {
+		if (hp->fnames) {
+			/* FIXME: Error message */
+			return 1;
+		}
+	}
+	
+	filename = split_pathname(dwp, &dirname);
+	for_each_handler(dwp, itr, hp)
+		handler_add_exact_filename(hp, filename);
+
+	new_dirname = estrdup(dirname);
+	unsplit_pathname(dwp);
+	diag(LOG_NOTICE, _("watcher %s converted to %s"),
+	     dwp->dirname, new_dirname);
+
+	free(dwp->dirname);
+	dwp->dirname = new_dirname;
+	return 0;
+}
+
+struct dirwatcher *
+dirwatcher_install_sentinel(struct dirwatcher *dwp)
+{
+	struct dirwatcher *sent;
+	char *dirname;
+	char *filename;
+	struct handler *hp;
+	
+	filename = split_pathname(dwp, &dirname);
+	sent = dirwatcher_install(dirname, NULL);
+	hp = handler_alloc(HANDLER_SENTINEL);
+	getevt("CREATE", &hp->ev_mask);
+	hp->sentinel_watcher = dwp;
+	dirwatcher_ref(dwp);
+	handler_add_exact_filename(hp, filename);
+	direvent_handler_list_append(sent->handler_list, hp);
+	
+	unsplit_pathname(dwp);
+	diag(LOG_NOTICE, _("installing CREATE sentinel for %s"), dwp->dirname);
+	return sent;
+}
+	
+int 
+dirwatcher_init(struct dirwatcher *dwp)
+{
+	struct stat st;
+	event_mask mask = { 0, 0 };
+	struct handler *hp;
+	direvent_handler_iterator_t itr;	
 	int wd;
 
 	debug(1, (_("creating watcher %s"), dwp->dirname));
 
+	if (stat(dwp->dirname, &st)) {
+		if (errno == ENOENT) {
+			dwp = dirwatcher_install_sentinel(dwp);
+		} else {
+			diag(LOG_ERR, _("cannot set watcher on %s: %s"),
+			     dwp->dirname, strerror(errno));
+			return 1;
+		}
+	} else if (!S_ISDIR(st.st_mode)) {
+		diag(LOG_NOTICE, _("%s is a regular file"), dwp->dirname);
+		convert_watcher(dwp);
+	}
+	
 	for_each_handler(dwp, itr, hp) {
 		mask.sys_mask |= hp->ev_mask.sys_mask;
 		mask.gen_mask |= hp->ev_mask.gen_mask;
@@ -350,27 +416,30 @@ setwatcher(struct hashent *ent, void *data)
 {
 	struct dwref *dwref = (struct dwref *) ent;
 	struct dirwatcher *dwp = dwref->dw;
-	int *success = data;
 	
 	if (dwp->wd == -1 && dirwatcher_init(dwp) == 0)
 		watch_subdirs(dwp, 0);
-	if (dwp->wd >= 0)
-		*success = 1;
 	return 0;
 }
 
+static int
+checkwatcher(struct hashent *ent, void *data)
+{
+	struct dwref *dwref = (struct dwref *) ent;
+	struct dirwatcher *dwp = dwref->dw;
+	return dwp->wd >= 0;
+}
+	
 void
 setup_watchers(void)
 {
-	int success = 0;
-	
 	sysev_init();
 	if (hashtab_count(nametab) == 0) {
 		diag(LOG_CRIT, _("no event handlers configured"));
 		exit(1);
 	}
-	hashtab_foreach(nametab, setwatcher, &success);
-	if (!success) {
+	hashtab_foreach(nametab, setwatcher, NULL);
+	if (!hashtab_foreach(nametab, checkwatcher, NULL)) {
 		diag(LOG_CRIT, _("no event handlers installed"));
 		exit(2);
 	}
