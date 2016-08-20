@@ -29,34 +29,45 @@ extern char **environ;    /* Environment */
 	}							\
 	} while (0)
 
-static char *
-find_env(const char *name, int val)
+static int
+find_env_pos(char **env, char *name, size_t *idx, size_t *valoff)
 {
-	if (environ) {
-		int nlen = strcspn(name, "+=");
-		int i;
+        size_t nlen = strcspn(name, "+=");
+        size_t i;
 
-		for (i = 0; environ[i]; i++) {
-			size_t elen = strcspn(environ[i], "=");
-			if (elen == nlen &&
-			    memcmp(name, environ[i], nlen) == 0)
-				return val ? environ[i] + elen + 1 : environ[i];
+        for (i = 0; env[i]; i++) {
+                size_t elen = strcspn(env[i], "=");
+                if (elen == nlen && memcmp(name, env[i], nlen) == 0) {
+			if (idx)
+				*idx = i;
+			if (valoff)
+				*valoff = elen + 1;
+			return 0;
 		}
-	}
-	return NULL;
+        }
+        return -1;
+}
+
+static char *
+find_env_ptr(char **env, char *name, int val)
+{
+	size_t i, j;
+	if (find_env_pos(env, name, &i, &j))
+		return NULL;
+	return val ? env[i] + j : env[i];
 }
 
 static int
-locate_unset(char **env, const char *name)
+var_is_unset(char **env, const char *name)
 {
 	int i;
 	int nlen = strcspn(name, "=");
 
 	for (i = 0; env[i]; i++) {
 		if (env[i][0] == '-') {
-			size_t elen = strcspn (env[i] + 1, "=");
+			size_t elen = strcspn(env[i] + 1, "=");
 			if (elen == nlen &&
-			    memcmp (name, env[i] + 1, nlen) == 0) {
+			    memcmp(name, env[i] + 1, nlen) == 0) {
 				if (env[i][nlen + 1])
 					return strcmp(name + nlen,
 						      env[i] + 1 + nlen) == 0;
@@ -77,7 +88,7 @@ env_concat(const char *name, size_t namelen, const char *a, const char *b)
 	if (a && b) {
 		res = emalloc(namelen + 1 + strlen(a) + strlen(b) + 1);
 		strcpy(res + namelen + 1, a);
-		strcat(res, b);
+		strcat(res + namelen + 1, b);
 	} else if (a) {
 		len = strlen(a);
 		if (ispunct(a[len-1]))
@@ -115,7 +126,7 @@ environ_setup(char **hint, char **kve)
 	char **new_env;
 	char **addenv = defenv;
 	char *var;
-	size_t count, i, n;
+	size_t count, i, j, n;
 	struct wordsplit ws;
 	int wsflags = WRDSF_NOCMD | WRDSF_QUOTE | WRDSF_NOSPLIT |
 		      WRDSF_ENV | WRDSF_ENV_KV;
@@ -154,12 +165,12 @@ environ_setup(char **hint, char **kve)
   
 	if (old_env)
 		for (i = 0; old_env[i]; i++) {
-			if (!locate_unset(hint, old_env[i]))
+			if (!var_is_unset(hint, old_env[i]))
 				new_env[n++] = old_env[i];
 		}
 
 	for (i = 0; addenv[i]; i++)
-		if (!locate_unset(hint, addenv[i])) {
+		if (!var_is_unset(hint, addenv[i])) {
 			if (wordsplit(addenv[i], &ws, wsflags)) {
 				diag(LOG_CRIT, "wordsplit: %s",
 				     wordsplit_strerror(&ws));
@@ -185,26 +196,36 @@ environ_setup(char **hint, char **kve)
 		wsflags |= WRDSF_REUSE;
 		var = ws.ws_wordv[0];
 		
+		/* Find the slot for the variable.  Use next available
+		   slot if there's no such variable in new_env */
+		if (find_env_pos(new_env, hint[i], &j, NULL))
+			j = n;
+			
 		if ((p = strchr(var, '='))) {
 			if (p == var)
 				continue; /* Ignore erroneous entry */
+
 			if (p[-1] == '+') 
-				new_env[n++] = env_concat(var,
-							  p - var - 1,
-							  find_env(var, 1),
-							  p + 1);
+				new_env[j] = env_concat(var,
+							p - var - 1,
+							find_env_ptr(environ,
+								     var, 1),
+							p + 1);
 			else if (p[1] == '+')
-				new_env[n++] = env_concat(var,
-							  p - var,
-							  p + 2,
-							  find_env(var, 1));
+				new_env[j] = env_concat(var,
+							p - var,
+							p + 2,
+							find_env_ptr(environ,
+								     var, 1));
 			else
-				new_env[n++] = estrdup(var);
-		} else {
-			p = find_env(var, 0);
-			if (p)
-				new_env[n++] = p;
-		}
+				new_env[j] = estrdup(var);
+                } else if ((p = find_env_ptr(environ, hint[i], 0)))
+			new_env[j] = p;
+		else
+			continue;
+		/* Adjust environment size */
+		if (j == n)
+			++n;
 	}
 	if (self_test_pid) {
 		char buf[512];
