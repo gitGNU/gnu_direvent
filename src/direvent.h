@@ -37,10 +37,10 @@
 #define GENEV_DELETE  0x08
 
 /* Handler flags. */
-#define HF_NOWAIT 0x01       /* Don't wait for termination */
-#define HF_STDOUT 0x02       /* Capture stdout */
-#define HF_STDERR 0x04       /* Capture stderr */
-#define HF_SHELL  0x08       /* Call program via /bin/sh -c */ 
+#define HF_NOWAIT  0x01   /* Don't wait for termination */
+#define HF_STDOUT  0x02   /* Capture stdout */
+#define HF_STDERR  0x04   /* Capture stderr */
+#define HF_SHELL   0x08   /* Call program via /bin/sh -c */ 
 
 #ifndef DEFAULT_TIMEOUT
 # define DEFAULT_TIMEOUT 5
@@ -57,11 +57,14 @@ struct transtab {
 	int tok;
 };
 
-#define PAT_GLOB  0
-#define PAT_REGEX 1
+enum pattern_type {
+	PAT_EXACT,
+	PAT_GLOB,
+	PAT_REGEX
+};
 
 struct filename_pattern {
-	int type;
+	enum pattern_type type;
 	int neg;
 	union {
 		regex_t re;
@@ -69,18 +72,40 @@ struct filename_pattern {
 	} v;
 };
 
+enum handler_type {
+	HANDLER_EXTERN,
+	HANDLER_SENTINEL
+};
+
 /* Handler structure */
 struct handler {
 	size_t refcnt;       /* Reference counter */
 	event_mask ev_mask;  /* Event mask */
 	struct grecs_list *fnames;  /* File name patterns */
-	int flags;           /* Handler flags */
-	char *prog;          /* Handler program (with eventual arguments) */
-	uid_t uid;           /* Run as this user (unless 0) */
-	gid_t *gidv;         /* Run with these groups' privileges */
-	size_t gidc;         /* Number of elements in gidv */
-	unsigned timeout;    /* Handler timeout */
-	char **env;          /* Environment */
+	enum handler_type type;
+	union {
+		struct {
+			int flags;     /* Handler flags */
+			char *command; /* Handler command (with eventual
+					  arguments) */
+			uid_t uid;     /* Run as this user (unless 0) */
+			gid_t *gidv;   /* Run with these groups' privileges */
+			size_t gidc;   /* Number of elements in gidv */
+			unsigned timeout; /* Handler timeout */
+			char **env;    /* Environment */
+		} prog;
+		struct {
+			struct dirwatcher *watcher;
+		} sentinel;
+	} v;
+#define prog_flags v.prog.flags	
+#define prog_command v.prog.command
+#define prog_uid v.prog.uid
+#define prog_gidv v.prog.gidv	
+#define prog_gidc v.prog.gidc
+#define prog_timeout v.prog.timeout
+#define prog_env v.prog.env
+#define sentinel_watcher v.sentinel.watcher
 };
 
 typedef struct direvent_handler_list *direvent_handler_list_t;
@@ -88,7 +113,7 @@ typedef struct grecs_list_entry *direvent_handler_iterator_t;
 
 /* A directory watcher is described by the following structure */
 struct dirwatcher {
-	int refcnt;
+	size_t refcnt;
 	int wd;                              /* Watch descriptor */
 	struct dirwatcher *parent;           /* Points to the parent watcher.
 					        NULL for top-level watchers */
@@ -110,6 +135,9 @@ struct dirwatcher {
 	(((h)->ev_mask.__cat2__(m,_mask) & (f)) && \
 	 filename_pattern_match((h)->fnames, n) == 0)
 
+struct handler *handler_alloc(enum handler_type type);
+void handler_add_pattern(struct handler *hp, struct filename_pattern *pat);
+void handler_add_exact_filename(struct handler *hp, const char *filename);
 
 extern int foreground;
 extern int debug_level;

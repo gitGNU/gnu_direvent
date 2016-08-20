@@ -23,6 +23,7 @@ filename_pattern_free(void *p)
 {
 	struct filename_pattern *pat = p;
 	switch (pat->type) {
+	case PAT_EXACT:
 	case PAT_GLOB:
 		free(pat->v.glob);
 		break;
@@ -44,6 +45,9 @@ filename_pattern_match(struct grecs_list *lp, const char *name)
 		int rc;
 		
 		switch (pat->type) {
+		case PAT_EXACT:
+			rc = strcmp(pat->v.glob, name);
+			break;
 		case PAT_GLOB:
 			rc = fnmatch(pat->v.glob, name, FNM_PATHNAME);
 			break;
