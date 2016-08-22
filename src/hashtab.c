@@ -61,7 +61,7 @@ hashent_list_init(struct hashent_list *list)
 static int
 hashent_list_append(struct hashent_list *list, struct hashent *ent)
 {
-	struct hashent_list_entry *hent = malloc(sizeof(*ent));
+	struct hashent_list_entry *hent = malloc(sizeof(*hent));
 	if (!hent)
 		return -1;
 	hent->ent = ent;
