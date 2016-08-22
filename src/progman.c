@@ -541,16 +541,16 @@ run_handler_prog(struct handler *hp, event_mask *event,
 }
 
 static int
-run_sentinel(struct dirwatcher *dp, struct handler *hp)
+run_sentinel(struct watchpoint *dp, struct handler *hp)
 {
-	dirwatcher_init(hp->sentinel_watcher);
-	dirwatcher_install_ptr(hp->sentinel_watcher);
+	watchpoint_init(hp->sentinel_watchpoint);
+	watchpoint_install_ptr(hp->sentinel_watchpoint);
 	handler_list_remove(dp->handler_list, hp);
 	return 0;
 }
 
 int
-run_handler(struct dirwatcher *dp, struct handler *hp, event_mask *event,
+run_handler(struct watchpoint *dp, struct handler *hp, event_mask *event,
 	    const char *dirname, const char *file)
 {
 	int rc;

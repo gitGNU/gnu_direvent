@@ -19,177 +19,177 @@
 #include <sys/stat.h>
 
 void
-dirwatcher_ref(struct dirwatcher *dw)
+watchpoint_ref(struct watchpoint *wpt)
 {
-	++dw->refcnt;
+	++wpt->refcnt;
 }
 
 void
-dirwatcher_unref(struct dirwatcher *dw)
+watchpoint_unref(struct watchpoint *wpt)
 {
-	if (--dw->refcnt)
+	if (--wpt->refcnt)
 		return;
-	free(dw->dirname);
-	handler_list_unref(dw->handler_list);
-	free(dw);
+	free(wpt->dirname);
+	handler_list_unref(wpt->handler_list);
+	free(wpt);
 }
 
 
-struct dwref {
+struct wpref {
 	int used;
-	struct dirwatcher *dw;
+	struct watchpoint *wpt;
 };
 
 static unsigned
-dwname_hash(void *data, unsigned long hashsize)
+wpref_hash(void *data, unsigned long hashsize)
 {
-	struct dwref *sym = data;
-	return hash_string(sym->dw->dirname, hashsize);
+	struct wpref *sym = data;
+	return hash_string(sym->wpt->dirname, hashsize);
 }
 
 static int
-dwname_cmp(const void *a, const void *b)
+wpref_cmp(const void *a, const void *b)
 {
-	struct dwref const *syma = a;
-	struct dwref const *symb = b;
+	struct wpref const *syma = a;
+	struct wpref const *symb = b;
 
-	return strcmp(syma->dw->dirname, symb->dw->dirname);
+	return strcmp(syma->wpt->dirname, symb->wpt->dirname);
 }
 
 static int
-dwname_copy(void *a, void *b)
+wpref_copy(void *a, void *b)
 {
-	struct dwref *syma = a;
-	struct dwref *symb = b;
+	struct wpref *syma = a;
+	struct wpref *symb = b;
 
 	syma->used = 1;
-	syma->dw = symb->dw;
+	syma->wpt = symb->wpt;
 	return 0;
 }
 
 static void
-dwref_free(void *p)
+wpref_free(void *p)
 {
-	struct dwref *dwref = p;
-	dirwatcher_unref(dwref->dw);
-	free(dwref);
+	struct wpref *wpref = p;
+	watchpoint_unref(wpref->wpt);
+	free(wpref);
 }
 
 struct hashtab *nametab;
 
-struct dirwatcher *
-dirwatcher_install(const char *path, int *pnew)
+struct watchpoint *
+watchpoint_install(const char *path, int *pnew)
 {
-	struct dirwatcher *dw, dwkey;
-	struct dwref key;
-	struct dwref *ent;
+	struct watchpoint *wpt, wpkey;
+	struct wpref key;
+	struct wpref *ent;
 	int install = 1;
 
 	if (!nametab) {
-		nametab = hashtab_create(sizeof(struct dwref),
-					 dwname_hash, dwname_cmp, dwname_copy,
-					 NULL, dwref_free);
+		nametab = hashtab_create(sizeof(struct wpref),
+					 wpref_hash, wpref_cmp, wpref_copy,
+					 NULL, wpref_free);
 		if (!nametab) {
 			diag(LOG_CRIT, _("not enough memory"));
 			exit(1);
 		}
 	}
 
-	dwkey.dirname = (char*) path;
-	key.dw = &dwkey;
+	wpkey.dirname = (char*) path;
+	key.wpt = &wpkey;
 	ent = hashtab_lookup_or_install(nametab, &key, &install);
 	if (install) {
-		dw = ecalloc(1, sizeof(*dw));
-		dw->dirname = estrdup(path);
-		dw->wd = -1;
-		dw->handler_list = handler_list_create();
-		dw->refcnt++;
-		ent->dw = dw;
+		wpt = ecalloc(1, sizeof(*wpt));
+		wpt->dirname = estrdup(path);
+		wpt->wd = -1;
+		wpt->handler_list = handler_list_create();
+		wpt->refcnt++;
+		ent->wpt = wpt;
 	}
 	if (!ent)
 		abort(); /* FIXME */
 	if (pnew)
 		*pnew = install;
-	return ent->dw;
+	return ent->wpt;
 }
 
-struct dirwatcher *
-dirwatcher_install_ptr(struct dirwatcher *dw)
+struct watchpoint *
+watchpoint_install_ptr(struct watchpoint *wpt)
 {
-	struct dwref key;
+	struct wpref key;
 	int install = 1;
-	key.dw = dw;
+	key.wpt = wpt;
 	
 	if (!hashtab_lookup_or_install(nametab, &key, &install)) {
 		diag(LOG_CRIT, _("not enough memory"));
 		exit(1);
 	}
-	dirwatcher_ref(dw);
-	return dw;
+	watchpoint_ref(wpt);
+	return wpt;
 }	
 	
 static int
-dwref_gc(struct hashent *ent, void *data)
+wpref_gc(struct hashent *ent, void *data)
 {
-	struct dwref *dwref = (struct dwref *) ent;
-	struct dirwatcher *dwp = dwref->dw;
+	struct wpref *wpref = (struct wpref *) ent;
+	struct watchpoint *wpt = wpref->wpt;
 
-	if (handler_list_size(dwp->handler_list) == 0)
-		dirwatcher_destroy(dwp);
+	if (handler_list_size(wpt->handler_list) == 0)
+		watchpoint_destroy(wpt);
 	return 0;
 }
 
 void
-dirwatcher_gc(void)
+watchpoint_gc(void)
 {
-	hashtab_foreach(nametab, dwref_gc, NULL);
+	hashtab_foreach(nametab, wpref_gc, NULL);
 }
 
-struct dirwatcher *
-dirwatcher_lookup(const char *dirname)
+struct watchpoint *
+watchpoint_lookup(const char *dirname)
 {
-	struct dirwatcher dwkey;
-	struct dwref key;
-	struct dwref *ent;
+	struct watchpoint wpkey;
+	struct wpref key;
+	struct wpref *ent;
 
 	if (!nametab)
 		return NULL;
 	
-	dwkey.dirname = (char*) dirname;
-	key.dw = &dwkey;
+	wpkey.dirname = (char*) dirname;
+	key.wpt = &wpkey;
 	ent = hashtab_lookup_or_install(nametab, &key, NULL);
-	return ent ? ent->dw : NULL;
+	return ent ? ent->wpt : NULL;
 }
 
 static void
-dirwatcher_remove(const char *dirname)
+watchpoint_remove(const char *dirname)
 {
-	struct dirwatcher dwkey;
-	struct dwref key;
+	struct watchpoint wpkey;
+	struct wpref key;
 
 	if (!nametab)
 		return;
 	
-	dwkey.dirname = (char*) dirname;
-	key.dw = &dwkey;
+	wpkey.dirname = (char*) dirname;
+	key.wpt = &wpkey;
 	hashtab_remove(nametab, &key);
 }
 
 void
-dirwatcher_destroy(struct dirwatcher *dwp)
+watchpoint_destroy(struct watchpoint *wpt)
 {
-	debug(1, (_("removing watcher %s"), dwp->dirname));
-	sysev_rm_watch(dwp);
-	dirwatcher_remove(dwp->dirname);
+	debug(1, (_("removing watcher %s"), wpt->dirname));
+	sysev_rm_watch(wpt);
+	watchpoint_remove(wpt->dirname);
 }
 
 // FIXME: Perhaps the check for count is not needed after all
 void
-dirwatcher_suspend(struct dirwatcher *dwp)
+watchpoint_suspend(struct watchpoint *wpt)
 {
-	struct dirwatcher *sent = dirwatcher_install_sentinel(dwp);
-	dirwatcher_init(sent);//FIXME: error checking
-	dirwatcher_destroy(dwp);
+	struct watchpoint *sent = watchpoint_install_sentinel(wpt);
+	watchpoint_init(sent);//FIXME: error checking
+	watchpoint_destroy(wpt);
 	if (hashtab_count(nametab) == 0) {
 		diag(LOG_CRIT, _("no watchers left; exiting now"));
 		stop = 1;
@@ -197,7 +197,7 @@ dirwatcher_suspend(struct dirwatcher *dwp)
 }
 
 static int
-convert_watcher(struct dirwatcher *dwp)
+convert_watcher(struct watchpoint *wpt)
 {
 	char *dirname;
 	char *filename;
@@ -205,51 +205,51 @@ convert_watcher(struct dirwatcher *dwp)
 	struct handler *hp;
 	handler_iterator_t itr;
 	
-	for_each_handler(dwp, itr, hp) {
+	for_each_handler(wpt, itr, hp) {
 		if (hp->fnames) {
 			/* FIXME: Error message */
 			return 1;
 		}
 	}
 	
-	filename = split_pathname(dwp, &dirname);
-	for_each_handler(dwp, itr, hp)
+	filename = split_pathname(wpt, &dirname);
+	for_each_handler(wpt, itr, hp)
 		handler_add_exact_filename(hp, filename);
 
 	new_dirname = estrdup(dirname);
-	unsplit_pathname(dwp);
+	unsplit_pathname(wpt);
 	diag(LOG_NOTICE, _("watcher %s converted to %s"),
-	     dwp->dirname, new_dirname);
+	     wpt->dirname, new_dirname);
 
-	free(dwp->dirname);
-	dwp->dirname = new_dirname;
+	free(wpt->dirname);
+	wpt->dirname = new_dirname;
 	return 0;
 }
 
-struct dirwatcher *
-dirwatcher_install_sentinel(struct dirwatcher *dwp)
+struct watchpoint *
+watchpoint_install_sentinel(struct watchpoint *wpt)
 {
-	struct dirwatcher *sent;
+	struct watchpoint *sent;
 	char *dirname;
 	char *filename;
 	struct handler *hp;
 	
-	filename = split_pathname(dwp, &dirname);
-	sent = dirwatcher_install(dirname, NULL);
+	filename = split_pathname(wpt, &dirname);
+	sent = watchpoint_install(dirname, NULL);
 	hp = handler_alloc(HANDLER_SENTINEL);
 	getevt("CREATE", &hp->ev_mask);
-	hp->sentinel_watcher = dwp;
-	dirwatcher_ref(dwp);
+	hp->sentinel_watchpoint = wpt;
+	watchpoint_ref(wpt);
 	handler_add_exact_filename(hp, filename);
 	handler_list_append(sent->handler_list, hp);
-	unsplit_pathname(dwp);
-	diag(LOG_NOTICE, _("installing CREATE sentinel for %s"), dwp->dirname);
-	dirwatcher_init(sent);
+	unsplit_pathname(wpt);
+	diag(LOG_NOTICE, _("installing CREATE sentinel for %s"), wpt->dirname);
+	watchpoint_init(sent);
 	return sent;
 }
 	
 int 
-dirwatcher_init(struct dirwatcher *dwp)
+watchpoint_init(struct watchpoint *wpt)
 {
 	struct stat st;
 	event_mask mask = { 0, 0 };
@@ -257,73 +257,73 @@ dirwatcher_init(struct dirwatcher *dwp)
 	handler_iterator_t itr;	
 	int wd;
 
-	debug(1, (_("creating watcher %s"), dwp->dirname));
+	debug(1, (_("creating watcher %s"), wpt->dirname));
 
-	if (stat(dwp->dirname, &st)) {
+	if (stat(wpt->dirname, &st)) {
 		if (errno == ENOENT) {
-			dwp = dirwatcher_install_sentinel(dwp);
+			wpt = watchpoint_install_sentinel(wpt);
 			return 0;
 		} else {
 			diag(LOG_ERR, _("cannot set watcher on %s: %s"),
-			     dwp->dirname, strerror(errno));
+			     wpt->dirname, strerror(errno));
 			return 1;
 		}
 	} else if (!S_ISDIR(st.st_mode)) {
-		diag(LOG_NOTICE, _("%s is a regular file"), dwp->dirname);
-		convert_watcher(dwp);
+		diag(LOG_NOTICE, _("%s is a regular file"), wpt->dirname);
+		convert_watcher(wpt);
 	}
 	
-	for_each_handler(dwp, itr, hp) {
+	for_each_handler(wpt, itr, hp) {
 		mask.sys_mask |= hp->ev_mask.sys_mask;
 		mask.gen_mask |= hp->ev_mask.gen_mask;
 	}
 	
-	wd = sysev_add_watch(dwp, mask);
+	wd = sysev_add_watch(wpt, mask);
 	if (wd == -1) {
 		diag(LOG_ERR, _("cannot set watcher on %s: %s"),
-		     dwp->dirname, strerror(errno));
+		     wpt->dirname, strerror(errno));
 		return 1;
 	}
 
-	dwp->wd = wd;
+	wpt->wd = wd;
 
 	return 0;
 }
 
-static int watch_subdirs(struct dirwatcher *parent, int notify);
+static int watch_subdirs(struct watchpoint *parent, int notify);
 
 int
-subwatcher_create(struct dirwatcher *parent, const char *dirname,
+subwatcher_create(struct watchpoint *parent, const char *dirname,
 		  int isdir, int notify)
 {
-	struct dirwatcher *dwp;
+	struct watchpoint *wpt;
 	int inst;
 	
-	dwp = dirwatcher_install(dirname, &inst);
+	wpt = watchpoint_install(dirname, &inst);
 	if (!inst)
 		return -1;
 
-	dwp->handler_list = handler_list_copy(parent->handler_list);
-	dwp->parent = parent;
+	wpt->handler_list = handler_list_copy(parent->handler_list);
+	wpt->parent = parent;
 	
 	if (parent->depth == -1)
-		dwp->depth = parent->depth;
+		wpt->depth = parent->depth;
 	else if (parent->depth)
-		dwp->depth = parent->depth - 1;
+		wpt->depth = parent->depth - 1;
 	else
-		dwp->depth = 0;
+		wpt->depth = 0;
 	
-	if (dirwatcher_init(dwp)) {
-		//FIXME dirwatcher_free(dwp);
+	if (watchpoint_init(wpt)) {
+		//FIXME watchpoint_free(wpt);
 		return -1;
 	}
 
-	return 1 + (isdir ? watch_subdirs(dwp, notify) : 0);
+	return 1 + (isdir ? watch_subdirs(wpt, notify) : 0);
 }
 
 /* Deliver GENEV_CREATE event */
 void
-deliver_ev_create(struct dirwatcher *dp, const char *name)
+deliver_ev_create(struct watchpoint *dp, const char *name)
 {
 	event_mask m = { GENEV_CREATE, 0 };
 	struct handler *h;
@@ -352,9 +352,9 @@ check_new_watcher(const char *dir, const char *name)
 	int rc;
 	char *fname;
 	struct stat st;
-	struct dirwatcher *parent;
+	struct watchpoint *parent;
 
-	parent = dirwatcher_lookup(dir);
+	parent = watchpoint_lookup(dir);
 	if (!parent || !parent->depth)
 		return 0;
 	
@@ -381,12 +381,12 @@ check_new_watcher(const char *dir, const char *name)
 }
 
 int
-dirwatcher_pattern_match(struct dirwatcher *dwp, const char *file_name)
+watchpoint_pattern_match(struct watchpoint *wpt, const char *file_name)
 {
 	struct handler *hp;
 	handler_iterator_t itr;
 
-	for_each_handler(dwp, itr, hp) {
+	for_each_handler(wpt, itr, hp) {
 		if (filename_pattern_match(hp->fnames, file_name) == 0)
 			return 0;
 	}
@@ -396,7 +396,7 @@ dirwatcher_pattern_match(struct dirwatcher *dwp, const char *file_name)
 /* Recursively scan subdirectories of parent and add them to the
    watcher list, as requested by the parent's recursion depth value. */
 static int
-watch_subdirs(struct dirwatcher *parent, int notify)
+watch_subdirs(struct watchpoint *parent, int notify)
 {
 	DIR *dir;
 	struct dirent *ent;
@@ -434,7 +434,7 @@ watch_subdirs(struct dirwatcher *parent, int notify)
 		if (stat(dirname, &st)) {
 			diag(LOG_ERR, _("cannot stat %s: %s"),
 			     dirname, strerror(errno));
-		} else if (dirwatcher_pattern_match(parent, ent->d_name)
+		} else if (watchpoint_pattern_match(parent, ent->d_name)
 			   == 0) {
 			if (notify)
 				deliver_ev_create(parent, ent->d_name);
@@ -456,20 +456,20 @@ watch_subdirs(struct dirwatcher *parent, int notify)
 static int
 setwatcher(struct hashent *ent, void *data)
 {
-	struct dwref *dwref = (struct dwref *) ent;
-	struct dirwatcher *dwp = dwref->dw;
+	struct wpref *wpref = (struct wpref *) ent;
+	struct watchpoint *wpt = wpref->wpt;
 	
-	if (dwp->wd == -1 && dirwatcher_init(dwp) == 0)
-		watch_subdirs(dwp, 0);
+	if (wpt->wd == -1 && watchpoint_init(wpt) == 0)
+		watch_subdirs(wpt, 0);
 	return 0;
 }
 
 static int
 checkwatcher(struct hashent *ent, void *data)
 {
-	struct dwref *dwref = (struct dwref *) ent;
-	struct dirwatcher *dwp = dwref->dw;
-	return dwp->wd >= 0;
+	struct wpref *wpref = (struct wpref *) ent;
+	struct watchpoint *wpt = wpref->wpt;
+	return wpt->wd >= 0;
 }
 	
 void
@@ -490,11 +490,11 @@ setup_watchers(void)
 static int
 stopwatcher(struct hashent *ent, void *data)
 {
-	struct dwref *dwref = (struct dwref *) ent;
-	struct dirwatcher *dwp = dwref->dw;
-	if (dwp->wd != -1) {
-		debug(1, (_("removing watcher %s"), dwp->dirname));
-		sysev_rm_watch(dwp);
+	struct wpref *wpref = (struct wpref *) ent;
+	struct watchpoint *wpt = wpref->wpt;
+	if (wpt->wd != -1) {
+		debug(1, (_("removing watcher %s"), wpt->dirname));
+		sysev_rm_watch(wpt);
 	}
 	return 0;
 }
@@ -508,7 +508,7 @@ shutdown_watchers(void)
 
 
 char *
-split_pathname(struct dirwatcher *dp, char **dirname)
+split_pathname(struct watchpoint *dp, char **dirname)
 {
 	char *p = strrchr(dp->dirname, '/');
 	if (p) {
@@ -523,7 +523,7 @@ split_pathname(struct dirwatcher *dp, char **dirname)
 }
 
 void
-unsplit_pathname(struct dirwatcher *dp)
+unsplit_pathname(struct watchpoint *dp)
 {
 	if (dp->split_p) {
 		*dp->split_p = '/';

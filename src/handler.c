@@ -108,7 +108,7 @@ handler_free(struct handler *hp)
 		envfree(hp->prog_env);
 		break;
 	case HANDLER_SENTINEL:
-		dirwatcher_unref(hp->sentinel_watcher);
+		watchpoint_unref(hp->sentinel_watchpoint);
 	}
 }
 
@@ -146,11 +146,11 @@ struct handler_iterator {
 static struct handler_iterator *itr_avail;
 
 struct handler *
-handler_itr_first(struct dirwatcher *dwp, handler_iterator_t *ret_itr)
+handler_itr_first(struct watchpoint *wpt, handler_iterator_t *ret_itr)
 {
 	struct handler_iterator *itr;
 		
-	if (!dwp->handler_list)
+	if (!wpt->handler_list)
 		return NULL;
 
 	if (itr_avail) {
@@ -162,13 +162,13 @@ handler_itr_first(struct dirwatcher *dwp, handler_iterator_t *ret_itr)
 		itr = emalloc(sizeof *itr);
 
 	itr->prev = NULL;
-	itr->next = dwp->handler_list->itr_chain;
-	itr->hlist = dwp->handler_list;
-	if (dwp->handler_list->itr_chain)
-	    dwp->handler_list->itr_chain->prev = itr;
-	dwp->handler_list->itr_chain = itr;
+	itr->next = wpt->handler_list->itr_chain;
+	itr->hlist = wpt->handler_list;
+	if (wpt->handler_list->itr_chain)
+	    wpt->handler_list->itr_chain->prev = itr;
+	wpt->handler_list->itr_chain = itr;
 
-	itr->ent = dwp->handler_list->list->head;
+	itr->ent = wpt->handler_list->list->head;
 	itr->advanced = 0;
 	*ret_itr = itr;
 	return handler_itr_current(itr);
@@ -284,5 +284,5 @@ handler_list_remove(handler_list_t hlist, struct handler *hp)
 	grecs_list_remove_entry(hlist->list, ep);
 	if (grecs_list_size(hlist->list) == 0)
 		/* Remove watchers that don't have handlers */
-		dirwatcher_gc();
+		watchpoint_gc();
 }

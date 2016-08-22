@@ -176,18 +176,18 @@ eventconf_flush(grecs_locus_t *loc)
 	
 	for (ep = eventconf.pathlist->head; ep; ep = ep->next) {
 		struct pathent *pe = ep->data;
-		struct dirwatcher *dwp;
+		struct watchpoint *wpt;
 		int isnew;
 		
-		dwp = dirwatcher_install(pe->path, &isnew);
-		if (!dwp)
+		wpt = watchpoint_install(pe->path, &isnew);
+		if (!wpt)
 			abort();
-		if (!isnew && dwp->depth != pe->depth)
+		if (!isnew && wpt->depth != pe->depth)
 			grecs_error(loc, 0,
 				    _("%s: recursion depth does not match previous definition"),
 				    pe->path);
-		dwp->depth = pe->depth;
-		handler_list_append(dwp->handler_list, hp);
+		wpt->depth = pe->depth;
+		handler_list_append(wpt->handler_list, hp);
 	}
 	grecs_list_free(eventconf.pathlist);
 	eventconf_init();

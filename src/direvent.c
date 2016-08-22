@@ -364,7 +364,7 @@ setuser(const char *user)
 }
 
 void
-ev_log(int flags, struct dirwatcher *dp)
+ev_log(int flags, struct watchpoint *dp)
 {
 	int i;
 	char *p;
