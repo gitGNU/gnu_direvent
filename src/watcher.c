@@ -30,7 +30,7 @@ dirwatcher_unref(struct dirwatcher *dw)
 	if (--dw->refcnt)
 		return;
 	free(dw->dirname);
-	direvent_handler_list_unref(dw->handler_list);
+	handler_list_unref(dw->handler_list);
 	free(dw);
 }
 
@@ -102,7 +102,7 @@ dirwatcher_install(const char *path, int *pnew)
 		dw = ecalloc(1, sizeof(*dw));
 		dw->dirname = estrdup(path);
 		dw->wd = -1;
-		dw->handler_list = direvent_handler_list_create();
+		dw->handler_list = handler_list_create();
 		dw->refcnt++;
 		ent->dw = dw;
 	}
@@ -111,6 +111,38 @@ dirwatcher_install(const char *path, int *pnew)
 	if (pnew)
 		*pnew = install;
 	return ent->dw;
+}
+
+struct dirwatcher *
+dirwatcher_install_ptr(struct dirwatcher *dw)
+{
+	struct dwref key;
+	int install = 1;
+	key.dw = dw;
+	
+	if (!hashtab_lookup_or_install(nametab, &key, &install)) {
+		diag(LOG_CRIT, _("not enough memory"));
+		exit(1);
+	}
+	dirwatcher_ref(dw);
+	return dw;
+}	
+	
+static int
+dwref_gc(struct hashent *ent, void *data)
+{
+	struct dwref *dwref = (struct dwref *) ent;
+	struct dirwatcher *dwp = dwref->dw;
+
+	if (handler_list_size(dwp->handler_list) == 0)
+		dirwatcher_destroy(dwp);
+	return 0;
+}
+
+void
+dirwatcher_gc(void)
+{
+	hashtab_foreach(nametab, dwref_gc, NULL);
 }
 
 struct dirwatcher *
@@ -149,6 +181,15 @@ dirwatcher_destroy(struct dirwatcher *dwp)
 	debug(1, (_("removing watcher %s"), dwp->dirname));
 	sysev_rm_watch(dwp);
 	dirwatcher_remove(dwp->dirname);
+}
+
+// FIXME: Perhaps the check for count is not needed after all
+void
+dirwatcher_suspend(struct dirwatcher *dwp)
+{
+	struct dirwatcher *sent = dirwatcher_install_sentinel(dwp);
+	dirwatcher_init(sent);//FIXME: error checking
+	dirwatcher_destroy(dwp);
 	if (hashtab_count(nametab) == 0) {
 		diag(LOG_CRIT, _("no watchers left; exiting now"));
 		stop = 1;
@@ -162,7 +203,7 @@ convert_watcher(struct dirwatcher *dwp)
 	char *filename;
 	char *new_dirname;
 	struct handler *hp;
-	direvent_handler_iterator_t itr;
+	handler_iterator_t itr;
 	
 	for_each_handler(dwp, itr, hp) {
 		if (hp->fnames) {
@@ -200,10 +241,10 @@ dirwatcher_install_sentinel(struct dirwatcher *dwp)
 	hp->sentinel_watcher = dwp;
 	dirwatcher_ref(dwp);
 	handler_add_exact_filename(hp, filename);
-	direvent_handler_list_append(sent->handler_list, hp);
-	
+	handler_list_append(sent->handler_list, hp);
 	unsplit_pathname(dwp);
 	diag(LOG_NOTICE, _("installing CREATE sentinel for %s"), dwp->dirname);
+	dirwatcher_init(sent);
 	return sent;
 }
 	
@@ -213,7 +254,7 @@ dirwatcher_init(struct dirwatcher *dwp)
 	struct stat st;
 	event_mask mask = { 0, 0 };
 	struct handler *hp;
-	direvent_handler_iterator_t itr;	
+	handler_iterator_t itr;	
 	int wd;
 
 	debug(1, (_("creating watcher %s"), dwp->dirname));
@@ -221,6 +262,7 @@ dirwatcher_init(struct dirwatcher *dwp)
 	if (stat(dwp->dirname, &st)) {
 		if (errno == ENOENT) {
 			dwp = dirwatcher_install_sentinel(dwp);
+			return 0;
 		} else {
 			diag(LOG_ERR, _("cannot set watcher on %s: %s"),
 			     dwp->dirname, strerror(errno));
@@ -261,7 +303,7 @@ subwatcher_create(struct dirwatcher *parent, const char *dirname,
 	if (!inst)
 		return -1;
 
-	dwp->handler_list = direvent_handler_list_copy(parent->handler_list);
+	dwp->handler_list = handler_list_copy(parent->handler_list);
 	dwp->parent = parent;
 	
 	if (parent->depth == -1)
@@ -285,11 +327,11 @@ deliver_ev_create(struct dirwatcher *dp, const char *name)
 {
 	event_mask m = { GENEV_CREATE, 0 };
 	struct handler *h;
-	direvent_handler_iterator_t itr;
+	handler_iterator_t itr;
 	
 	for_each_handler(dp, itr, h) {
 		if (handler_matches_event(h, gen, GENEV_CREATE, name))
-			run_handler(h, &m, dp->dirname, name);
+			run_handler(dp, h, &m, dp->dirname, name);
 	}
 }
 
@@ -342,7 +384,7 @@ int
 dirwatcher_pattern_match(struct dirwatcher *dwp, const char *file_name)
 {
 	struct handler *hp;
-	direvent_handler_iterator_t itr;
+	handler_iterator_t itr;
 
 	for_each_handler(dwp, itr, hp) {
 		if (filename_pattern_match(hp->fnames, file_name) == 0)
@@ -450,8 +492,10 @@ stopwatcher(struct hashent *ent, void *data)
 {
 	struct dwref *dwref = (struct dwref *) ent;
 	struct dirwatcher *dwp = dwref->dw;
-	debug(1, (_("removing watcher %s"), dwp->dirname));
-	sysev_rm_watch(dwp);
+	if (dwp->wd != -1) {
+		debug(1, (_("removing watcher %s"), dwp->dirname));
+		sysev_rm_watch(dwp);
+	}
 	return 0;
 }
 

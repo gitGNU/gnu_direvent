@@ -152,7 +152,7 @@ remove_watcher(const char *dir, const char *name)
 	dwp = dirwatcher_lookup(fullname);
 	free(fullname);
 	if (dwp)
-		dirwatcher_destroy(dwp);
+		dirwatcher_suspend(dwp);
 }
 
 static void
@@ -160,18 +160,23 @@ process_event(struct inotify_event *ep)
 {
 	struct dirwatcher *dp;
 	struct handler *h;
-	direvent_handler_iterator_t itr;
+	handler_iterator_t itr;
 	event_mask m;
 	char *dirname, *filename;
 	
 	dp = dwget(ep->wd);
 	if (!dp) {
-		diag(LOG_NOTICE, _("watcher not found: %d"), ep->wd);
+		if (!(ep->mask & IN_IGNORED))
+			diag(LOG_NOTICE, _("watcher not found: %d (%s)"),
+			     ep->wd, ep->name);
 		return;
 	}
 	
-	if (ep->mask & IN_IGNORED)
-		ep->mask = IN_DELETE;
+	if (ep->mask & IN_IGNORED) {
+		diag(LOG_NOTICE, _("%s deleted"), dp->dirname);
+		dirwatcher_suspend(dp);
+		return;
+	}
 	
 	if (ep->mask & IN_Q_OVERFLOW) {
 		diag(LOG_NOTICE,
@@ -210,9 +215,8 @@ process_event(struct inotify_event *ep)
 	}
 	for_each_handler(dp, itr, h) {
 		if (handler_matches_event(h, sys, ep->mask, filename))
-			run_handler(h, event_mask_init(&m,
-						       ep->mask,
-						       &h->ev_mask),
+			run_handler(dp, h,
+				    event_mask_init(&m, ep->mask, &h->ev_mask),
 				    dirname, filename);
 	}
 	unsplit_pathname(dp);
@@ -234,7 +238,7 @@ sysev_select()
 	rdbytes = read(ifd, buffer, sizeof(buffer));
 	if (rdbytes == -1) {
 		if (errno == EINTR) {
-			if (signo == SIGCHLD || signo == SIGALRM)
+			if (!signo || signo == SIGCHLD || signo == SIGALRM)
 				return 0;
 			diag(LOG_NOTICE, "got signal %d", signo);
 			return 1;

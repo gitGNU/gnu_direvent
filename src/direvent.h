@@ -108,8 +108,8 @@ struct handler {
 #define sentinel_watcher v.sentinel.watcher
 };
 
-typedef struct direvent_handler_list *direvent_handler_list_t;
-typedef struct grecs_list_entry *direvent_handler_iterator_t;
+typedef struct handler_list *handler_list_t;
+typedef struct handler_iterator *handler_iterator_t;
 
 /* A directory watcher is described by the following structure */
 struct dirwatcher {
@@ -118,7 +118,7 @@ struct dirwatcher {
 	struct dirwatcher *parent;           /* Points to the parent watcher.
 					        NULL for top-level watchers */
 	char *dirname;                       /* Pathname being watched */
-	direvent_handler_list_t handler_list;/* List of handlers */
+	handler_list_t handler_list;         /* List of handlers */
 	int depth;                           /* Recursion depth */
 	char *split_p;                       /* Points to the deleted directory
 						separator in dirname (see
@@ -136,6 +136,10 @@ struct dirwatcher {
 	 filename_pattern_match((h)->fnames, n) == 0)
 
 struct handler *handler_alloc(enum handler_type type);
+void handler_free(struct handler *hp);
+struct handler *handler_copy(struct handler *orig);
+size_t handler_envrealloc(struct handler *hp, size_t count);
+	
 void handler_add_pattern(struct handler *hp, struct filename_pattern *pat);
 void handler_add_exact_filename(struct handler *hp, const char *filename);
 
@@ -236,8 +240,10 @@ void config_parse(const char *file);
 int get_facility(const char *arg);
 int get_priority(const char *arg);
 
+int  dirwatcher_init(struct dirwatcher *dwp);
 void dirwatcher_ref(struct dirwatcher *dw);
 void dirwatcher_unref(struct dirwatcher *dw);
+void dirwatcher_gc(void);
 
 int dirwatcher_pattern_match(struct dirwatcher *dwp, const char *file_name);
 
@@ -247,7 +253,11 @@ void shutdown_watchers(void);
 struct dirwatcher *dirwatcher_lookup(const char *dirname);
 int check_new_watcher(const char *dir, const char *name);
 struct dirwatcher *dirwatcher_install(const char *path, int *pnew);
+struct dirwatcher *dirwatcher_install_ptr(struct dirwatcher *dw);
+void dirwatcher_suspend(struct dirwatcher *dwp);
 void dirwatcher_destroy(struct dirwatcher *dwp);
+struct dirwatcher *dirwatcher_install_sentinel(struct dirwatcher *dwp);
+
 int watch_pathname(struct dirwatcher *parent, const char *dirname, int isdir, int notify);
 
 char *split_pathname(struct dirwatcher *dp, char **dirname);
@@ -258,28 +268,30 @@ void deliver_ev_create(struct dirwatcher *dp, const char *name);
 int subwatcher_create(struct dirwatcher *parent, const char *dirname,
 		      int isdir, int notify);
 
-struct handler *direvent_handler_first(struct dirwatcher *dp,
-				       direvent_handler_iterator_t *itr);
-struct handler *direvent_handler_next(direvent_handler_iterator_t *itr);
-struct handler *direvent_handler_current(direvent_handler_iterator_t itr);
+struct handler *handler_itr_first(struct dirwatcher *dp,
+				       handler_iterator_t *itr);
+struct handler *handler_itr_next(handler_iterator_t *itr);
+struct handler *handler_itr_current(handler_iterator_t itr);
 
 #define for_each_handler(d,i,h)				\
-	for (h = direvent_handler_first(d, &(i));	\
+	for (h = handler_itr_first(d, &(i));	\
 	     h;						\
-	     h = direvent_handler_next(&(i)))
+	     h = handler_itr_next(&(i)))
 	
 
-direvent_handler_list_t direvent_handler_list_create(void);
-direvent_handler_list_t direvent_handler_list_copy(direvent_handler_list_t);
-void direvent_handler_list_unref(direvent_handler_list_t hlist);
-void direvent_handler_list_append(direvent_handler_list_t hlist,
+handler_list_t handler_list_create(void);
+handler_list_t handler_list_copy(handler_list_t);
+void handler_list_unref(handler_list_t hlist);
+void handler_list_append(handler_list_t hlist,
 				  struct handler *hp);
-
+void handler_list_remove(handler_list_t hlist,
+				  struct handler *hp);
+size_t handler_list_size(handler_list_t hlist);
 
 struct process *process_lookup(pid_t pid);
 void process_cleanup(int expect_term);
 void process_timeouts(void);
-int run_handler(struct handler *hp, event_mask *event,
+int run_handler(struct dirwatcher *dp, struct handler *hp, event_mask *event,
 		const char *dir, const char *file);
 char **environ_setup(char **hint, char **kve);
 

@@ -541,14 +541,16 @@ run_handler_prog(struct handler *hp, event_mask *event,
 }
 
 static int
-run_sentinel(struct handler *hp)
+run_sentinel(struct dirwatcher *dp, struct handler *hp)
 {
-	return dirwatcher_init(hp->sentinel_watcher);
-	//FIXME: Remove watcher
+	dirwatcher_init(hp->sentinel_watcher);
+	dirwatcher_install_ptr(hp->sentinel_watcher);
+	handler_list_remove(dp->handler_list, hp);
+	return 0;
 }
 
 int
-run_handler(struct handler *hp, event_mask *event,
+run_handler(struct dirwatcher *dp, struct handler *hp, event_mask *event,
 	    const char *dirname, const char *file)
 {
 	int rc;
@@ -557,7 +559,7 @@ run_handler(struct handler *hp, event_mask *event,
 		rc = run_handler_prog(hp, event, dirname, file);
 		break;
 	case HANDLER_SENTINEL:
-		rc = run_sentinel(hp);
+		rc = run_sentinel(dp, hp);
 		break;
 	default:
 		abort();

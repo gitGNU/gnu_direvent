@@ -23,6 +23,7 @@ direvent_SOURCES=\
  environ.c\
  event.c\
  fnpat.c\
+ handler.c\
  hashtab.c\
  watcher.c\
  progman.c\

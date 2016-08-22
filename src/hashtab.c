@@ -247,6 +247,7 @@ hashtab_remove(struct hashtab *st, void *elt)
 		if (hashent_list_append(&st->list_del, entry))
 			return ENOMEM;
 		entry->used = 0;
+		return 0;
 	}
 		
 	hashent_free(st, entry);
@@ -413,7 +414,8 @@ int
 hashtab_foreach(struct hashtab *st, hashtab_enumerator_t fun, void *data)
 {
 	unsigned i;
-
+	int rc = 0;
+	
 	if (!st)
 		return 0;
 
@@ -425,9 +427,9 @@ hashtab_foreach(struct hashtab *st, hashtab_enumerator_t fun, void *data)
 	for (i = 0; i < hash_size[st->hash_num]; i++) {
 		struct hashent *ep = st->tab[i];
 		if (ep) {
-			int rc = fun(ep, data);
+			rc = fun(ep, data);
 			if (rc)
-				return rc;
+				break;
 		}
 	}
 
@@ -450,7 +452,7 @@ hashtab_foreach(struct hashtab *st, hashtab_enumerator_t fun, void *data)
 		}
 	}
 	
-	return 0;
+	return rc;
 }
 
 size_t

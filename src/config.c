@@ -146,165 +146,6 @@ static struct grecs_keyword syslog_kw[] = {
 	{ NULL },
 };
 
-struct handler *
-handler_alloc(enum handler_type type)
-{
-	struct handler *hp = ecalloc(1, sizeof(*hp));
-	hp->type = type;
-	hp->refcnt = 0;
-	return hp;
-}
-
-static struct handler *
-handler_copy(struct handler *orig)
-{
-	struct handler *hp = emalloc(sizeof(*hp));
-	*hp = *orig;
-	hp->refcnt = 0;
-	return hp;
-}
-
-static void
-handler_ref(struct handler *hp)
-{
-	++hp->refcnt;
-}
-
-static void
-envfree(char **env)
-{
-	int i;
-
-	if (!env)
-		return;
-	for (i = 0; env[i]; i++)
-		free(env[i]);
-	free(env);
-}
-
-/* Reallocate environment of handler HP to accomodate COUNT more
-   entries (not bytes) plus a final NULL entry.
-
-   Return offset of the first unused entry.
-*/
-static size_t
-handler_envrealloc(struct handler *hp, size_t count)
-{
-	size_t i;
-
-	if (!hp->prog_env) {
-		hp->prog_env = ecalloc(count + 1, sizeof(hp->prog_env[0]));
-		i = 0;
-	} else {
-		for (i = 0; hp->prog_env[i]; i++)
-			;
-		hp->prog_env = erealloc(hp->prog_env,
-				   (i + count + 1) * sizeof(hp->prog_env[0]));
-		memset(hp->prog_env + i, 0, (count + 1) * sizeof(hp->prog_env[0]));
-	}
-	return i;
-}
-
-static void
-handler_free(struct handler *hp)
-{
-	grecs_list_free(hp->fnames);
-	switch (hp->type) {
-	case HANDLER_EXTERN:
-		free(hp->prog_command);
-		free(hp->prog_gidv);
-		envfree(hp->prog_env);
-		break;
-	case HANDLER_SENTINEL:
-		dirwatcher_unref(hp->sentinel_watcher);
-	}
-}
-
-static void
-handler_unref(struct handler *hp)
-{
-	if (hp && --hp->refcnt) {
-		handler_free(hp);
-		free(hp);
-	}
-}
-
-static void
-handler_listent_free(void *p)
-{
-	struct handler *hp = p;
-	handler_unref(hp);
-}
-
-struct direvent_handler_list {
-	size_t refcnt;
-	grecs_list_ptr_t list;
-};
-
-struct handler *
-direvent_handler_first(struct dirwatcher *dwp,
-		       direvent_handler_iterator_t *itr)
-{
-	if (!dwp->handler_list)
-		return NULL;
-	*itr = dwp->handler_list->list->head;
-	return direvent_handler_current(*itr);
-}
-
-struct handler *
-direvent_handler_next(direvent_handler_iterator_t *itr)
-{
-	if (!itr || !*itr)
-		return NULL;
-	*itr = (*itr)->next;
-	return direvent_handler_current(*itr);
-}
-		
-struct handler *
-direvent_handler_current(direvent_handler_iterator_t itr)
-{
-	if (!itr)
-		return NULL;
-	return itr ? itr->data : NULL;
-}
-
-direvent_handler_list_t
-direvent_handler_list_create(void)
-{
-	direvent_handler_list_t hlist = emalloc(sizeof(*hlist));
-	hlist->list = grecs_list_create();
-	hlist->list->free_entry = handler_listent_free;
-	hlist->refcnt = 1;
-	return hlist;
-}
-
-direvent_handler_list_t
-direvent_handler_list_copy(direvent_handler_list_t orig)
-{
-	if (!orig)
-		return direvent_handler_list_create();
-	++orig->refcnt;
-	return orig;
-}
-
-void
-direvent_handler_list_unref(direvent_handler_list_t hlist)
-{
-	if (hlist) {
-		if (--hlist->refcnt == 0) {
-			grecs_list_free(hlist->list);
-			free(hlist);
-		}
-	}
-}
-		
-void
-direvent_handler_list_append(direvent_handler_list_t hlist, struct handler *hp)
-{
-	handler_ref(hp);
-	grecs_list_append(hlist->list, hp);
-}
-
 struct eventconf {
 	struct grecs_list *pathlist;
 	struct handler handler;
@@ -346,7 +187,7 @@ eventconf_flush(grecs_locus_t *loc)
 				    _("%s: recursion depth does not match previous definition"),
 				    pe->path);
 		dwp->depth = pe->depth;
-		direvent_handler_list_append(dwp->handler_list, hp);
+		handler_list_append(dwp->handler_list, hp);
 	}
 	grecs_list_free(eventconf.pathlist);
 	eventconf_init();
@@ -703,27 +544,6 @@ cb_environ(enum grecs_callback_command cmd, grecs_node_t *node,
 	}
 	return 0;
 }		
-
-void
-handler_add_pattern(struct handler *hp, struct filename_pattern *pat)
-{
-	if (!hp->fnames) {
-		hp->fnames = grecs_list_create();
-		hp->fnames->free_entry = filename_pattern_free;
-	}
-	grecs_list_append(hp->fnames, pat);
-}
-
-void
-handler_add_exact_filename(struct handler *hp, const char *filename)
-{
-	struct filename_pattern *pat;
-	pat = emalloc(sizeof(*pat));
-	pat->neg = 0;
-	pat->type = PAT_EXACT;
-	pat->v.glob = estrdup(filename);
-	handler_add_pattern(hp, pat);
-}
 
 static int
 is_glob(char const *str)
