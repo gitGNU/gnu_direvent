@@ -63,7 +63,7 @@ int
 sysev_filemask(struct dirwatcher *dp)
 {
 	struct handler *h;
-	direvent_handler_iterator_t itr;
+	handler_iterator_t itr;
 
 	for_each_handler(dp, itr, h) {
 		if (h->ev_mask.sys_mask)
@@ -187,7 +187,7 @@ process_event(struct kevent *ep)
 {
 	struct dirwatcher *dp = ep->udata;
 	struct handler *h;
-	direvent_handler_iterator_t itr;
+	handler_iterator_t itr;
 	event_mask m;
 	char *filename, *dirname;
 	
@@ -208,7 +208,7 @@ process_event(struct kevent *ep)
 	filename = split_pathname(dp, &dirname);
 	for_each_handler(dp, itr, h) {
 		if (handler_matches_event(h, sys, ep->fflags, filename)) {
-			run_handler(h,
+			run_handler(dp, h,
 				    event_mask_init(&m, ep->fflags, &h->ev_mask),
 				    dirname, filename);
 		}
@@ -217,7 +217,7 @@ process_event(struct kevent *ep)
 	
 	if (ep->fflags & (NOTE_DELETE|NOTE_RENAME)) {
 		debug(1, ("%s deleted", dp->dirname));
-		dirwatcher_destroy(dp);
+		dirwatcher_suspend(dp);
 		return;
 	}
 }	
