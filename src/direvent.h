@@ -95,7 +95,7 @@ struct handler {
 			char **env;    /* Environment */
 		} prog;
 		struct {
-			struct dirwatcher *watcher;
+			struct watchpoint *watchpoint;
 		} sentinel;
 	} v;
 #define prog_flags v.prog.flags	
@@ -105,17 +105,18 @@ struct handler {
 #define prog_gidc v.prog.gidc
 #define prog_timeout v.prog.timeout
 #define prog_env v.prog.env
-#define sentinel_watcher v.sentinel.watcher
+#define sentinel_watchpoint v.sentinel.watchpoint
 };
 
 typedef struct handler_list *handler_list_t;
 typedef struct handler_iterator *handler_iterator_t;
 
-/* A directory watcher is described by the following structure */
-struct dirwatcher {
+/* Watchpoint links the directory being monitored and a list of
+   handlers for various events: */
+struct watchpoint {
 	size_t refcnt;
 	int wd;                              /* Watch descriptor */
-	struct dirwatcher *parent;           /* Points to the parent watcher.
+	struct watchpoint *parent;           /* Points to the parent watcher.
 					        NULL for top-level watchers */
 	char *dirname;                       /* Pathname being watched */
 	handler_list_t handler_list;         /* List of handlers */
@@ -174,10 +175,10 @@ void debugprt(const char *fmt, ...);
 void signal_setup(void (*sf) (int));
 int detach(void (*)(void));
 
-int sysev_filemask(struct dirwatcher *dp);
+int sysev_filemask(struct watchpoint *dp);
 void sysev_init(void);
-int sysev_add_watch(struct dirwatcher *dwp, event_mask mask);
-void sysev_rm_watch(struct dirwatcher *dwp);
+int sysev_add_watch(struct watchpoint *dwp, event_mask mask);
+void sysev_rm_watch(struct watchpoint *dwp);
 int sysev_select(void);
 int sysev_name_to_code(const char *name);
 const char *sysev_code_to_name(int code);
@@ -240,35 +241,35 @@ void config_parse(const char *file);
 int get_facility(const char *arg);
 int get_priority(const char *arg);
 
-int  dirwatcher_init(struct dirwatcher *dwp);
-void dirwatcher_ref(struct dirwatcher *dw);
-void dirwatcher_unref(struct dirwatcher *dw);
-void dirwatcher_gc(void);
+int  watchpoint_init(struct watchpoint *dwp);
+void watchpoint_ref(struct watchpoint *dw);
+void watchpoint_unref(struct watchpoint *dw);
+void watchpoint_gc(void);
 
-int dirwatcher_pattern_match(struct dirwatcher *dwp, const char *file_name);
+int watchpoint_pattern_match(struct watchpoint *dwp, const char *file_name);
 
 void setup_watchers(void);
 void shutdown_watchers(void);
 
-struct dirwatcher *dirwatcher_lookup(const char *dirname);
+struct watchpoint *watchpoint_lookup(const char *dirname);
 int check_new_watcher(const char *dir, const char *name);
-struct dirwatcher *dirwatcher_install(const char *path, int *pnew);
-struct dirwatcher *dirwatcher_install_ptr(struct dirwatcher *dw);
-void dirwatcher_suspend(struct dirwatcher *dwp);
-void dirwatcher_destroy(struct dirwatcher *dwp);
-struct dirwatcher *dirwatcher_install_sentinel(struct dirwatcher *dwp);
+struct watchpoint *watchpoint_install(const char *path, int *pnew);
+struct watchpoint *watchpoint_install_ptr(struct watchpoint *dw);
+void watchpoint_suspend(struct watchpoint *dwp);
+void watchpoint_destroy(struct watchpoint *dwp);
+struct watchpoint *watchpoint_install_sentinel(struct watchpoint *dwp);
 
-int watch_pathname(struct dirwatcher *parent, const char *dirname, int isdir, int notify);
+int watch_pathname(struct watchpoint *parent, const char *dirname, int isdir, int notify);
 
-char *split_pathname(struct dirwatcher *dp, char **dirname);
-void unsplit_pathname(struct dirwatcher *dp);
+char *split_pathname(struct watchpoint *dp, char **dirname);
+void unsplit_pathname(struct watchpoint *dp);
 
-void ev_log(int flags, struct dirwatcher *dp);
-void deliver_ev_create(struct dirwatcher *dp, const char *name);
-int subwatcher_create(struct dirwatcher *parent, const char *dirname,
+void ev_log(int flags, struct watchpoint *dp);
+void deliver_ev_create(struct watchpoint *dp, const char *name);
+int subwatcher_create(struct watchpoint *parent, const char *dirname,
 		      int isdir, int notify);
 
-struct handler *handler_itr_first(struct dirwatcher *dp,
+struct handler *handler_itr_first(struct watchpoint *dp,
 				       handler_iterator_t *itr);
 struct handler *handler_itr_next(handler_iterator_t *itr);
 struct handler *handler_itr_current(handler_iterator_t itr);
@@ -291,7 +292,7 @@ size_t handler_list_size(handler_list_t hlist);
 struct process *process_lookup(pid_t pid);
 void process_cleanup(int expect_term);
 void process_timeouts(void);
-int run_handler(struct dirwatcher *dp, struct handler *hp, event_mask *event,
+int run_handler(struct watchpoint *dp, struct handler *hp, event_mask *event,
 		const char *dir, const char *file);
 char **environ_setup(char **hint, char **kve);
 

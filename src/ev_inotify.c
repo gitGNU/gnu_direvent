@@ -45,30 +45,30 @@ event_mask genev_xlat[] = {
 
 static int ifd;
 
-static struct dirwatcher **dwtab;
-static size_t dwsize;
+static struct watchpoint **wptab;
+static size_t wpsize;
 
 static int
-dwreg(int wd, struct dirwatcher *wp)
+wpreg(int wd, struct watchpoint *wpt)
 {
 	if (wd < 0)
 		abort();
-	if (wd >= dwsize) {
-		size_t n = dwsize;
-		struct dirwatcher **p;
+	if (wd >= wpsize) {
+		size_t n = wpsize;
+		struct watchpoint **p;
 
 		if (n == 0)
 			n = sysconf(_SC_OPEN_MAX);
 		while (wd >= n) {
 			n *= 2;
-			if (n < dwsize) {
+			if (n < wpsize) {
 				diag(LOG_CRIT,
 				     _("can't allocate memory for fd %d"),
 				     wd);
 				return -1;
 			}
 		}
-		p = realloc(dwtab, n * sizeof(dwtab[0]));
+		p = realloc(wptab, n * sizeof(wptab[0]));
 		if (!p) {
 			diag(LOG_CRIT,
 			     _("can't allocate memory for fd %d"),
@@ -76,36 +76,36 @@ dwreg(int wd, struct dirwatcher *wp)
 			return -1;
 		}
 
-		memset(p + dwsize, 0, (n - dwsize) * sizeof(dwtab[0]));
-		dwtab = p;
-		dwsize = n;
+		memset(p + wpsize, 0, (n - wpsize) * sizeof(wptab[0]));
+		wptab = p;
+		wpsize = n;
 	}
-	dirwatcher_ref(wp);
-	dwtab[wd] = wp;
+	watchpoint_ref(wpt);
+	wptab[wd] = wpt;
 	return 0;
 }
 
 static void
-dwunreg(int wd)
+wpunreg(int wd)
 {
-	if (wd < 0 || wd > dwsize)
+	if (wd < 0 || wd > wpsize)
 		abort();
-	if (dwtab[wd]) {
-		dirwatcher_unref(dwtab[wd]);
-		dwtab[wd] = NULL;
+	if (wptab[wd]) {
+		watchpoint_unref(wptab[wd]);
+		wptab[wd] = NULL;
 	}
 }
 
-static struct dirwatcher *
-dwget(int wd)
+static struct watchpoint *
+wpget(int wd)
 {
-	if (wd >= 0 && wd < dwsize)
-		return dwtab[wd];
+	if (wd >= 0 && wd < wpsize)
+		return wptab[wd];
 	return NULL;
 }
 
 int
-sysev_filemask(struct dirwatcher *dp)
+sysev_filemask(struct watchpoint *dp)
 {
 	return 0;
 }
@@ -121,10 +121,10 @@ sysev_init()
 }
 
 int
-sysev_add_watch(struct dirwatcher *dwp, event_mask mask)
+sysev_add_watch(struct watchpoint *wpt, event_mask mask)
 {
-	int wd = inotify_add_watch(ifd, dwp->dirname, mask.sys_mask);
-	if (wd >= 0 && dwreg(wd, dwp)) {
+	int wd = inotify_add_watch(ifd, wpt->dirname, mask.sys_mask);
+	if (wd >= 0 && wpreg(wd, wpt)) {
 		inotify_rm_watch(ifd, wd);
 		return -1;
 	}
@@ -132,39 +132,39 @@ sysev_add_watch(struct dirwatcher *dwp, event_mask mask)
 }
 
 void
-sysev_rm_watch(struct dirwatcher *dwp)
+sysev_rm_watch(struct watchpoint *wpt)
 {
-	dwunreg(dwp->wd);
-	inotify_rm_watch(ifd, dwp->wd);
+	wpunreg(wpt->wd);
+	inotify_rm_watch(ifd, wpt->wd);
 }
 
 /* Remove a watcher identified by its directory and file name */
 void
 remove_watcher(const char *dir, const char *name)
 {
-	struct dirwatcher *dwp;
+	struct watchpoint *wpt;
 	char *fullname = mkfilename(dir, name);
 	if (!fullname) {
 		diag(LOG_EMERG, "not enough memory: "
 		     "cannot look up a watcher to delete");
 		return;
 	}
-	dwp = dirwatcher_lookup(fullname);
+	wpt = watchpoint_lookup(fullname);
 	free(fullname);
-	if (dwp)
-		dirwatcher_suspend(dwp);
+	if (wpt)
+		watchpoint_suspend(wpt);
 }
 
 static void
 process_event(struct inotify_event *ep)
 {
-	struct dirwatcher *dp;
+	struct watchpoint *dp;
 	struct handler *h;
 	handler_iterator_t itr;
 	event_mask m;
 	char *dirname, *filename;
 	
-	dp = dwget(ep->wd);
+	dp = wpget(ep->wd);
 	if (!dp) {
 		if (!(ep->mask & IN_IGNORED))
 			diag(LOG_NOTICE, _("watcher not found: %d (%s)"),
@@ -174,7 +174,7 @@ process_event(struct inotify_event *ep)
 	
 	if (ep->mask & IN_IGNORED) {
 		diag(LOG_NOTICE, _("%s deleted"), dp->dirname);
-		dirwatcher_suspend(dp);
+		watchpoint_suspend(dp);
 		return;
 	}
 	
