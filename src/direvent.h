@@ -72,40 +72,25 @@ struct filename_pattern {
 	} v;
 };
 
-enum handler_type {
-	HANDLER_EXTERN,
-	HANDLER_SENTINEL
-};
+typedef struct filpatlist *filpatlist_t;
+
+struct watchpoint;
+
+typedef int (*event_handler_fn) (struct watchpoint *wp,
+				 event_mask *event,
+				 const char *dir,
+				 const char *file,
+				 void *data);
+typedef void (*handler_free_fn) (void *data);
 
 /* Handler structure */
 struct handler {
-	size_t refcnt;       /* Reference counter */
-	event_mask ev_mask;  /* Event mask */
-	struct grecs_list *fnames;  /* File name patterns */
-	enum handler_type type;
-	union {
-		struct {
-			int flags;     /* Handler flags */
-			char *command; /* Handler command (with eventual
-					  arguments) */
-			uid_t uid;     /* Run as this user (unless 0) */
-			gid_t *gidv;   /* Run with these groups' privileges */
-			size_t gidc;   /* Number of elements in gidv */
-			unsigned timeout; /* Handler timeout */
-			char **env;    /* Environment */
-		} prog;
-		struct {
-			struct watchpoint *watchpoint;
-		} sentinel;
-	} v;
-#define prog_flags v.prog.flags	
-#define prog_command v.prog.command
-#define prog_uid v.prog.uid
-#define prog_gidv v.prog.gidv	
-#define prog_gidc v.prog.gidc
-#define prog_timeout v.prog.timeout
-#define prog_env v.prog.env
-#define sentinel_watchpoint v.sentinel.watchpoint
+	size_t refcnt;        /* Reference counter */
+	event_mask ev_mask;   /* Event mask */
+	filpatlist_t fnames;  /* File name patterns */
+	event_handler_fn run;
+	handler_free_fn free;
+	void *data;
 };
 
 typedef struct handler_list *handler_list_t;
@@ -133,16 +118,27 @@ struct watchpoint {
 
 #define __cat2__(a,b) a ## b
 #define handler_matches_event(h,m,f,n)		\
-	(((h)->ev_mask.__cat2__(m,_mask) & (f)) && \
-	 filename_pattern_match((h)->fnames, n) == 0)
+	(((h)->ev_mask.__cat2__(m,_mask) & (f)) &&	\
+	 filpatlist_match((h)->fnames, n) == 0)
 
-struct handler *handler_alloc(enum handler_type type);
+struct handler *handler_alloc(event_mask ev_mask);
 void handler_free(struct handler *hp);
-struct handler *handler_copy(struct handler *orig);
-size_t handler_envrealloc(struct handler *hp, size_t count);
-	
-void handler_add_pattern(struct handler *hp, struct filename_pattern *pat);
-void handler_add_exact_filename(struct handler *hp, const char *filename);
+
+struct prog_handler {
+	int flags;     /* Handler flags */
+	char *command; /* Handler command (with eventual arguments) */
+	uid_t uid;     /* Run as this user (unless 0) */
+	gid_t *gidv;   /* Run with these groups' privileges */
+	size_t gidc;   /* Number of elements in gidv */
+	unsigned timeout; /* Handler timeout */
+	char **env;    /* Environment */
+};
+
+struct handler *prog_handler_alloc(event_mask ev_mask, filpatlist_t fpat,
+				   struct prog_handler *p);
+void prog_handler_free(struct prog_handler *);
+size_t prog_handler_envrealloc(struct prog_handler *hp, size_t count);
+
 
 extern int foreground;
 extern int debug_level;
@@ -248,6 +244,10 @@ void watchpoint_gc(void);
 
 int watchpoint_pattern_match(struct watchpoint *dwp, const char *file_name);
 
+void watchpoint_run_handlers(struct watchpoint *wp, int evflags,
+			      const char *dirname, const char *filename);
+
+
 void setup_watchers(void);
 void shutdown_watchers(void);
 
@@ -257,7 +257,7 @@ struct watchpoint *watchpoint_install(const char *path, int *pnew);
 struct watchpoint *watchpoint_install_ptr(struct watchpoint *dw);
 void watchpoint_suspend(struct watchpoint *dwp);
 void watchpoint_destroy(struct watchpoint *dwp);
-struct watchpoint *watchpoint_install_sentinel(struct watchpoint *dwp);
+int watchpoint_install_sentinel(struct watchpoint *dwp);
 
 int watch_pathname(struct watchpoint *parent, const char *dirname, int isdir, int notify);
 
@@ -292,8 +292,6 @@ size_t handler_list_size(handler_list_t hlist);
 struct process *process_lookup(pid_t pid);
 void process_cleanup(int expect_term);
 void process_timeouts(void);
-int run_handler(struct watchpoint *dp, struct handler *hp, event_mask *event,
-		const char *dir, const char *file);
 char **environ_setup(char **hint, char **kve);
 
 #define NITEMS(a) ((sizeof(a)/sizeof((a)[0])))
@@ -308,6 +306,9 @@ int sigv_set_all(void (*handler)(int), int sigc, int *sigv,
 int sigv_set_tab(int sigc, struct sigtab *sigtab, struct sigaction *retsa);
 int sigv_set_action_tab(int sigc, struct sigtab *sigtab, struct sigaction *sa);
 
-void filename_pattern_free(void *p);
-int filename_pattern_match(struct grecs_list *lp, const char *name);
+struct grecs_locus;
+int filpatlist_add(filpatlist_t *fptr, char const *arg, struct grecs_locus *loc);
+void filpatlist_add_exact(filpatlist_t *fptr, char const *arg);
+void filpatlist_destroy(filpatlist_t *fptr);
+int filpatlist_match(filpatlist_t fp, const char *name);
 

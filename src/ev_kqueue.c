@@ -206,13 +206,9 @@ process_event(struct kevent *ep)
 	}
 
 	filename = split_pathname(dp, &dirname);
-	for_each_handler(dp, itr, h) {
-		if (handler_matches_event(h, sys, ep->fflags, filename)) {
-			run_handler(dp, h,
-				    event_mask_init(&m, ep->fflags, &h->ev_mask),
-				    dirname, filename);
-		}
-	}
+
+	watchpoint_run_handlers(dp, ep->fflags, dirname, filename);
+
 	unsplit_pathname(dp);
 	
 	if (ep->fflags & (NOTE_DELETE|NOTE_RENAME)) {

@@ -18,65 +18,27 @@
 #include <grecs.h>
 
 struct handler *
-handler_alloc(enum handler_type type)
+handler_alloc(event_mask ev_mask)
 {
 	struct handler *hp = ecalloc(1, sizeof(*hp));
-	hp->type = type;
 	hp->refcnt = 0;
+	hp->ev_mask = ev_mask;
 	return hp;
 }
-
-struct handler *
-handler_copy(struct handler *orig)
-{
-	struct handler *hp = emalloc(sizeof(*hp));
-	*hp = *orig;
-	hp->refcnt = 0;
-	return hp;
-}
-
-/* Reallocate environment of handler HP to accomodate COUNT more
-   entries (not bytes) plus a final NULL entry.
-
-   Return offset of the first unused entry.
-*/
-size_t
-handler_envrealloc(struct handler *hp, size_t count)
-{
-	size_t i;
-
-	if (!hp->prog_env) {
-		hp->prog_env = ecalloc(count + 1, sizeof(hp->prog_env[0]));
-		i = 0;
-	} else {
-		for (i = 0; hp->prog_env[i]; i++)
-			;
-		hp->prog_env = erealloc(hp->prog_env,
-				   (i + count + 1) * sizeof(hp->prog_env[0]));
-		memset(hp->prog_env + i, 0, (count + 1) * sizeof(hp->prog_env[0]));
-	}
-	return i;
-}
-
+
 void
-handler_add_pattern(struct handler *hp, struct filename_pattern *pat)
+watchpoint_run_handlers(struct watchpoint *wp, int evflags,
+			const char *dirname, const char *filename)
 {
-	if (!hp->fnames) {
-		hp->fnames = grecs_list_create();
-		hp->fnames->free_entry = filename_pattern_free;
-	}
-	grecs_list_append(hp->fnames, pat);
-}
+	handler_iterator_t itr;
+	struct handler *hp;
+	event_mask m;
 
-void
-handler_add_exact_filename(struct handler *hp, const char *filename)
-{
-	struct filename_pattern *pat;
-	pat = emalloc(sizeof(*pat));
-	pat->neg = 0;
-	pat->type = PAT_EXACT;
-	pat->v.glob = estrdup(filename);
-	handler_add_pattern(hp, pat);
+	for_each_handler(wp, itr, hp) {
+		if (handler_matches_event(hp, sys, evflags, filename))
+			hp->run(wp, event_mask_init(&m, evflags, &hp->ev_mask),
+				dirname, filename, hp->data);
+	}
 }
 
 static void
@@ -85,31 +47,12 @@ handler_ref(struct handler *hp)
 	++hp->refcnt;
 }
 
-static void
-envfree(char **env)
-{
-	int i;
-
-	if (!env)
-		return;
-	for (i = 0; env[i]; i++)
-		free(env[i]);
-	free(env);
-}
-
 void
 handler_free(struct handler *hp)
 {
-	grecs_list_free(hp->fnames);
-	switch (hp->type) {
-	case HANDLER_EXTERN:
-		free(hp->prog_command);
-		free(hp->prog_gidv);
-		envfree(hp->prog_env);
-		break;
-	case HANDLER_SENTINEL:
-		watchpoint_unref(hp->sentinel_watchpoint);
-	}
+	filpatlist_destroy(&hp->fnames);
+	if (hp->free)
+		hp->free(hp->data);
 }
 
 static void
@@ -286,3 +229,4 @@ handler_list_remove(handler_list_t hlist, struct handler *hp)
 		/* Remove watchers that don't have handlers */
 		watchpoint_gc();
 }
+

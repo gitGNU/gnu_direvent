@@ -148,7 +148,9 @@ static struct grecs_keyword syslog_kw[] = {
 
 struct eventconf {
 	struct grecs_list *pathlist;
-	struct handler handler;
+	event_mask ev_mask;
+	filpatlist_t fpat;
+	struct prog_handler prog_handler;
 };
 
 static struct eventconf eventconf;
@@ -156,24 +158,26 @@ static struct eventconf eventconf;
 static void
 eventconf_init(void)
 {
-	memset(&eventconf, 0, sizeof eventconf);	
-	eventconf.handler.type = HANDLER_EXTERN;
-	eventconf.handler.prog_timeout = DEFAULT_TIMEOUT;
+	memset(&eventconf, 0, sizeof eventconf);
+	eventconf.prog_handler.timeout = DEFAULT_TIMEOUT;
 }
 
 static void
 eventconf_free(void)
 {
 	grecs_list_free(eventconf.pathlist);
-	handler_free(&eventconf.handler);
+	prog_handler_free(&eventconf.prog_handler);
+	filpatlist_destroy(&eventconf.fpat);
 }
 
 void
 eventconf_flush(grecs_locus_t *loc)
 {
 	struct grecs_list_entry *ep;
-	struct handler *hp = handler_copy(&eventconf.handler);
-	
+	struct handler *hp = prog_handler_alloc(eventconf.ev_mask,
+						eventconf.fpat,
+						&eventconf.prog_handler);
+
 	for (ep = eventconf.pathlist->head; ep; ep = ep->next) {
 		struct pathent *pe = ep->data;
 		struct watchpoint *wpt;
@@ -208,13 +212,13 @@ cb_watcher(enum grecs_callback_command cmd, grecs_node_t *node,
 			grecs_error(&node->locus, 0, _("no paths configured"));
 			++err;
 		}
-		if (!eventconf.handler.prog_command) {
+		if (!eventconf.prog_handler.command) {
 			grecs_error(&node->locus, 0,
 				    _("no command configured"));
 			++err;
 		}
-		if (evtnullp(&eventconf.handler.ev_mask))
-			evtsetall(&eventconf.handler.ev_mask);
+		if (evtnullp(&eventconf.ev_mask))
+			evtsetall(&eventconf.ev_mask);
 		if (err == 0)
 			eventconf_flush(&node->locus);
 		else
@@ -459,9 +463,9 @@ cb_user(enum grecs_callback_command cmd, grecs_node_t *node,
 	} else
 		gid = pw->pw_gid;
 
-	eventconf.handler.prog_uid = pw->pw_uid;
+	eventconf.prog_handler.uid = pw->pw_uid;
 	get_user_groups(uv->v.string, gid,
-			&eventconf.handler.prog_gidc, &eventconf.handler.prog_gidv);
+			&eventconf.prog_handler.gidc, &eventconf.prog_handler.gidv);
 	
 	return 0;
 }
@@ -484,15 +488,15 @@ cb_option(enum grecs_callback_command cmd, grecs_node_t *node,
 					    GRECS_TYPE_STRING))
 			return 1;
 		if (strcmp(vp->v.string, "nowait") == 0)
-			eventconf.handler.prog_flags |= HF_NOWAIT;
+			eventconf.prog_handler.flags |= HF_NOWAIT;
 		else if (strcmp(vp->v.string, "wait") == 0)
-			eventconf.handler.prog_flags &= ~HF_NOWAIT;
+			eventconf.prog_handler.flags &= ~HF_NOWAIT;
 		else if (strcmp(vp->v.string, "stdout") == 0)
-			eventconf.handler.prog_flags |= HF_STDOUT;
+			eventconf.prog_handler.flags |= HF_STDOUT;
 		else if (strcmp(vp->v.string, "stderr") == 0)
-			eventconf.handler.prog_flags |= HF_STDERR;
+			eventconf.prog_handler.flags |= HF_STDERR;
 		else if (strcmp(vp->v.string, "shell") == 0)
-			eventconf.handler.prog_flags |= HF_SHELL;
+			eventconf.prog_handler.flags |= HF_SHELL;
 		else 
 			grecs_error(&vp->locus, 0, _("unrecognized option"));
 	}
@@ -514,107 +518,44 @@ cb_environ(enum grecs_callback_command cmd, grecs_node_t *node,
 		if (assert_grecs_value_type(&val->locus, val,
 					    GRECS_TYPE_STRING))
 			return 1;
-		i = handler_envrealloc(&eventconf.handler, 1);
-		eventconf.handler.prog_env[i] = estrdup(val->v.string);
-		eventconf.handler.prog_env[i+1] = NULL;
+		i = prog_handler_envrealloc(&eventconf.prog_handler, 1);
+		eventconf.prog_handler.env[i] = estrdup(val->v.string);
+		eventconf.prog_handler.env[i+1] = NULL;
 		break;
 		
 	case GRECS_TYPE_ARRAY:
-		j = handler_envrealloc(&eventconf.handler, val->v.arg.c);
+		j = prog_handler_envrealloc(&eventconf.prog_handler, val->v.arg.c);
 		for (i = 0; i < val->v.arg.c; i++, j++) {
 			if (assert_grecs_value_type(&val->v.arg.v[i]->locus,
 						    val->v.arg.v[i],
 						    GRECS_TYPE_STRING))
 				return 1;
-			eventconf.handler.prog_env[j] = estrdup(val->v.arg.v[i]->v.string);
+			eventconf.prog_handler.env[j] = estrdup(val->v.arg.v[i]->v.string);
 		}
-		eventconf.handler.prog_env[j] = NULL;
+		eventconf.prog_handler.env[j] = NULL;
 		break;
 
 	case GRECS_TYPE_LIST:
-		j = handler_envrealloc(&eventconf.handler, val->v.list->count);
+		j = prog_handler_envrealloc(&eventconf.prog_handler,
+					    val->v.list->count);
 		for (ep = val->v.list->head; ep; ep = ep->next, j++) {
 			grecs_value_t *vp = ep->data;
 			if (assert_grecs_value_type(&vp->locus, vp,
 						    GRECS_TYPE_STRING))
 				return 1;
-			eventconf.handler.prog_env[j] = estrdup(vp->v.string);
+			eventconf.prog_handler.env[j] = estrdup(vp->v.string);
 		}
-		eventconf.handler.prog_env[j] = NULL;
+		eventconf.prog_handler.env[j] = NULL;
 	}
 	return 0;
 }		
 
 static int
-is_glob(char const *str)
+file_name_pattern(filpatlist_t *fptr, grecs_value_t *val)
 {
-	return strcspn(str, "[]*?") < strlen(str);
-}
-		
-static int
-file_name_pattern(struct handler *handler, grecs_value_t *val)
-{
-	char *arg;
-	int rc;
-	int flags = REG_EXTENDED|REG_NOSUB;
-	struct filename_pattern *pat;
-	
 	if (assert_grecs_value_type(&val->locus, val, GRECS_TYPE_STRING))
 		return 1;
-	arg = val->v.string;
-
-	pat = emalloc(sizeof(*pat));
-	if (*arg == '!') {
-		pat->neg = 1;
-		++arg;
-	} else
-		pat->neg = 0;
-	if (arg[0] == '/') {
-		char *q, *p;
-
-		pat->type = PAT_REGEX;
-		
-		p = strchr(arg+1, '/');
-		if (!p) {
-			grecs_error(&val->locus, 0, _("unterminated regexp"));
-			free(pat);
-			return 1;
-		}
-		for (q = p + 1; *q; q++) {
-			switch (*q) {
-			case 'b':
-				flags &= ~REG_EXTENDED;
-				break;
-			case 'i':
-				flags |= REG_ICASE;
-				break;
-			default:
-				grecs_error(&val->locus, 0,
-					    _("unrecognized flag: %c"), *q);
-				free(pat);
-				return 1;
-			}
-		}
-		
-		*p = 0;
-		rc = regcomp(&pat->v.re, arg + 1, flags);
-		*p = '/';
-
-		if (rc) {
-			char errbuf[128];
-			regerror(rc, &pat->v.re, errbuf, sizeof(errbuf));
-			grecs_error(&val->locus, 0, "%s", errbuf);
-			filename_pattern_free(pat);
-			return 1;
-		}
-	} else {
-		pat->type = is_glob(arg) ? PAT_GLOB : PAT_EXACT;
-		pat->v.glob = estrdup(arg);
-	}
-
-	handler_add_pattern(handler, pat);
-
-	return 0;
+	return filpatlist_add(fptr, val->v.string, &val->locus);
 }
 
 static int
@@ -622,7 +563,7 @@ cb_file_pattern(enum grecs_callback_command cmd, grecs_node_t *node,
 		void *varptr, void *cb_data)
 {
 	grecs_value_t *val = node->v.value;
-	struct handler *handler = varptr;
+	filpatlist_t *fpat = varptr;
 	struct grecs_list_entry *ep;
 	int i;
 	
@@ -630,18 +571,18 @@ cb_file_pattern(enum grecs_callback_command cmd, grecs_node_t *node,
 
 	switch (val->type) {
 	case GRECS_TYPE_STRING:
-		file_name_pattern(handler, val);
+		file_name_pattern(fpat, val);
 		break;
 
 	case GRECS_TYPE_ARRAY:
 		for (i = 0; i < val->v.arg.c; i++)
-			if (file_name_pattern(handler, val->v.arg.v[i]))
+			if (file_name_pattern(fpat, val->v.arg.v[i]))
 				break;
 		break;
 
 	case GRECS_TYPE_LIST:
 		for (ep = val->v.list->head; ep; ep = ep->next)
-			if (file_name_pattern(handler,
+			if (file_name_pattern(fpat,
 					      (grecs_value_t *) ep->data))
 				break;
 		break;
@@ -655,18 +596,18 @@ static struct grecs_keyword watcher_kw[] = {
 	  grecs_type_string, GRECS_DFLT, &eventconf.pathlist, 0,
 	  cb_path },
 	{ "event", NULL, N_("Events to watch for"),
-	  grecs_type_string, GRECS_LIST, &eventconf.handler.ev_mask, 0,
+	  grecs_type_string, GRECS_LIST, &eventconf.ev_mask, 0,
 	  cb_eventlist },
 	{ "file", N_("regexp"), N_("Files to watch for"),
-	  grecs_type_string, GRECS_LIST, &eventconf.handler, 0,
+	  grecs_type_string, GRECS_LIST, &eventconf.fpat, 0,
 	  cb_file_pattern },
 	{ "command", NULL, N_("Command to execute on event"),
-	  grecs_type_string, GRECS_DFLT, &eventconf.handler.prog_command },
+	  grecs_type_string, GRECS_DFLT, &eventconf.prog_handler.command },
 	{ "user", N_("name"), N_("Run command as this user"),
 	  grecs_type_string, GRECS_DFLT, NULL, 0,
 	  cb_user },
 	{ "timeout", N_("seconds"), N_("Timeout for the command"),
-	  grecs_type_uint, GRECS_DFLT, &eventconf.handler.prog_timeout },
+	  grecs_type_uint, GRECS_DFLT, &eventconf.prog_handler.timeout },
 	{ "option", NULL, N_("List of additional options"),
 	  grecs_type_string, GRECS_LIST, NULL, 0,
 	  cb_option },
