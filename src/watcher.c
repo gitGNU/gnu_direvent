@@ -203,21 +203,27 @@ convert_watcher(struct watchpoint *wpt)
 	char *new_dirname;
 	struct handler *hp;
 	handler_iterator_t itr;
-	
+
+	filename = split_pathname(wpt, &dirname);
+
 	for_each_handler(wpt, itr, hp) {
-		if (hp->fnames) {
-			/* FIXME: Error message */
+		if (!filpatlist_is_empty(hp->fnames)
+		    && filpatlist_match(hp->fnames, filename) == 0) {
+			unsplit_pathname(wpt);
+			diag(LOG_ERR,
+			     _("can't convert file watcher %s to directory watcher"),
+			     wpt->dirname);
 			return 1;
 		}
 	}
 	
-	filename = split_pathname(wpt, &dirname);
 	for_each_handler(wpt, itr, hp)
 		filpatlist_add_exact(&hp->fnames, filename);
 
 	new_dirname = estrdup(dirname);
 	unsplit_pathname(wpt);
-	diag(LOG_NOTICE, _("watcher %s converted to %s"),
+	diag(LOG_NOTICE,
+	     _("file watcher %s converted to directory watcher %s"),
 	     wpt->dirname, new_dirname);
 
 	free(wpt->dirname);
@@ -302,7 +308,6 @@ watchpoint_init(struct watchpoint *wpt)
 			return 1;
 		}
 	} else if (!S_ISDIR(st.st_mode)) {
-		diag(LOG_NOTICE, _("%s is a regular file"), wpt->dirname);
 		convert_watcher(wpt);
 	}
 	

@@ -137,6 +137,14 @@ filpatlist_destroy(filpatlist_t *fptr)
 }
 
 int
+filpatlist_is_empty(filpatlist_t fp)
+{
+	if (!fp)
+		return 1;
+	return grecs_list_size(fp->list) == 0;
+}
+
+int
 filpatlist_match(filpatlist_t fp, const char *name)
 {
 	struct grecs_list_entry *ep;

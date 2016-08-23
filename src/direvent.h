@@ -307,8 +307,10 @@ int sigv_set_tab(int sigc, struct sigtab *sigtab, struct sigaction *retsa);
 int sigv_set_action_tab(int sigc, struct sigtab *sigtab, struct sigaction *sa);
 
 struct grecs_locus;
-int filpatlist_add(filpatlist_t *fptr, char const *arg, struct grecs_locus *loc);
+int filpatlist_add(filpatlist_t *fptr, char const *arg,
+		   struct grecs_locus *loc);
 void filpatlist_add_exact(filpatlist_t *fptr, char const *arg);
 void filpatlist_destroy(filpatlist_t *fptr);
 int filpatlist_match(filpatlist_t fp, const char *name);
+int filpatlist_is_empty(filpatlist_t fp);
 
