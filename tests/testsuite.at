@@ -18,28 +18,32 @@ m4_version_prereq([2.52g])
 
 m4_define([AT_SKIP_TEST],[exit 77])
 
-dnl AT_DIREVENT_TEST([CONFIG],[SELFTEST],[PROLOGUE],[EPILOGUE],[CODE],[STDOUT],
+dnl m4_direvent_test([MOD],
+dnl                  [CONFIG],[SELFTEST],[PROLOGUE],[EPILOGUE],[CODE],[STDOUT],
 dnl                  [STDERR])                 
-m4_define([AT_DIREVENT_TEST],[
-AT_CHECK([
+m4_define([m4_direvent_test],[
 cwd=`pwd -P`
-$3
+AT_CHECK$1([
+$4
 cat > test.conf <<EOT
-[$1]
+[$2]
 EOT
 cat > selftest.sh <<EOT
 #!/bin/sh
-[$2]
+[$3]
 sleep 10
 exit 21
 EOT
 chmod +x selftest.sh
 direvent -lnotice -f --self-test $cwd/selftest.sh test.conf || exit $?
-$4
+$5
 ],
-[$5],
 [$6],
-[$7])])
+[$7],
+[$8])])
+
+m4_define([AT_DIREVENT_TEST],[m4_direvent_test([],$@)])
+m4_define([AT_DIREVENT_TEST_UNQUOTED],[m4_direvent_test([_UNQUOTED], $@)])
 
 AT_INIT
 AT_TESTED([direvent])
@@ -68,3 +72,6 @@ m4_include([re03.at])
 m4_include([re04.at])
 m4_include([re05.at])
 
+AT_BANNER([Special watchpoints])
+m4_include([conv.at])
+m4_include([sent.at])

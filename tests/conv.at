@@ -1,0 +1,63 @@
+# This file is part of Direvent testsuite. -*- Autotest -*-
+# Copyright (C) 2013-2016 Sergey Poznyakoff
+#
+# Direvent is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 3, or (at your option)
+# any later version.
+#
+# Direvent is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Direvent.  If not, see <http://www.gnu.org/licenses/>.
+
+AT_SETUP([File watcher])
+AT_KEYWORDS([special conv convert file])
+
+AT_DIREVENT_TEST_UNQUOTED([
+debug 10;
+syslog {
+	facility ${TESTSUITE_FACILITY:-local0};
+	tag direvent-test:create;
+}
+watcher {
+	path $cwd/file;
+	event (create,write,delete);
+	option (stdout,stderr);
+	command "$TESTDIR/envdump -s -i DIREVENT_FILE=:DIREVENT_GENEV_ -f $outfile -k\$self_test_pid";	
+}
+],
+[echo "foo" > file
+],
+[outfile=$cwd/dump
+echo "file" > file
+],
+[sed '/^argv\[[[0-9]]\]=-k/d' $outfile
+],
+[0],
+[# Dump of execution environment
+cwd is $cwd
+# Arguments
+argv[[0]]=$TESTDIR/envdump
+argv[[1]]=-s
+argv[[2]]=-i
+argv[[3]]=DIREVENT_FILE=:DIREVENT_GENEV_
+argv[[4]]=-f
+argv[[5]]=$cwd/dump
+# Environment
+DIREVENT_FILE=file
+DIREVENT_GENEV_CODE=2
+DIREVENT_GENEV_NAME=write
+# End
+],
+[direvent: [[NOTICE]] file watcher $cwd/file converted to directory watcher $cwd
+])
+
+AT_CLEANUP
+
+
+
+	
