@@ -187,8 +187,7 @@ watchpoint_destroy(struct watchpoint *wpt)
 void
 watchpoint_suspend(struct watchpoint *wpt)
 {
-	struct watchpoint *sent = watchpoint_install_sentinel(wpt);
-	watchpoint_init(sent);//FIXME: error checking
+	watchpoint_install_sentinel(wpt);//FIXME: error checking
 	watchpoint_destroy(wpt);
 	if (hashtab_count(nametab) == 0) {
 		diag(LOG_CRIT, _("no watchers left; exiting now"));
@@ -214,7 +213,7 @@ convert_watcher(struct watchpoint *wpt)
 	
 	filename = split_pathname(wpt, &dirname);
 	for_each_handler(wpt, itr, hp)
-		handler_add_exact_filename(hp, filename);
+		filpatlist_add_exact(&hp->fnames, filename);
 
 	new_dirname = estrdup(dirname);
 	unsplit_pathname(wpt);
@@ -225,27 +224,62 @@ convert_watcher(struct watchpoint *wpt)
 	wpt->dirname = new_dirname;
 	return 0;
 }
+
+struct sentinel {
+	struct handler *hp;
+	struct watchpoint *watchpoint;
+};
 
-struct watchpoint *
+static int
+sentinel_handler_run(struct watchpoint *wp, event_mask *event,
+		     const char *dirname, const char *file, void *data)
+{
+	struct sentinel *sentinel = data;
+	
+	watchpoint_init(sentinel->watchpoint);
+	watchpoint_install_ptr(sentinel->watchpoint);
+	handler_list_remove(wp->handler_list, sentinel->hp);
+	return 0;
+}
+
+static void
+sentinel_handler_free(void *ptr)
+{
+	struct sentinel *sentinel = ptr;
+	watchpoint_unref(sentinel->watchpoint);
+	free(sentinel);
+}
+
+int
 watchpoint_install_sentinel(struct watchpoint *wpt)
 {
 	struct watchpoint *sent;
 	char *dirname;
 	char *filename;
 	struct handler *hp;
+	event_mask ev_mask;
+	struct sentinel *sentinel;
 	
 	filename = split_pathname(wpt, &dirname);
 	sent = watchpoint_install(dirname, NULL);
-	hp = handler_alloc(HANDLER_SENTINEL);
-	getevt("CREATE", &hp->ev_mask);
-	hp->sentinel_watchpoint = wpt;
+
+	getevt("CREATE", &ev_mask);
+	hp = handler_alloc(ev_mask);
+	hp->run = sentinel_handler_run;
+	hp->free = sentinel_handler_free;
+
+	sentinel = emalloc(sizeof(*sentinel));
+	sentinel->watchpoint = wpt;
+	sentinel->hp = hp;
 	watchpoint_ref(wpt);
-	handler_add_exact_filename(hp, filename);
+	
+	hp->data = sentinel;
+	
+	filpatlist_add_exact(&hp->fnames, filename);
 	handler_list_append(sent->handler_list, hp);
 	unsplit_pathname(wpt);
 	diag(LOG_NOTICE, _("installing CREATE sentinel for %s"), wpt->dirname);
-	watchpoint_init(sent);
-	return sent;
+	return watchpoint_init(sent);
 }
 	
 int 
@@ -261,8 +295,7 @@ watchpoint_init(struct watchpoint *wpt)
 
 	if (stat(wpt->dirname, &st)) {
 		if (errno == ENOENT) {
-			wpt = watchpoint_install_sentinel(wpt);
-			return 0;
+			return watchpoint_install_sentinel(wpt);
 		} else {
 			diag(LOG_ERR, _("cannot set watcher on %s: %s"),
 			     wpt->dirname, strerror(errno));
@@ -323,15 +356,15 @@ subwatcher_create(struct watchpoint *parent, const char *dirname,
 
 /* Deliver GENEV_CREATE event */
 void
-deliver_ev_create(struct watchpoint *dp, const char *name)
+deliver_ev_create(struct watchpoint *wp, const char *name)
 {
 	event_mask m = { GENEV_CREATE, 0 };
-	struct handler *h;
+	struct handler *hp;
 	handler_iterator_t itr;
 	
-	for_each_handler(dp, itr, h) {
-		if (handler_matches_event(h, gen, GENEV_CREATE, name))
-			run_handler(dp, h, &m, dp->dirname, name);
+	for_each_handler(wp, itr, hp) {
+		if (handler_matches_event(hp, gen, GENEV_CREATE, name))
+			hp->run(wp, &m, wp->dirname, name, hp->data);
 	}
 }
 
@@ -387,7 +420,7 @@ watchpoint_pattern_match(struct watchpoint *wpt, const char *file_name)
 	handler_iterator_t itr;
 
 	for_each_handler(wpt, itr, hp) {
-		if (filename_pattern_match(hp->fnames, file_name) == 0)
+		if (filpatlist_match(hp->fnames, file_name) == 0)
 			return 0;
 	}
 	return 1;

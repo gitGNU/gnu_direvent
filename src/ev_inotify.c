@@ -158,14 +158,11 @@ remove_watcher(const char *dir, const char *name)
 static void
 process_event(struct inotify_event *ep)
 {
-	struct watchpoint *dp;
-	struct handler *h;
-	handler_iterator_t itr;
-	event_mask m;
+	struct watchpoint *wpt;
 	char *dirname, *filename;
 	
-	dp = wpget(ep->wd);
-	if (!dp) {
+	wpt = wpget(ep->wd);
+	if (!wpt) {
 		if (!(ep->mask & IN_IGNORED))
 			diag(LOG_NOTICE, _("watcher not found: %d (%s)"),
 			     ep->wd, ep->name);
@@ -173,8 +170,8 @@ process_event(struct inotify_event *ep)
 	}
 	
 	if (ep->mask & IN_IGNORED) {
-		diag(LOG_NOTICE, _("%s deleted"), dp->dirname);
-		watchpoint_suspend(dp);
+		diag(LOG_NOTICE, _("%s deleted"), wpt->dirname);
+		watchpoint_suspend(wpt);
 		return;
 	}
 	
@@ -189,7 +186,7 @@ process_event(struct inotify_event *ep)
 		   were located under the mountpoint
 		*/
 		return;
-	} else if (!dp) {
+	} else if (!wpt) {
 		if (ep->name)
 			diag(LOG_NOTICE, "unrecognized event %x"
 			     "for %s", ep->mask, ep->name);
@@ -199,31 +196,28 @@ process_event(struct inotify_event *ep)
 		return;
 	}
 
-	ev_log(ep->mask, dp);
+	ev_log(ep->mask, wpt);
 
 	if (ep->mask & IN_CREATE) {
-		debug(1, ("%s/%s created", dp->dirname, ep->name));
-		if (check_new_watcher(dp->dirname, ep->name) > 0)
+		debug(1, ("%s/%s created", wpt->dirname, ep->name));
+		if (check_new_watcher(wpt->dirname, ep->name) > 0)
 			return;
 	}
 
 	if (ep->len == 0)
-		filename = split_pathname(dp, &dirname);
+		filename = split_pathname(wpt, &dirname);
 	else {
-		dirname = dp->dirname;
+		dirname = wpt->dirname;
 		filename = ep->name;
 	}
-	for_each_handler(dp, itr, h) {
-		if (handler_matches_event(h, sys, ep->mask, filename))
-			run_handler(dp, h,
-				    event_mask_init(&m, ep->mask, &h->ev_mask),
-				    dirname, filename);
-	}
-	unsplit_pathname(dp);
+
+	watchpoint_run_handlers(wpt, ep->mask, dirname, filename);
+	
+	unsplit_pathname(wpt);
 
 	if (ep->mask & (IN_DELETE|IN_MOVED_FROM)) {
-		debug(1, ("%s/%s deleted", dp->dirname, ep->name));
-		remove_watcher(dp->dirname, ep->name);
+		debug(1, ("%s/%s deleted", wpt->dirname, ep->name));
+		remove_watcher(wpt->dirname, ep->name);
 	}
 }	
 

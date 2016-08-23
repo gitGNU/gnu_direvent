@@ -18,7 +18,7 @@
 #include <fnmatch.h>
 #include <grecs.h>
 
-void
+static void
 filename_pattern_free(void *p)
 {
 	struct filename_pattern *pat = p;
@@ -33,14 +33,117 @@ filename_pattern_free(void *p)
 	free(pat);
 }
 
+struct filpatlist {
+	grecs_list_ptr_t list;
+};
+
+static int
+is_glob(char const *str)
+{
+	return strcspn(str, "[]*?") < strlen(str);
+}
+
+void
+filpatlist_add_pattern(filpatlist_t *fptr, struct filename_pattern *pat)
+{
+	grecs_list_ptr_t list;
+	if (!*fptr) {
+		*fptr = emalloc(sizeof(*fptr));
+		(*fptr)->list = grecs_list_create();
+		(*fptr)->list->free_entry = filename_pattern_free;
+	}
+	list = (*fptr)->list;
+	grecs_list_append(list, pat);
+}
+	
+void
+filpatlist_add_exact(filpatlist_t *fptr, char const *arg)
+{
+	struct filename_pattern *pat = emalloc(sizeof(*pat));
+	
+	pat->neg = 0;
+	pat->type = PAT_EXACT;
+	pat->v.glob = estrdup(arg);
+	filpatlist_add_pattern(fptr, pat);
+}	
+
 int
-filename_pattern_match(struct grecs_list *lp, const char *name)
+filpatlist_add(filpatlist_t *fptr, char const *arg, grecs_locus_t *loc)
+{
+	int flags = REG_EXTENDED|REG_NOSUB;
+	struct filename_pattern *pat;
+	
+	pat = emalloc(sizeof(*pat));
+	if (*arg == '!') {
+		pat->neg = 1;
+		++arg;
+	} else
+		pat->neg = 0;
+	if (arg[0] == '/') {
+		int rc;
+		char *q, *p;
+
+		pat->type = PAT_REGEX;
+		
+		p = strchr(arg+1, '/');
+		if (!p) {
+			grecs_error(loc, 0, _("unterminated regexp"));
+			free(pat);
+			return 1;
+		}
+		for (q = p + 1; *q; q++) {
+			switch (*q) {
+			case 'b':
+				flags &= ~REG_EXTENDED;
+				break;
+			case 'i':
+				flags |= REG_ICASE;
+				break;
+			default:
+				grecs_error(loc, 0,
+					    _("unrecognized flag: %c"), *q);
+				free(pat);
+				return 1;
+			}
+		}
+		
+		*p = 0;
+		rc = regcomp(&pat->v.re, arg + 1, flags);
+		*p = '/';
+
+		if (rc) {
+			char errbuf[128];
+			regerror(rc, &pat->v.re, errbuf, sizeof(errbuf));
+			grecs_error(loc, 0, "%s", errbuf);
+			filename_pattern_free(pat);
+			return 1;
+		}
+	} else {
+		pat->type = is_glob(arg) ? PAT_GLOB : PAT_EXACT;
+		pat->v.glob = estrdup(arg);
+	}
+	filpatlist_add_pattern(fptr, pat);
+	return 0;
+}
+
+void
+filpatlist_destroy(filpatlist_t *fptr)
+{
+	if (fptr && *fptr) {
+		grecs_list_free((*fptr)->list);
+		free(*fptr);
+		*fptr = NULL;
+	}
+}
+
+int
+filpatlist_match(filpatlist_t fp, const char *name)
 {
 	struct grecs_list_entry *ep;
 
-	if (!lp)
+	if (!fp || !fp->list)
 		return 0;
-	for (ep = lp->head; ep; ep = ep->next) {
+	for (ep = fp->list->head; ep; ep = ep->next) {
 		struct filename_pattern *pat = ep->data;
 		int rc;
 		

@@ -246,27 +246,27 @@ process_timeouts()
 }
 
 int
-switchpriv(struct handler *hp)
+switchpriv(struct prog_handler *hp)
 {
-	if (hp->prog_uid == 0 || hp->prog_uid == getuid())
+	if (hp->uid == 0 || hp->uid == getuid())
 		return 0;
 	
-	if (setgroups(hp->prog_gidc, hp->prog_gidv) < 0) {
+	if (setgroups(hp->gidc, hp->gidv) < 0) {
 		diag(LOG_CRIT, "setgroups: %s",
 		     strerror(errno));
 		return 1;
 	}
-	if (setregid(hp->prog_gidv[0], hp->prog_gidv[0]) < 0) {
+	if (setregid(hp->gidv[0], hp->gidv[0]) < 0) {
 		diag(LOG_CRIT, "setregid(%lu,%lu): %s",
-		     (unsigned long) hp->prog_gidv[0],
-		     (unsigned long) hp->prog_gidv[0],
+		     (unsigned long) hp->gidv[0],
+		     (unsigned long) hp->gidv[0],
 		     strerror(errno));
 		return 1;
 	}
-	if (setreuid(hp->prog_uid, hp->prog_uid) < 0) {
+	if (setreuid(hp->uid, hp->uid) < 0) {
 		diag(LOG_CRIT, "setreuid(%lu,%lu): %s",
-		     (unsigned long) hp->prog_uid,
-		     (unsigned long) hp->prog_uid,
+		     (unsigned long) hp->uid,
+		     (unsigned long) hp->uid,
 		     strerror(errno));
 		return 1;
 	}
@@ -440,23 +440,25 @@ runcmd(const char *cmd, char **envhint, event_mask *event, const char *file,
 }
 
 static int
-run_handler_prog(struct handler *hp, event_mask *event,
-		 const char *dirname, const char *file)
+prog_handler_run(struct watchpoint *wp, event_mask *event,
+		 const char *dirname, const char *file, void *data)
 {
 	pid_t pid;
 	int redir_fd[2] = { -1, -1 };
 	struct process *redir_proc[2] = { NULL, NULL };
 	struct process *p;
+	struct prog_handler *hp = data;
 
-	if (!hp->prog_command)
+	if (!hp->command)
 		return 0;
 	
-	debug(1, (_("starting %s, dir=%s, file=%s"), hp->prog_command, dirname, file));
-	if (hp->prog_flags & HF_STDERR)
-		redir_fd[REDIR_ERR] = open_redirector(hp->prog_command, LOG_ERR,
+	debug(1, (_("starting %s, dir=%s, file=%s"),
+		  hp->command, dirname, file));
+	if (hp->flags & HF_STDERR)
+		redir_fd[REDIR_ERR] = open_redirector(hp->command, LOG_ERR,
 						      &redir_proc[REDIR_ERR]);
-	if (hp->prog_flags & HF_STDOUT)
-		redir_fd[REDIR_OUT] = open_redirector(hp->prog_command, LOG_INFO,
+	if (hp->flags & HF_STDOUT)
+		redir_fd[REDIR_OUT] = open_redirector(hp->command, LOG_INFO,
 						      &redir_proc[REDIR_OUT]);
 	
 	pid = fork();
@@ -503,34 +505,34 @@ run_handler_prog(struct handler *hp, event_mask *event,
 		close_fds(fdset);
 		alarm(0);
 		signal_setup(SIG_DFL);
-		runcmd(hp->prog_command, hp->prog_env, event, file, hp->prog_flags & HF_SHELL);
+		runcmd(hp->command, hp->env, event, file, hp->flags & HF_SHELL);
 	}
 
 	/* master */
 	debug(1, (_("%s running; dir=%s, file=%s, pid=%lu"),
-		  hp->prog_command, dirname, file, (unsigned long)pid));
+		  hp->command, dirname, file, (unsigned long)pid));
 
-	p = register_process(PROC_HANDLER, pid, time(NULL), hp->prog_timeout);
+	p = register_process(PROC_HANDLER, pid, time(NULL), hp->timeout);
 
 	if (redir_proc[REDIR_OUT]) {
 		redir_proc[REDIR_OUT]->v.master = p;
-		redir_proc[REDIR_OUT]->timeout = hp->prog_timeout;
+		redir_proc[REDIR_OUT]->timeout = hp->timeout;
 	}
 	if (redir_proc[REDIR_ERR]) {
 		redir_proc[REDIR_ERR]->v.master = p;
-		redir_proc[REDIR_ERR]->timeout = hp->prog_timeout;
+		redir_proc[REDIR_ERR]->timeout = hp->timeout;
 	}
 	memcpy(p->v.redir, redir_proc, sizeof(p->v.redir));
 	
 	close(redir_fd[REDIR_OUT]);
 	close(redir_fd[REDIR_ERR]);
 
-	if (hp->prog_flags & HF_NOWAIT) {
+	if (hp->flags & HF_NOWAIT) {
 		return 0;
 	}
 
 	debug(1, (_("waiting for %s (%lu) to terminate"),
-		  hp->prog_command, (unsigned long)pid));
+		  hp->command, (unsigned long)pid));
 	while (time(NULL) - p->start < 2 * p->timeout) {
 		sleep(1);
 		process_cleanup(1);
@@ -540,30 +542,73 @@ run_handler_prog(struct handler *hp, event_mask *event,
 	return 0;
 }
 
-static int
-run_sentinel(struct watchpoint *dp, struct handler *hp)
+static void
+envfree(char **env)
 {
-	watchpoint_init(hp->sentinel_watchpoint);
-	watchpoint_install_ptr(hp->sentinel_watchpoint);
-	handler_list_remove(dp->handler_list, hp);
-	return 0;
+	int i;
+
+	if (!env)
+		return;
+	for (i = 0; env[i]; i++)
+		free(env[i]);
+	free(env);
 }
 
-int
-run_handler(struct watchpoint *dp, struct handler *hp, event_mask *event,
-	    const char *dirname, const char *file)
+void
+prog_handler_free(struct prog_handler *hp)
 {
-	int rc;
-	switch (hp->type) {
-	case HANDLER_EXTERN:
-		rc = run_handler_prog(hp, event, dirname, file);
-		break;
-	case HANDLER_SENTINEL:
-		rc = run_sentinel(dp, hp);
-		break;
-	default:
-		abort();
-	}
-	return rc;
+	free(hp->command);
+	free(hp->gidv);
+	envfree(hp->env);
 }
+
+static void
+prog_handler_free_data(void *ptr)
+{
+	prog_handler_free((struct prog_handler *)ptr);
+}
+
+struct handler *
+prog_handler_alloc(event_mask ev_mask, filpatlist_t fpat,
+		   struct prog_handler *p)
+{
+	struct handler *hp = handler_alloc(ev_mask);
+	struct prog_handler *mem;
+
+	hp->fnames = fpat;
+	hp->run = prog_handler_run;
+	hp->free = prog_handler_free_data;
+	mem = emalloc(sizeof(*mem));
+	*mem = *p;
+	hp->data = mem;
+	memset(p, 0, sizeof(*p));
+	return hp;
+}
+
+/* Reallocate environment of handler HP to accomodate COUNT more
+   entries (not bytes) plus a final NULL entry.
+
+   Return offset of the first unused entry.
+*/
+size_t
+prog_handler_envrealloc(struct prog_handler *hp, size_t count)
+{
+	size_t i;
+
+	if (!hp->env) {
+		hp->env = ecalloc(count + 1, sizeof(hp->env[0]));
+		i = 0;
+	} else {
+		for (i = 0; hp->env[i]; i++)
+			;
+		hp->env = erealloc(hp->env,
+				   (i + count + 1) * sizeof(hp->env[0]));
+		memset(hp->env + i, 0, (count + 1) * sizeof(hp->env[0]));
+	}
+	return i;
+}
+
+
+
+
 		
