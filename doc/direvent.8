@@ -13,7 +13,7 @@
 .\"
 .\" You should have received a copy of the GNU General Public License along
 .\" with direvent. If not, see <http://www.gnu.org/licenses/>.
-.TH DIREVENT 8 "June 20, 2016" "DIREVENT" "Direvent User Reference"
+.TH DIREVENT 8 "August 25, 2016" "DIREVENT" "Direvent User Reference"
 .SH NAME
 direvent \- directory event monitor
 .SH SYNOPSIS
@@ -254,6 +254,11 @@ watched recursively.  This means that for each subdirectory created in
 it, \fBdirevent\fR will install a watcher similar to that of its parent
 directory.  The optional \fILEVEL\fR can be used to set up a cut-off
 nesting level, beyond which the recursive operation is disabled.
+.PP
+The \fIPATHNAME\fR is not required to be a directory, it can as well
+be a file of any type.  This file is not required to exist, either.  If
+it does not, \fBdirevent\fR will defer configuring the watcher until
+the file is eventually created.
 .PP
 The rest of statements are optional.  The \fBuser\fR statement can be
 used to execute the \fICOMMAND\-LINE\fR as the user \fINAME\fR

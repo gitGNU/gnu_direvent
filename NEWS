@@ -1,10 +1,28 @@
-direvent -- history of user-visible changes. 2016-08-13
+direvent -- history of user-visible changes. 2016-08-25
 Copyright (C) 2012-2016 Sergey Poznyakoff
 See the end of file for copying conditions.
 
 Please send direvent bug reports to <bug-direvent@gnu.org.ua>
 
 Version 5.1.90 (Git)
+
+* The path statement can refer to a regular file.
+
+Prior versions of direvent required that the argument to the "path"
+statement refer to an existing directory.  This requirement is now
+lifted.  The pathname can refer to any type of file (not only a
+directory).  Moreover, the file is not required to exist.  If it does
+not exist, direvent will set up an auxiliary watcher (called a
+"sentinel"), that will wake up upon creation of the file with that
+pathname and will set up the configured watcher once it is created.
+
+The process is reversed when the file referred to by the "path"
+statement is deleted.  In that case, the configured watcher is
+deactivated and a sentinel is set up which will bring it back when the
+destination file or directory is created.
+
+This mode of operation ensures that the configured watcher will always
+be operational.
 
 * Fix watcher removal on BSD-like systems.
 

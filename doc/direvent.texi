@@ -155,8 +155,8 @@ can obtain information about the event that triggered it
 from the environment variables, or from its command line.
 
 Watchers are defined in the configuration file, which
-@command{direvent} reads at startup.  This file has a simple and easy
-to use syntax.
+@command{direvent} reads at startup.  The following outlines its
+syntax:
 
 Three types of comments are allowed: inline comments, that begin with
 a @samp{#} or @samp{//} and extend to the end of line, and multi-line
@@ -179,7 +179,7 @@ any amount of whitespace and is terminated with a semicolon.  A block
 statement is a collection of statements enclosed in curly braces.
 
 @cindex watcher declaration, summary
-The following block statement declares a watcher:
+A watcher is declared using the following block statement:
 
 @example
 @group
@@ -207,6 +207,15 @@ watched recursively.  This means that for each subdirectory created in
 it, @command{direvent} will install a watcher similar to that of its parent
 directory.  Optional @var{level} statement can be used to set up a cut-off
 nesting level, beyond which the recursive operation is disabled.
+
+It is a common practice for the @code{path} statement to refer to a
+directory.  However, it is not a requirement.  The @var{pathname}
+argument can as well point to any other type of
+file@footnote{Obviously, the @samp{recursive} keyword is valid only if
+@var{pathname} is a directory.}.  Moreover, it is not required to
+exist, either.  If it does not, @GNUDIREVENT{} will remember the
+watcher definition and will set it up when the @var{pathname} is
+eventually created.@footnote{@xref{path}, for a detailed description.}
 
 The rest of statements are optional.  The @code{file} statement
 instructs @GNUDIREVENT{} to react only if the event concerned the
@@ -881,7 +890,7 @@ syslog @{
 @cindex watcher, complete description
 The @samp{watcher} statement configures a single event watcher.  A watcher can
 control several events in multiple pathnames.  Any number of @code{watcher}
-statements is allowed in the configuration file, each one of them declaring
+statements is allowed in the configuration file, each of them declaring
 a separate watcher.
 
 @cindex watcher declaration
@@ -902,18 +911,38 @@ watcher @{
 
 The statements within a @code{watcher} block are:
 
+@anchor{path}
 @deffn {Config} path @var{pathname} [recursive [@var{number}]]
 Defines a pathname to watch.  The @var{pathname} argument must be the
-name of an existing directory in the file system.  The watcher will
-watch events occurring for all files within that directory.  If the
-optional @code{recursive} clause is specified, this directory will be
-watched recursively, i.e. when any subdirectory is created in it,
-@command{direvent} will set up a watcher for files in this
-subdirectory.  This new watcher will be an exact copy of the parent
-watcher, excepting for the pathnames.  The optional @var{number}
-parameter defines a cut-off nesting level for recursive watching.  If
-supplied, the recursive behaviour will apply only to the directories
-that are nested below that level. 
+name of a directory or file in the file system.  If @var{pathname}
+refers to a directory, the watcher will watch events occurring for all
+files within that directory.  If the optional @code{recursive} clause
+is specified, this directory will be watched recursively, i.e. when
+any subdirectory is created in it, @command{direvent} will set up a
+watcher for files in this subdirectory.  This new watcher will be an
+exact copy of the parent watcher, excepting for the pathnames.  The
+optional @var{number} parameter defines a cut-off nesting level for
+recursive watching.  If supplied, the recursive behaviour will apply
+only to the directories that are nested below that level.
+
+If @var{pathname} refers to a regular file, the changes to that file
+will be monitored.  Obviously, in that case the @samp{recursive}
+keyword makes no sense.  If present, it will be silently ignored.
+
+@cindex sentinel
+If the @var{pathname} does not exist, @GNUDIREVENT{} will defer
+setting up the watcher until it is created.  In order to do so,
+it will find the longest directory prefix that exists in the file
+system and will construct a @dfn{sentinel watcher} to monitor
+creation of the next directory component.  When this component is
+created, the sentinel wakes up to set up a similar watcher for the
+next directory component.  Once it is done, the sentinel removes
+itself.  This process continues until the @var{pathname} is eventually
+created.  When it happens, the last sentinel will activate the
+configured watcher.
+
+These actions are performed in reverse order upon removal of
+@var{pathname} or any of its trailing directory components.
 
 Any number of @code{path} statements can appear in a @code{watcher} block.
 At least one @code{path} must be defined.
