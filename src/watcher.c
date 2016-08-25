@@ -44,7 +44,7 @@ static unsigned
 wpref_hash(void *data, unsigned long hashsize)
 {
 	struct wpref *sym = data;
-	return hash_string(sym->wpt->dirname, hashsize);
+	return grecs_hash_string(sym->wpt->dirname, hashsize);
 }
 
 static int
@@ -75,7 +75,7 @@ wpref_free(void *p)
 	free(wpref);
 }
 
-struct hashtab *nametab;
+struct grecs_symtab *nametab;
 
 struct watchpoint *
 watchpoint_install(const char *path, int *pnew)
@@ -86,9 +86,9 @@ watchpoint_install(const char *path, int *pnew)
 	int install = 1;
 
 	if (!nametab) {
-		nametab = hashtab_create(sizeof(struct wpref),
-					 wpref_hash, wpref_cmp, wpref_copy,
-					 NULL, wpref_free);
+		nametab = grecs_symtab_create(sizeof(struct wpref),
+					      wpref_hash, wpref_cmp, wpref_copy,
+					      NULL, wpref_free);
 		if (!nametab) {
 			diag(LOG_CRIT, _("not enough memory"));
 			exit(1);
@@ -97,7 +97,7 @@ watchpoint_install(const char *path, int *pnew)
 
 	wpkey.dirname = (char*) path;
 	key.wpt = &wpkey;
-	ent = hashtab_lookup_or_install(nametab, &key, &install);
+	ent = grecs_symtab_lookup_or_install(nametab, &key, &install);
 	if (install) {
 	        struct watchpoint *wpt = ecalloc(1, sizeof(*wpt));
 		wpt->dirname = estrdup(path);
@@ -121,7 +121,7 @@ watchpoint_install_ptr(struct watchpoint *wpt)
 	int install = 1;
 	key.wpt = wpt;
 	
-	if (!hashtab_lookup_or_install(nametab, &key, &install)) {
+	if (!grecs_symtab_lookup_or_install(nametab, &key, &install)) {
 		diag(LOG_CRIT, _("not enough memory"));
 		exit(1);
 	}
@@ -159,7 +159,7 @@ watchpoint_lookup(const char *dirname)
 	
 	wpkey.dirname = (char*) dirname;
 	key.wpt = &wpkey;
-	ent = hashtab_lookup_or_install(nametab, &key, NULL);
+	ent = grecs_symtab_lookup_or_install(nametab, &key, NULL);
 	return ent ? ent->wpt : NULL;
 }
 
@@ -174,7 +174,7 @@ watchpoint_remove(const char *dirname)
 	
 	wpkey.dirname = (char*) dirname;
 	key.wpt = &wpkey;
-	hashtab_remove(nametab, &key);
+	grecs_symtab_remove(nametab, &key);
 }
 
 void
@@ -191,7 +191,7 @@ watchpoint_suspend(struct watchpoint *wpt)
 	if (!wpt->parent) /* A top-level watchpoint */
 		watchpoint_install_sentinel(wpt);//FIXME: error checking
 	watchpoint_destroy(wpt);
-	if (hashtab_count(nametab) == 0) {
+	if (grecs_symtab_count(nametab) == 0) {
 		diag(LOG_CRIT, _("no watchers left; exiting now"));
 		stop = 1;
 	}
@@ -471,7 +471,7 @@ watch_subdirs(struct watchpoint *parent, int notify)
 
 
 static int
-setwatcher(struct hashent *ent, void *data)
+setwatcher(void *ent, void *data)
 {
 	struct wpref *wpref = (struct wpref *) ent;
 	struct watchpoint *wpt = wpref->wpt;
@@ -482,7 +482,7 @@ setwatcher(struct hashent *ent, void *data)
 }
 
 static int
-checkwatcher(struct hashent *ent, void *data)
+checkwatcher(void *ent, void *data)
 {
 	struct wpref *wpref = (struct wpref *) ent;
 	struct watchpoint *wpt = wpref->wpt;
@@ -493,19 +493,19 @@ void
 setup_watchers(void)
 {
 	sysev_init();
-	if (hashtab_count(nametab) == 0) {
+	if (grecs_symtab_count(nametab) == 0) {
 		diag(LOG_CRIT, _("no event handlers configured"));
 		exit(1);
 	}
-	hashtab_foreach(nametab, setwatcher, NULL);
-	if (!hashtab_foreach(nametab, checkwatcher, NULL)) {
+	grecs_symtab_foreach(nametab, setwatcher, NULL);
+	if (!grecs_symtab_foreach(nametab, checkwatcher, NULL)) {
 		diag(LOG_CRIT, _("no event handlers installed"));
 		exit(2);
 	}
 }
 
 static int
-stopwatcher(struct hashent *ent, void *data)
+stopwatcher(void *ent, void *data)
 {
 	struct wpref *wpref = (struct wpref *) ent;
 	struct watchpoint *wpt = wpref->wpt;
@@ -519,8 +519,8 @@ stopwatcher(struct hashent *ent, void *data)
 void
 shutdown_watchers(void)
 {
-	hashtab_foreach(nametab, stopwatcher, NULL);
-	hashtab_clear(nametab);
+	grecs_symtab_foreach(nametab, stopwatcher, NULL);
+	grecs_symtab_clear(nametab);
 }
 
 

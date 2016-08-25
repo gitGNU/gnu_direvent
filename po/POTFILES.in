@@ -4,7 +4,6 @@ src/cmdline.h
 src/config.c
 src/direvent.c
 src/environ.c
-src/hashtab.c
 src/progman.c
 src/watcher.c
 

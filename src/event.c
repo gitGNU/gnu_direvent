@@ -18,13 +18,12 @@
 
 
 struct symevt {
-	int used;
 	char *name;
 	event_mask mask;
 	int line;
 };
 
-struct hashtab *evtab;
+struct grecs_symtab *evtab;
 
 unsigned
 hash_string(const char *name, unsigned long hashsize)
@@ -60,7 +59,6 @@ symevt_copy(void *a, void *b)
 	struct symevt *syma = a;
 	struct symevt *symb = b;
 
-	syma->used = 1;
 	syma->name = estrdup(symb->name);
 	return 0;
 }
@@ -81,10 +79,10 @@ defevt(const char *name, event_mask *mask, int line)
 	int install = 1;
 	
 	if (!evtab) {
-		evtab = hashtab_create(sizeof(struct symevt),
-				       symevt_hash, symevt_cmp,
-				       symevt_copy,
-				       NULL, symevt_free);
+		evtab = grecs_symtab_create(sizeof(struct symevt),
+					    symevt_hash, symevt_cmp,
+					    symevt_copy,
+					    NULL, symevt_free);
 		if (!evtab) {
 			diag(LOG_CRIT, "not enough memory");
 			exit(1);
@@ -92,7 +90,7 @@ defevt(const char *name, event_mask *mask, int line)
 	}
 
 	key.name = (char *) name;
-	evp = hashtab_lookup_or_install(evtab, &key, &install);
+	evp = grecs_symtab_lookup_or_install(evtab, &key, &install);
 	if (!install)
 		return evp->line;
 	evp->mask = *mask;
@@ -106,7 +104,7 @@ getevt(const char *name, event_mask *mask)
 	if (evtab) {
 		struct symevt key, *evp;
 		key.name = (char *) name;
-		evp = hashtab_lookup_or_install(evtab, &key, NULL);
+		evp = grecs_symtab_lookup_or_install(evtab, &key, NULL);
 		if (evp) {
 			*mask = evp->mask;
 			return 0;

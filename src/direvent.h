@@ -25,6 +25,7 @@
 #include <signal.h>
 #include <regex.h>
 #include <grecs/list.h>
+#include <grecs/symtab.h>
 #include "gettext.h"
 
 #define _(s) gettext(s)
@@ -197,33 +198,6 @@ int trans_strtotok(struct transtab *tab, const char *str, int *ret);
 char *trans_toktostr(struct transtab *tab, int tok);
 char *trans_tokfirst(struct transtab *tab, int tok, int *next);
 char *trans_toknext(struct transtab *tab, int tok, int *next);
-
-
-struct hashtab;
-struct hashent {
-	int used;
-};
-int hashtab_replace(struct hashtab *st, void *ent, void **old_ent);
-const char *hashtab_strerror(int rc);
-int hashtab_remove(struct hashtab *st, void *elt);
-int hashtab_get_index(unsigned *idx, struct hashtab *st, void *key,
-		      int *install);
-void *hashtab_lookup_or_install(struct hashtab *st, void *key, int *install);
-void hashtab_clear(struct hashtab *st);
-struct hashtab *hashtab_create(size_t elsize, 
-			       unsigned (*hash_fun)(void *, unsigned long),
-			       int (*cmp_fun)(const void *, const void *),
-			       int (*copy_fun)(void *, void *),
-			       void *(*alloc_fun)(size_t),
-			       void (*free_fun)(void *));
-void hashtab_free(struct hashtab *st);
-
-typedef int (*hashtab_enumerator_t) (struct hashent *, void *);
-int hashtab_foreach(struct hashtab *st, hashtab_enumerator_t fun,
-		    void *data);
-size_t hashtab_count(struct hashtab *st);
-
-unsigned hash_string(const char *name, unsigned long hashsize);
 
 struct pathent {
 	long depth;

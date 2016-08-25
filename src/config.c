@@ -657,6 +657,7 @@ config_parse(char const *conffile)
 {
 	struct grecs_node *tree;
 
+	grecs_parser_options = GRECS_OPTION_QUOTED_STRING_CONCAT;
 	tree = grecs_parse(conffile);
 	if (!tree)
 		exit(1);
