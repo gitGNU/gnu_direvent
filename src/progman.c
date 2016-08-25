@@ -293,7 +293,7 @@ close_fds(bigfd_set fdset)
 {
 	int i;
 
-	for (i = sysconf(_SC_OPEN_MAX) - 1; i >= 0; i--) {
+	for (i = dup(0); i >= 0; i--) {
 		if (fdset && BIGFD_ISSET(i, fdset))
 			continue;
 		close(i);

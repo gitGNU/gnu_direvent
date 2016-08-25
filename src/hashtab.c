@@ -237,11 +237,7 @@ hashtab_remove(struct hashtab *st, void *elt)
 	}
 
 	if (!entry)
-#if 0
 		return ENOENT;
-#else
-	        abort();
-#endif
 
 	if (st->itr_level) {
 		if (hashent_list_append(&st->list_del, entry))

@@ -538,6 +538,7 @@ main(int argc, char **argv)
 	while (!stop && sysev_select() == 0) {
 		process_timeouts();
 		process_cleanup(0);
+		watchpoint_gc();
 	}
 
 	shutdown_watchers();
