@@ -31,8 +31,11 @@ watcher {
 	command "$TESTDIR/envdump -s -i DIREVENT_FILE=:DIREVENT_GENEV_ -a -f $outfile -k\$self_test_pid";	
 }
 ],
-[mkdir $cwd/dir
+[sleep 1
+mkdir $cwd/dir
+sleep 1
 mkdir $cwd/dir/sub
+sleep 1
 echo "bar" > $cwd/dir/sub/bar
 echo "foo" > $cwd/dir/sub/foo
 ],

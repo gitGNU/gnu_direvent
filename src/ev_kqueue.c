@@ -86,7 +86,7 @@ sysev_add_watch(struct watchpoint *wpt, event_mask mask)
 		}
 		wpt->file_mode = st.st_mode;
 		wpt->file_ctime = st.st_ctime;
-		sysmask = mask.sys_mask;
+		sysmask = mask.sys_mask | NOTE_DELETE;
 		if (S_ISDIR(st.st_mode) && mask.gen_mask & GENEV_CREATE)
 			sysmask |= NOTE_WRITE;
 		EV_SET(chtab + chcnt, wd, EVFILT_VNODE,
@@ -132,7 +132,6 @@ check_created(struct watchpoint *dp)
 {
 	DIR *dir;
 	struct dirent *ent;
-	struct handler *h;
 
 	dir = opendir(dp->dirname);
 	if (!dir) {
@@ -172,9 +171,8 @@ check_created(struct watchpoint *dp)
 		   a watcher for it. */
 		} else if (st.st_ctime > dp->file_ctime ||
 			   !watchpoint_lookup(pathname)) {
-			deliver_ev_create(dp, ent->d_name);
-			subwatcher_create(dp, pathname,
-					  S_ISDIR(st.st_mode), 1);
+			deliver_ev_create(dp, dp->dirname, ent->d_name);
+			subwatcher_create(dp, pathname, 1);
 			dp->file_ctime = st.st_ctime;
 		}
 		free(pathname);
@@ -186,9 +184,6 @@ static void
 process_event(struct kevent *ep)
 {
 	struct watchpoint *dp = ep->udata;
-	struct handler *h;
-	handler_iterator_t itr;
-	event_mask m;
 	char *filename, *dirname;
 	
 	if (!dp) {
@@ -198,9 +193,10 @@ process_event(struct kevent *ep)
 
 	ev_log(ep->fflags, dp);
 
-	if (S_ISDIR(dp->file_mode)) {
+	if (S_ISDIR(dp->file_mode)
+	    && !(ep->fflags & (NOTE_DELETE|NOTE_RENAME))) {
 		/* Check if new files have appeared. */
-		if (ep->fflags & NOTE_WRITE)
+		if (ep->fflags & NOTE_WRITE) 
 			check_created(dp);
 		return;
 	}
@@ -218,7 +214,6 @@ process_event(struct kevent *ep)
 	}
 }	
 
-
 int
 sysev_select()
 {
@@ -228,7 +223,7 @@ sysev_select()
 	n = kevent(kq, chtab, chcnt, evtab, chcnt, NULL);
 	if (n == -1) {
 		if (errno == EINTR) {
-			if (signo == SIGCHLD || signo == SIGALRM)
+			if (signo == 0 || signo == SIGCHLD || signo == SIGALRM)
 				return 0;
 			diag(LOG_NOTICE, "got signal %d", signo);
 		}
@@ -238,7 +233,7 @@ sysev_select()
 
 	for (i = 0; i < n; i++) 
 		process_event(&evtab[i]);
-
+		
 	return 0;
 }
 		

@@ -80,7 +80,7 @@ struct hashtab *nametab;
 struct watchpoint *
 watchpoint_install(const char *path, int *pnew)
 {
-	struct watchpoint *wpt, wpkey;
+	struct watchpoint wpkey;
 	struct wpref key;
 	struct wpref *ent;
 	int install = 1;
@@ -99,15 +99,16 @@ watchpoint_install(const char *path, int *pnew)
 	key.wpt = &wpkey;
 	ent = hashtab_lookup_or_install(nametab, &key, &install);
 	if (install) {
-		wpt = ecalloc(1, sizeof(*wpt));
+	        struct watchpoint *wpt = ecalloc(1, sizeof(*wpt));
 		wpt->dirname = estrdup(path);
 		wpt->wd = -1;
 		wpt->handler_list = handler_list_create();
-		wpt->refcnt++;
+		wpt->refcnt = 0;
 		ent->wpt = wpt;
 	}
 	if (!ent)
 		abort(); /* FIXME */
+	watchpoint_ref(ent->wpt);
 	if (pnew)
 		*pnew = install;
 	return ent->wpt;
@@ -128,21 +129,22 @@ watchpoint_install_ptr(struct watchpoint *wpt)
 	return wpt;
 }	
 	
-static int
-wpref_gc(struct hashent *ent, void *data)
+static void
+wpref_destroy(void *data)
 {
-	struct wpref *wpref = (struct wpref *) ent;
-	struct watchpoint *wpt = wpref->wpt;
-
-	if (handler_list_size(wpt->handler_list) == 0)
-		watchpoint_destroy(wpt);
-	return 0;
+	struct watchpoint *wpt = data;
+	watchpoint_destroy(wpt);
 }
+
+static grecs_list_ptr_t watchpoint_gc_list;
 
 void
 watchpoint_gc(void)
 {
-	hashtab_foreach(nametab, wpref_gc, NULL);
+	if (watchpoint_gc_list) {
+		grecs_list_free(watchpoint_gc_list);
+		watchpoint_gc_list = NULL;
+	}
 }
 
 struct watchpoint *
@@ -183,52 +185,16 @@ watchpoint_destroy(struct watchpoint *wpt)
 	watchpoint_remove(wpt->dirname);
 }
 
-// FIXME: Perhaps the check for count is not needed after all
 void
 watchpoint_suspend(struct watchpoint *wpt)
 {
-	watchpoint_install_sentinel(wpt);//FIXME: error checking
+	if (!wpt->parent) /* A top-level watchpoint */
+		watchpoint_install_sentinel(wpt);//FIXME: error checking
 	watchpoint_destroy(wpt);
 	if (hashtab_count(nametab) == 0) {
 		diag(LOG_CRIT, _("no watchers left; exiting now"));
 		stop = 1;
 	}
-}
-
-static int
-convert_watcher(struct watchpoint *wpt)
-{
-	char *dirname;
-	char *filename;
-	char *new_dirname;
-	struct handler *hp;
-	handler_iterator_t itr;
-
-	filename = split_pathname(wpt, &dirname);
-
-	for_each_handler(wpt, itr, hp) {
-		if (!filpatlist_is_empty(hp->fnames)
-		    && filpatlist_match(hp->fnames, filename) == 0) {
-			unsplit_pathname(wpt);
-			diag(LOG_ERR,
-			     _("can't convert file watcher %s to directory watcher"),
-			     wpt->dirname);
-			return 1;
-		}
-	}
-	
-	for_each_handler(wpt, itr, hp)
-		filpatlist_add_exact(&hp->fnames, filename);
-
-	new_dirname = estrdup(dirname);
-	unsplit_pathname(wpt);
-	diag(LOG_NOTICE,
-	     _("file watcher %s converted to directory watcher %s"),
-	     wpt->dirname, new_dirname);
-
-	free(wpt->dirname);
-	wpt->dirname = new_dirname;
-	return 0;
 }
 
 struct sentinel {
@@ -241,10 +207,19 @@ sentinel_handler_run(struct watchpoint *wp, event_mask *event,
 		     const char *dirname, const char *file, void *data)
 {
 	struct sentinel *sentinel = data;
+	struct watchpoint *wpt = sentinel->watchpoint;
 	
-	watchpoint_init(sentinel->watchpoint);
-	watchpoint_install_ptr(sentinel->watchpoint);
-	handler_list_remove(wp->handler_list, sentinel->hp);
+	watchpoint_init(wpt);
+	watchpoint_install_ptr(wpt);
+	deliver_ev_create(wpt, dirname, file);
+	
+	if (handler_list_remove(wp->handler_list, sentinel->hp) == 0) {
+		if (!watchpoint_gc_list) {
+			watchpoint_gc_list = grecs_list_create();
+			watchpoint_gc_list->free_entry = wpref_destroy;
+		}
+		grecs_list_append(watchpoint_gc_list, wp);
+	}
 	return 0;
 }
 
@@ -269,7 +244,7 @@ watchpoint_install_sentinel(struct watchpoint *wpt)
 	filename = split_pathname(wpt, &dirname);
 	sent = watchpoint_install(dirname, NULL);
 
-	getevt("CREATE", &ev_mask);
+	getevt("create", &ev_mask);
 	hp = handler_alloc(ev_mask);
 	hp->run = sentinel_handler_run;
 	hp->free = sentinel_handler_free;
@@ -307,9 +282,9 @@ watchpoint_init(struct watchpoint *wpt)
 			     wpt->dirname, strerror(errno));
 			return 1;
 		}
-	} else if (!S_ISDIR(st.st_mode)) {
-		convert_watcher(wpt);
 	}
+
+	wpt->isdir = S_ISDIR(st.st_mode);
 	
 	for_each_handler(wpt, itr, hp) {
 		mask.sys_mask |= hp->ev_mask.sys_mask;
@@ -332,7 +307,7 @@ static int watch_subdirs(struct watchpoint *parent, int notify);
 
 int
 subwatcher_create(struct watchpoint *parent, const char *dirname,
-		  int isdir, int notify)
+		  int notify)
 {
 	struct watchpoint *wpt;
 	int inst;
@@ -356,12 +331,12 @@ subwatcher_create(struct watchpoint *parent, const char *dirname,
 		return -1;
 	}
 
-	return 1 + (isdir ? watch_subdirs(wpt, notify) : 0);
+	return 1 + watch_subdirs(wpt, notify);
 }
 
 /* Deliver GENEV_CREATE event */
 void
-deliver_ev_create(struct watchpoint *wp, const char *name)
+deliver_ev_create(struct watchpoint *wp, const char *dirname, const char *name)
 {
 	event_mask m = { GENEV_CREATE, 0 };
 	struct handler *hp;
@@ -369,7 +344,7 @@ deliver_ev_create(struct watchpoint *wp, const char *name)
 	
 	for_each_handler(wp, itr, hp) {
 		if (handler_matches_event(hp, gen, GENEV_CREATE, name))
-			hp->run(wp, &m, wp->dirname, name, hp->data);
+			hp->run(wp, &m, dirname, name, hp->data);
 	}
 }
 
@@ -410,8 +385,8 @@ check_new_watcher(const char *dir, const char *name)
 		     dir, name, strerror(errno));
 		rc = -1;
 	} else if (S_ISDIR(st.st_mode)) {
-		deliver_ev_create(parent, name);
-		rc = subwatcher_create(parent, fname, 1, 1);
+		deliver_ev_create(parent, parent->dirname, name);
+		rc = subwatcher_create(parent, fname, 1);
 	} else
 		rc = 0;
 	free(fname);
@@ -438,9 +413,13 @@ watch_subdirs(struct watchpoint *parent, int notify)
 {
 	DIR *dir;
 	struct dirent *ent;
-	int filemask = sysev_filemask(parent);
+	int filemask;
 	int total = 0;
 
+	if (!parent->isdir)
+		return 0;
+
+	filemask = sysev_filemask(parent);
 	if (parent->depth)
 		filemask |= S_IFDIR;
 	if (!filemask)
@@ -475,10 +454,10 @@ watch_subdirs(struct watchpoint *parent, int notify)
 		} else if (watchpoint_pattern_match(parent, ent->d_name)
 			   == 0) {
 			if (notify)
-				deliver_ev_create(parent, ent->d_name);
+				deliver_ev_create(parent, parent->dirname,
+						  ent->d_name);
 			if (st.st_mode & filemask) {
 				int rc = subwatcher_create(parent, dirname,
-							   S_ISDIR(st.st_mode),
 							   notify);
 				if (rc > 0)
 					total += rc;

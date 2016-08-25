@@ -104,6 +104,7 @@ struct watchpoint {
 	struct watchpoint *parent;           /* Points to the parent watcher.
 					        NULL for top-level watchers */
 	char *dirname;                       /* Pathname being watched */
+	int isdir;                           /* Is it directory */
 	handler_list_t handler_list;         /* List of handlers */
 	int depth;                           /* Recursion depth */
 	char *split_p;                       /* Points to the deleted directory
@@ -265,9 +266,10 @@ char *split_pathname(struct watchpoint *dp, char **dirname);
 void unsplit_pathname(struct watchpoint *dp);
 
 void ev_log(int flags, struct watchpoint *dp);
-void deliver_ev_create(struct watchpoint *dp, const char *name);
+void deliver_ev_create(struct watchpoint *dp,
+		       const char *dirname, const char *filename);
 int subwatcher_create(struct watchpoint *parent, const char *dirname,
-		      int isdir, int notify);
+		      int notify);
 
 struct handler *handler_itr_first(struct watchpoint *dp,
 				       handler_iterator_t *itr);
@@ -285,8 +287,7 @@ handler_list_t handler_list_copy(handler_list_t);
 void handler_list_unref(handler_list_t hlist);
 void handler_list_append(handler_list_t hlist,
 				  struct handler *hp);
-void handler_list_remove(handler_list_t hlist,
-				  struct handler *hp);
+size_t handler_list_remove(handler_list_t hlist, struct handler *hp);
 size_t handler_list_size(handler_list_t hlist);
 
 struct process *process_lookup(pid_t pid);

@@ -52,8 +52,6 @@ DIREVENT_FILE=file
 DIREVENT_GENEV_CODE=2
 DIREVENT_GENEV_NAME=write
 # End
-],
-[direvent: [[NOTICE]] file watcher $cwd/file converted to directory watcher $cwd
 ])
 
 AT_CLEANUP

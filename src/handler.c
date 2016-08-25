@@ -204,7 +204,7 @@ handler_list_append(handler_list_t hlist, struct handler *hp)
 	grecs_list_append(hlist->list, hp);
 }
 
-void
+size_t
 handler_list_remove(handler_list_t hlist, struct handler *hp)
 {
 	struct grecs_list_entry *ep;
@@ -225,8 +225,6 @@ handler_list_remove(handler_list_t hlist, struct handler *hp)
 	}
 	
 	grecs_list_remove_entry(hlist->list, ep);
-	if (grecs_list_size(hlist->list) == 0)
-		/* Remove watchers that don't have handlers */
-		watchpoint_gc();
+	return grecs_list_size(hlist->list);
 }
 
