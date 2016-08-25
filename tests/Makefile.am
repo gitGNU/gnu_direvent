@@ -41,7 +41,6 @@ $(srcdir)/package.m4: $(top_srcdir)/configure.ac
 TESTSUITE_AT = \
   attrib.at\
   cmdexp.at\
-  conv.at\
   create.at\
   createrec.at\
   delete.at\
@@ -49,6 +48,7 @@ TESTSUITE_AT = \
   env01.at\
   env02.at\
   env03.at\
+  file.at\
   glob01.at\
   glob02.at\
   re01.at\

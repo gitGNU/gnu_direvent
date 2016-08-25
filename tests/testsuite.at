@@ -73,5 +73,5 @@ m4_include([re04.at])
 m4_include([re05.at])
 
 AT_BANNER([Special watchpoints])
-m4_include([conv.at])
+m4_include([file.at])
 m4_include([sent.at])
